@@ -4,3 +4,42 @@
     justify-content: center;
     align-items: center;
 }
+
+.connect-wallet-error {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #1a1a2e;
+    color: #fff;
+    padding: 2rem;
+    text-align: center;
+
+    h2 {
+        color: #e94560;
+        margin-bottom: 1rem;
+    }
+
+    p {
+        margin: 0.5rem 0;
+        color: #ccc;
+    }
+
+    ul {
+        list-style: none;
+        padding: 0;
+        margin: 1rem 0;
+    }
+
+    li {
+        margin: 0.5rem 0;
+    }
+
+    code {
+        background-color: #0f3460;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-family: monospace;
+    }
+}
