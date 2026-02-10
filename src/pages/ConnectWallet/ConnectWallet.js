@@ -18,19 +18,36 @@ const ConnectWallet = () => {
   let query = useQuery()
 
   const [missingParams, setMissingParams] = useState(false)
+  const [connecting, setConnecting] = useState(false)
 
   useEffect(() => {
-    const walletAddress = query.get('walletAddress')
-    const gameId = query.get('gameId')
-    const username = query.get('username')
+    let walletAddress = query.get('walletAddress')
+    const gameId = query.get('gameId') || '1'
+    let username = query.get('username')
 
-    if (!walletAddress || !gameId || !username) {
-      setMissingParams(true)
-      return
+    // 如果没有参数，生成默认值或从 localStorage 读取
+    if (!walletAddress) {
+      // 检查 localStorage
+      const savedWallet = localStorage.getItem('game_walletAddress')
+      const savedUsername = localStorage.getItem('game_username')
+
+      if (savedWallet && savedUsername) {
+        walletAddress = savedWallet
+        username = savedUsername
+      } else {
+        // 生成新的随机值
+        walletAddress = '0x' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        username = `player_${Math.floor(Math.random() * 10000)}`
+      }
     }
 
-    if(socket !== null && socket.connected === true){
-      console.log(username)
+    // 保存到 localStorage
+    localStorage.setItem('game_walletAddress', walletAddress)
+    localStorage.setItem('game_username', username)
+
+    if(socket !== null && socket.connected === true && !connecting){
+      setConnecting(true)
+      console.log('Connecting with:', { walletAddress, gameId, username })
       setWalletAddress(walletAddress)
       socket.emit(CS_FETCH_LOBBY_INFO, { walletAddress, socketId: socket.id, gameId, username })
       console.log(CS_FETCH_LOBBY_INFO, { walletAddress, socketId: socket.id, gameId, username })
@@ -41,14 +58,9 @@ const ConnectWallet = () => {
   if (missingParams) {
     return (
       <div className="connect-wallet-error">
-        <h2>缺少必要参数</h2>
-        <p>请通过正确的链接访问游戏，URL 需要包含以下参数：</p>
-        <ul>
-          <li><code>walletAddress</code> - 钱包地址</li>
-          <li><code>gameId</code> - 游戏ID</li>
-          <li><code>username</code> - 用户名</li>
-        </ul>
-        <p>示例：<code>?walletAddress=0x123...&gameId=1&username=player1</code></p>
+        <h2>连接失败</h2>
+        <p>正在尝试连接游戏服务器...</p>
+        <LoadingScreen />
       </div>
     )
   }

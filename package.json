@@ -55,6 +55,9 @@
         "start": "node server/server.js | react-scripts --openssl-legacy-provider start",
         "build": "node server/server.js | react-scripts --openssl-legacy-provider build",
         "test": "node server/server.js | react-scripts --openssl-legacy-provider test",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:debug": "playwright test --debug",
         "eject": "node server/server.js | react-scripts --openssl-legacy-provider eject"
     },
     "eslintConfig": {
