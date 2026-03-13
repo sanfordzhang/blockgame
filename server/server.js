@@ -6,6 +6,12 @@ const configureMiddleware = require("./middleware");
 const configureRoutes = require("./routes");
 const socketio = require("socket.io");
 const gameSocket = require("./socket/index");
+
+// Blockchain services
+const { TronService, ContractService } = require("./blockchain");
+const GameSettlementService = require("./services/GameSettlementService");
+const gameFlowIntegration = require("./services/GameFlowIntegration");
+
 require("./config/loadEnv")();
 // Connect and get reference to mongodb instance
 // let db;
@@ -22,6 +28,38 @@ configureMiddleware(app);
 
 // Set-up Routes
 configureRoutes(app);
+
+// Initialize blockchain services if enabled
+async function initializeBlockchainServices() {
+    if (config.BLOCKCHAIN_ENABLED) {
+        try {
+            console.log('[Server] Initializing blockchain services...');
+            
+            // Initialize TronService
+            await TronService.init(config.TRON_NETWORK);
+            
+            // Initialize ContractService
+            ContractService.init(TronService, config.TRON_NETWORK);
+            
+            // Initialize GameSettlementService
+            const TransactionQueue = require('./blockchain/TransactionQueue');
+            GameSettlementService.init(ContractService, TronService, TransactionQueue);
+            
+            // Initialize GameFlowIntegration
+            gameFlowIntegration.init(TronService);
+            
+            console.log('[Server] Blockchain services initialized successfully');
+        } catch (error) {
+            console.error('[Server] Failed to initialize blockchain services:', error.message);
+            console.log('[Server] Continuing without blockchain integration...');
+        }
+    } else {
+        console.log('[Server] Blockchain integration disabled');
+    }
+}
+
+// Initialize blockchain services
+initializeBlockchainServices();
 
 // Start server and listen for connections
 const server = app.listen(config.PORT, () => {

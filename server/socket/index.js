@@ -29,8 +29,21 @@ const {
   SC_LOBBY_DISCONNECTED,
   SC_LOBBY_CHAT,
   CS_LOBBY_CHAT,
+  // Blockchain integration events
+  CS_JOIN_TABLE_BLOCKCHAIN,
+  CS_LEAVE_TABLE_BLOCKCHAIN,
+  SC_BLOCKCHAIN_STATUS,
+  SC_BLOCKCHAIN_TX_STATUS,
+  SC_BLOCKCHAIN_ERROR,
+  SC_BLOCKCHAIN_SETTLEMENT,
+  SC_BALANCE_SYNCED,
 } = require('../pokergame/actions');
 const config = require('../config');
+const gameFlowIntegration = require('../services/GameFlowIntegration');
+const contractService = require('../blockchain/ContractService');
+
+// Check if blockchain is enabled
+const BLOCKCHAIN_ENABLED = process.env.BLOCKCHAIN_ENABLED === 'true' || config.BLOCKCHAIN_ENABLED === true;
 
 const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
@@ -58,6 +71,12 @@ function getCurrentTables() {
 }
 
 const init = (socket, io) => {
+  
+  // Set up notification callback for blockchain events
+  gameFlowIntegration.setNotificationCallback(socket.id, (event, data) => {
+    socket.emit(event, data);
+  });
+
   socket.on(CS_LOBBY_CONNECT, ({gameId, address, userInfo }) => {
     socket.join(gameId)
     io.to(gameId).emit(SC_LOBBY_CONNECTED, {address, userInfo})
@@ -73,7 +92,7 @@ const init = (socket, io) => {
     io.to(gameId).emit(SC_LOBBY_CHAT, {text, userInfo})
   })
 
-  socket.on(CS_FETCH_LOBBY_INFO, ({walletAddress, socketId, gameId, username}) => {
+  socket.on(CS_FETCH_LOBBY_INFO, async ({walletAddress, socketId, gameId, username}) => {
 
     const found = Object.values(players).find((player) => {
         return player.id == walletAddress;
@@ -93,23 +112,54 @@ const init = (socket, io) => {
         username,
         config.INITIAL_CHIPS_AMOUNT,
       );
+
+      // Task 15.5: Sync blockchain balance on player connect
+      if (BLOCKCHAIN_ENABLED && walletAddress) {
+        try {
+          const blockchainBalance = await gameFlowIntegration.syncOnPlayerConnect(
+            walletAddress, 
+            socket.id
+          );
+          
+          // Use blockchain balance if available
+          if (blockchainBalance) {
+            const availableBalance = blockchainBalance.balance - blockchainBalance.lockedAmount;
+            players[socketId].bankroll = availableBalance;
+            
+            socket.emit(SC_BALANCE_SYNCED, {
+              balance: blockchainBalance.balance,
+              locked: blockchainBalance.lockedAmount,
+              available: availableBalance
+            });
+          }
+        } catch (error) {
+          console.error('[Socket] Balance sync error:', error.message);
+          // Continue with default balance
+        }
+      }
+
       socket.emit(SC_RECEIVE_LOBBY_INFO, {
         tables: getCurrentTables(),
         players: getCurrentPlayers(),
         socketId: socket.id,
-        amount: config.INITIAL_CHIPS_AMOUNT
+        amount: players[socketId].bankroll
       });
       socket.broadcast.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
   });
 
-  socket.on(CS_JOIN_TABLE, (tableId) => {
+  // Task 15.1: Join table with blockchain integration
+  socket.on(CS_JOIN_TABLE, async (tableId) => {
     const table = tables[tableId];
     const player = players[socket.id];
     console.log("tableid====>", tableId, table, player)
+    
+    // Add player to table (local)
     table.addPlayer(player);
     socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId });
     socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
-    sitDown(tableId, table.players.length, table.limit)
+    
+    // Auto sit down
+    await sitDown(tableId, table.players.length, table.limit);
 
     if (
       tables[tableId].players &&
@@ -121,7 +171,58 @@ const init = (socket, io) => {
     }
   });
 
-  socket.on(CS_LEAVE_TABLE, (tableId) => {
+  // Blockchain-specific join table with explicit buy-in
+  socket.on(CS_JOIN_TABLE_BLOCKCHAIN, async ({ tableId, buyInAmount }) => {
+    const table = tables[tableId];
+    const player = players[socket.id];
+    
+    if (!player) {
+      socket.emit(SC_BLOCKCHAIN_ERROR, {
+        operation: 'joinTable',
+        message: 'Player not found'
+      });
+      return;
+    }
+
+    if (BLOCKCHAIN_ENABLED) {
+      try {
+        // Task 15.1: Call blockchain integration
+        const result = await gameFlowIntegration.handleJoinTable(
+          player.id,
+          tableId,
+          buyInAmount,
+          socket.id
+        );
+        
+        // Add player to table after successful blockchain operation
+        table.addPlayer(player);
+        socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId: result.txId });
+        socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+        
+        // Sit down with the buy-in amount
+        await sitDown(tableId, table.players.length, buyInAmount);
+        
+        let message = `${player.name} joined the table.`;
+        broadcastToTable(table, message);
+        
+      } catch (error) {
+        // Task 15.6: Error handling
+        gameFlowIntegration.handleBlockchainError(error, 'joinTable', socket.id);
+      }
+    } else {
+      // Non-blockchain mode - use default behavior
+      table.addPlayer(player);
+      socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId });
+      socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+      await sitDown(tableId, table.players.length, table.limit);
+      
+      let message = `${player.name} joined the table.`;
+      broadcastToTable(table, message);
+    }
+  });
+
+  // Task 15.2: Leave table with blockchain integration
+  socket.on(CS_LEAVE_TABLE, async (tableId) => {
     const table = tables[tableId];
     const player = players[socket.id];
     const seat = Object.values(table.seats).find(
@@ -130,6 +231,16 @@ const init = (socket, io) => {
 
     if (seat && player) {
       updatePlayerBankroll(player, seat.stack);
+    }
+
+    // Task 15.2: Blockchain leave table
+    if (BLOCKCHAIN_ENABLED && player) {
+      try {
+        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id);
+      } catch (error) {
+        // Log error but continue with local leave
+        console.error('[Socket] Blockchain leave table error:', error.message);
+      }
     }
 
     table.removePlayer(socket.id);
@@ -148,6 +259,67 @@ const init = (socket, io) => {
 
     if (table.activePlayers().length === 1) {
       clearForOnePlayer(table);
+    }
+  });
+
+  // Blockchain-specific leave table
+  socket.on(CS_LEAVE_TABLE_BLOCKCHAIN, async ({ tableId }) => {
+    const table = tables[tableId];
+    const player = players[socket.id];
+    
+    if (!player) {
+      socket.emit(SC_BLOCKCHAIN_ERROR, {
+        operation: 'leaveTable',
+        message: 'Player not found'
+      });
+      return;
+    }
+
+    const seat = Object.values(table.seats).find(
+      (seat) => seat && seat.player.socketId === socket.id,
+    );
+
+    if (BLOCKCHAIN_ENABLED) {
+      try {
+        // Task 15.2: Call blockchain integration
+        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id);
+        
+        if (seat) {
+          updatePlayerBankroll(player, seat.stack);
+        }
+        
+        table.removePlayer(socket.id);
+        socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+        socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+        
+        let message = `${player.name} left the table.`;
+        broadcastToTable(table, message);
+        
+        if (table.activePlayers().length === 1) {
+          clearForOnePlayer(table);
+        }
+        
+      } catch (error) {
+        // Task 15.6: Error handling
+        gameFlowIntegration.handleBlockchainError(error, 'leaveTable', socket.id);
+      }
+    } else {
+      // Non-blockchain mode - standard leave
+      if (seat && player) {
+        updatePlayerBankroll(player, seat.stack);
+      }
+      table.removePlayer(socket.id);
+      socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+      socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+      
+      if (player) {
+        let message = `${player.name} left the table.`;
+        broadcastToTable(table, message);
+      }
+      
+      if (table.activePlayers().length === 1) {
+        clearForOnePlayer(table);
+      }
     }
   });
 
@@ -184,26 +356,44 @@ const init = (socket, io) => {
     broadcastToTable(table, message, from);
   });
 
-  // socket.on(CS_SIT_DOWN, ({ tableId, seatId, amount }) => {
-  //   const table = tables[tableId];
-  //   const player = players[socket.id];
-
-  //   if (player) {
-  //     table.sitPlayer(player, seatId, amount);
-  //     let message = `${player.name} sat down in Seat ${seatId}`;
-
-  //     updatePlayerBankroll(player, -amount);
-
-  //     broadcastToTable(table, message);
-  //     if (table.activePlayers().length === 2) {
-  //       initNewHand(table);
-  //     }
-  //   }
-  // });
-  const sitDown =  (tableId, seatId, amount) => {
+  // Task 15.3: Sit down with balance validation
+  const sitDown = async (tableId, seatId, amount) => {
     const table = tables[tableId];
     const player = players[socket.id];
+    
     if (player) {
+      // Task 15.3: Validate contract balance before sitting down
+      if (BLOCKCHAIN_ENABLED) {
+        try {
+          const validation = await gameFlowIntegration.validateBalanceForSitDown(
+            player.id,
+            amount
+          );
+          
+          if (!validation.valid) {
+            // Task 15.7: Notify player about insufficient balance
+            socket.emit(SC_BLOCKCHAIN_ERROR, {
+              operation: 'sitDown',
+              message: validation.message,
+              available: validation.available,
+              required: validation.required
+            });
+            return;
+          }
+          
+          // Task 15.7: Send transaction status
+          gameFlowIntegration.sendTransactionStatus(socket.id, 'sitDown', 'confirmed', {
+            seatId,
+            amount,
+            available: validation.available
+          });
+          
+        } catch (error) {
+          console.error('[Socket] Balance validation error:', error.message);
+          // Continue in non-blockchain mode
+        }
+      }
+      
       table.sitPlayer(player, seatId, amount);
       let message = `${player.name} sat down in Seat ${seatId}`;
 
@@ -215,6 +405,10 @@ const init = (socket, io) => {
       }
     }
   }
+
+  socket.on(CS_SIT_DOWN, async ({ tableId, seatId, amount }) => {
+    await sitDown(tableId, seatId, amount);
+  });
 
   socket.on(CS_REBUY, ({ tableId, seatId, amount }) => {
     const table = tables[tableId];
@@ -272,6 +466,9 @@ const init = (socket, io) => {
       updatePlayerBankroll(seat.player, seat.stack);
     }
 
+    // Clean up notification callback
+    gameFlowIntegration.removeNotificationCallback(socket.id);
+
     delete players[socket.id];
     removeFromTables(socket.id);
 
@@ -325,7 +522,8 @@ const init = (socket, io) => {
     }, 1000);
   }
 
-  function initNewHand(table) {
+  // Modified to include blockchain settlement
+  async function initNewHand(table) {
     if (table.activePlayers().length > 1) {
       broadcastToTable(table, '---New hand starting in 5 seconds---');
     }
@@ -334,6 +532,40 @@ const init = (socket, io) => {
       table.startHand();
       broadcastToTable(table, '--- New hand started ---');
     }, 5000);
+  }
+
+  // Task 15.4: Handle game end with settlement
+  async function handleGameEnd(table) {
+    if (!BLOCKCHAIN_ENABLED) {
+      return; // Skip blockchain settlement in non-blockchain mode
+    }
+
+    try {
+      // Convert table result to settlement format
+      const settlementData = gameFlowIntegration.convertTableResultToSettlement(
+        table,
+        table.winMessages
+      );
+
+      // Only settle if there are winners
+      if (settlementData.winners.length > 0) {
+        // Task 15.4: Process blockchain settlement
+        const result = await gameFlowIntegration.handleGameSettlement(settlementData);
+        
+        console.log('[Socket] Game settled on blockchain:', result.txId);
+      }
+    } catch (error) {
+      console.error('[Socket] Game settlement error:', error.message);
+      
+      // Task 15.6: Notify players about settlement failure
+      for (const player of table.players) {
+        gameFlowIntegration.notifyPlayer(player.socketId, SC_BLOCKCHAIN_SETTLEMENT, {
+          status: 'failed',
+          message: error.message,
+          tableId: table.id
+        });
+      }
+    }
   }
 
   function clearForOnePlayer(table) {
@@ -366,4 +598,4 @@ const init = (socket, io) => {
 };
 
 
-module.exports = { init }; 
+module.exports = { init };

