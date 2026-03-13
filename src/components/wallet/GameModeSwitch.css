@@ -1,0 +1,105 @@
+.game-mode-switch {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.mode-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mode-label {
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.mode-label:hover {
+  color: #888;
+}
+
+.mode-label.active {
+  color: #fff;
+  font-weight: 500;
+}
+
+.mode-toggle {
+  display: flex;
+  background: #0a0a1a;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  color: #888;
+}
+
+.toggle-btn.fun.active {
+  background: linear-gradient(135deg, #00cc66 0%, #00ff88 100%);
+  color: #1a1a2e;
+}
+
+.toggle-btn.real.active {
+  background: linear-gradient(135deg, #ff5000 0%, #ff8c00 100%);
+  color: white;
+}
+
+.mode-info {
+  padding: 12px;
+  background: #0a0a1a;
+  border-radius: 8px;
+}
+
+.info-fun,
+.info-real {
+  text-align: center;
+}
+
+.info-text {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: #888;
+}
+
+.info-text.warning {
+  color: #ff8c00;
+  font-weight: 500;
+}
+
+.info-subtext {
+  margin: 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.faucet-link {
+  display: inline-block;
+  color: #00cc66;
+  font-size: 13px;
+  text-decoration: none;
+  padding: 6px 12px;
+  background: rgba(0, 204, 102, 0.1);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.faucet-link:hover {
+  background: rgba(0, 204, 102, 0.2);
+}

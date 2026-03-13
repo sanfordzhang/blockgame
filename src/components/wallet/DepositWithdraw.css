@@ -1,0 +1,267 @@
+.deposit-withdraw-modal {
+  background: #1a1a2e;
+  border-radius: 16px;
+  padding: 24px;
+  min-width: 360px;
+  max-width: 400px;
+}
+
+.dw-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dw-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #fff;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+.dw-network {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #0a0a1a;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.network-label {
+  color: #888;
+  font-size: 13px;
+}
+
+.network-value {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dw-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.dw-tabs .tab {
+  flex: 1;
+  padding: 12px;
+  background: #0a0a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #888;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dw-tabs .tab:hover {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+.dw-tabs .tab.active {
+  background: linear-gradient(135deg, #ff5000 0%, #ff8c00 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.dw-balances {
+  background: #0a0a1a;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.balance-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.balance-item:not(:last-child) {
+  border-bottom: 1px solid #222;
+}
+
+.balance-item .label {
+  color: #888;
+  font-size: 13px;
+}
+
+.balance-item .value {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.balance-item.locked .value {
+  color: #ff8c00;
+}
+
+.dw-input-section label {
+  display: block;
+  color: #888;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.input-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding: 14px 60px 14px 16px;
+  background: #0a0a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.input-wrapper input:focus {
+  outline: none;
+  border-color: #ff5000;
+}
+
+.input-wrapper input:disabled {
+  opacity: 0.5;
+}
+
+.input-wrapper .suffix {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  font-size: 14px;
+}
+
+.quick-amounts {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quick-amounts button {
+  flex: 1;
+  padding: 8px;
+  background: #0a0a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-amounts button:hover {
+  background: #1a1a2e;
+  border-color: #ff5000;
+  color: #ff5000;
+}
+
+.dw-error {
+  padding: 12px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  border-radius: 8px;
+  color: #ff6666;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.dw-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.dw-status.pending {
+  background: rgba(255, 200, 0, 0.1);
+  border: 1px solid rgba(255, 200, 0, 0.3);
+  color: #ffcc00;
+}
+
+.dw-status.success {
+  background: rgba(0, 255, 100, 0.1);
+  border: 1px solid rgba(0, 255, 100, 0.3);
+  color: #00ff66;
+}
+
+.dw-status.error {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  color: #ff6666;
+}
+
+.status-icon {
+  font-size: 18px;
+}
+
+.status-message {
+  flex: 1;
+  font-size: 13px;
+}
+
+.tx-link {
+  color: #ff8c00;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.dw-action-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dw-action-btn.deposit {
+  background: linear-gradient(135deg, #ff5000 0%, #ff8c00 100%);
+  color: white;
+}
+
+.dw-action-btn.withdraw {
+  background: linear-gradient(135deg, #00cc66 0%, #00ff88 100%);
+  color: #1a1a2e;
+}
+
+.dw-action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 80, 0, 0.3);
+}
+
+.dw-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

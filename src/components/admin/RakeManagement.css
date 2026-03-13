@@ -1,0 +1,198 @@
+.rake-management h1 {
+  color: #c9d1d9;
+  margin-bottom: 1.5rem;
+}
+
+.rake-info-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.rake-info-card h2 {
+  color: #8b949e;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0 0 0.5rem 0;
+}
+
+.rake-current-value {
+  color: #58a6ff;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.rake-pending-card {
+  background: #1f3a5f20;
+  border: 1px solid #1f6feb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.rake-pending-card h3 {
+  color: #58a6ff;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.rake-pending-info {
+  display: flex;
+  justify-content: space-between;
+  color: #c9d1d9;
+}
+
+.confirm-btn {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.75rem;
+  background: #238636;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #2ea043;
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rake-form-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.rake-form-card h2 {
+  color: #c9d1d9;
+  margin: 0 0 1.5rem 0;
+  font-size: 1rem;
+}
+
+.rake-slider-container {
+  margin-bottom: 1.5rem;
+}
+
+.rake-slider {
+  width: 100%;
+  height: 8px;
+  -webkit-appearance: none;
+  background: #21262d;
+  border-radius: 4px;
+  outline: none;
+}
+
+.rake-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #58a6ff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.rake-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  color: #8b949e;
+  font-size: 0.75rem;
+}
+
+.rake-slider-value {
+  color: #c9d1d9;
+  font-weight: 600;
+}
+
+.rake-input-container {
+  margin-bottom: 1rem;
+}
+
+.rake-input-container label {
+  display: block;
+  color: #8b949e;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.rake-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 1rem;
+}
+
+.rake-change-info {
+  margin-bottom: 1rem;
+  color: #8b949e;
+}
+
+.rate-increase {
+  color: #f85149;
+}
+
+.rate-decrease {
+  color: #3fb950;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  background: #1f6feb;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #388bfd;
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rake-notice {
+  margin-top: 1rem;
+  color: #8b949e;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.admin-alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.admin-alert-error {
+  background: #f8514920;
+  border: 1px solid #f85149;
+  color: #f85149;
+}
+
+.admin-alert-success {
+  background: #23863620;
+  border: 1px solid #238636;
+  color: #3fb950;
+}

@@ -1,0 +1,158 @@
+.audit-log h1 {
+  color: #c9d1d9;
+  margin-bottom: 1.5rem;
+}
+
+.filters-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 150px;
+}
+
+.filter-group label {
+  color: #8b949e;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 0.5rem;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 0.875rem;
+}
+
+.logs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.log-entry {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.log-entry.severity-critical {
+  border-left: 4px solid #f85149;
+}
+
+.log-entry.severity-important {
+  border-left: 4px solid #f0883e;
+}
+
+.log-entry.severity-normal {
+  border-left: 4px solid #30363d;
+}
+
+.log-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.log-content {
+  flex: 1;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.log-action {
+  color: #c9d1d9;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.log-timestamp {
+  color: #8b949e;
+  font-size: 0.75rem;
+}
+
+.log-details {
+  color: #8b949e;
+  font-size: 0.875rem;
+}
+
+.log-admin {
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.log-extra {
+  margin-top: 0.25rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.log-tx {
+  margin-top: 0.25rem;
+}
+
+.tx-link {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.tx-link:hover {
+  text-decoration: underline;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+}
+
+.pagination button {
+  padding: 0.5rem 1rem;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #30363d;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination span {
+  color: #8b949e;
+  font-size: 0.875rem;
+}

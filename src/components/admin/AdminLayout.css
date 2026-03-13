@@ -1,0 +1,55 @@
+.admin-layout {
+  min-height: 100vh;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
+.admin-header {
+  background: #161b22;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #30363d;
+}
+
+.admin-header h1 {
+  font-size: 1.5rem;
+  color: #58a6ff;
+  margin: 0;
+}
+
+.admin-address {
+  background: #21262d;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.admin-nav {
+  background: #161b22;
+  padding: 0.75rem 2rem;
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid #30363d;
+}
+
+.admin-nav a {
+  color: #8b949e;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.admin-nav a:hover {
+  color: #c9d1d9;
+  background: #21262d;
+}
+
+.admin-content {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
