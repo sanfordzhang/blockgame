@@ -1,18 +1,21 @@
+// Load environment variables FIRST (before any other imports)
+require("./config/loadEnv")();
+
 const path = require("path");
 const express = require("express");
-const config = require("./config");
 // const connectDB = require('./config/db');
 const configureMiddleware = require("./middleware");
 const configureRoutes = require("./routes");
 const socketio = require("socket.io");
 const gameSocket = require("./socket/index");
 
+// Then load config (which depends on env vars)
+const config = require("./config");
+
 // Blockchain services
 const { TronService, ContractService } = require("./blockchain");
 const GameSettlementService = require("./services/GameSettlementService");
 const gameFlowIntegration = require("./services/GameFlowIntegration");
-
-require("./config/loadEnv")();
 // Connect and get reference to mongodb instance
 // let db;
 

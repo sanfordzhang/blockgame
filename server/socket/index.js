@@ -42,9 +42,6 @@ const config = require('../config');
 const gameFlowIntegration = require('../services/GameFlowIntegration');
 const contractService = require('../blockchain/ContractService');
 
-// Check if blockchain is enabled
-const BLOCKCHAIN_ENABLED = process.env.BLOCKCHAIN_ENABLED === 'true' || config.BLOCKCHAIN_ENABLED === true;
-
 const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
 };
@@ -114,7 +111,7 @@ const init = (socket, io) => {
       );
 
       // Task 15.5: Sync blockchain balance on player connect
-      if (BLOCKCHAIN_ENABLED && walletAddress) {
+      if (config.BLOCKCHAIN_ENABLED && walletAddress) {
         try {
           const blockchainBalance = await gameFlowIntegration.syncOnPlayerConnect(
             walletAddress, 
@@ -184,7 +181,7 @@ const init = (socket, io) => {
       return;
     }
 
-    if (BLOCKCHAIN_ENABLED) {
+    if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Task 15.1: Call blockchain integration
         const result = await gameFlowIntegration.handleJoinTable(
@@ -234,7 +231,7 @@ const init = (socket, io) => {
     }
 
     // Task 15.2: Blockchain leave table
-    if (BLOCKCHAIN_ENABLED && player) {
+    if (config.BLOCKCHAIN_ENABLED && player) {
       try {
         await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id);
       } catch (error) {
@@ -279,7 +276,7 @@ const init = (socket, io) => {
       (seat) => seat && seat.player.socketId === socket.id,
     );
 
-    if (BLOCKCHAIN_ENABLED) {
+    if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Task 15.2: Call blockchain integration
         await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id);
@@ -363,7 +360,7 @@ const init = (socket, io) => {
     
     if (player) {
       // Task 15.3: Validate contract balance before sitting down
-      if (BLOCKCHAIN_ENABLED) {
+      if (config.BLOCKCHAIN_ENABLED) {
         try {
           const validation = await gameFlowIntegration.validateBalanceForSitDown(
             player.id,
@@ -536,7 +533,7 @@ const init = (socket, io) => {
 
   // Task 15.4: Handle game end with settlement
   async function handleGameEnd(table) {
-    if (!BLOCKCHAIN_ENABLED) {
+    if (!config.BLOCKCHAIN_ENABLED) {
       return; // Skip blockchain settlement in non-blockchain mode
     }
 

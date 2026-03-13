@@ -3,7 +3,8 @@
  * Handles connection to TRON network and basic operations
  */
 
-const TronWeb = require('tronweb');
+// tronweb v6+ exports TronWeb as a named export
+const { TronWeb } = require('tronweb');
 
 class TronService {
     constructor() {
