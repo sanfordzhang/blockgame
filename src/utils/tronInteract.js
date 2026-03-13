@@ -3,38 +3,97 @@
  * Handles wallet connection and basic TRON operations
  */
 
-// Contract ABI (will be replaced with actual ABI after deployment)
+// Contract ABI in JSON format (TronWeb requires JSON ABI)
 const CONTRACT_ABI = [
-  // Player functions
-  "function registerPlayer()",
-  "function deposit() payable",
-  "function withdraw(uint256 amount)",
-  "function joinTable(uint256 tableId, uint256 buyInAmount)",
-  "function leaveTable(uint256 tableId)",
-  "function settleGame(uint256 tableId, address[] winners, uint256[] amounts, bytes32 resultHash)",
-  
-  // View functions
-  "function players(address) view returns (uint256 balance, uint256 lockedAmount, bool isRegistered, uint256 registeredAt)",
-  "function getPlayerBalance(address) view returns (uint256)",
-  "function getPlayerLockedBalance(address) view returns (uint256)",
-  "function getPlayerInfo(address) view returns (uint256 balance, uint256 lockedAmount, bool isRegistered, uint256 registeredAt)",
-  "function getStatistics() view returns (uint256 _totalVolume, uint256 _totalRakeCollected, uint256 _totalGamesPlayed, uint256 _accumulatedRake, uint256 _rakeRate, uint256 _playerCount)",
-  "function rakeRate() view returns (uint256)",
-  "function getPendingRakeChange() view returns (bool exists, uint256 newRate, uint256 effectiveTime)",
-  
-  // Admin functions
-  "function scheduleRakeRateChange(uint256 newRate)",
-  "function applyRakeRateChange()",
-  "function cancelRakeRateChange()",
-  "function withdrawRake(address to, uint256 amount)",
-  "function pause()",
-  "function unpause()",
-  
-  // Events
-  "event PlayerRegistered(address indexed player, uint256 timestamp)",
-  "event Deposited(address indexed player, uint256 amount)",
-  "event Withdrawn(address indexed player, uint256 amount)",
-  "event GameSettled(uint256 indexed gameId, address[] winners, uint256[] amounts, uint256 rakeCollected)"
+  {
+    "inputs": [],
+    "name": "registerPlayer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "deposit",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "amount", "type": "uint256"}],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "tableId", "type": "uint256"},
+      {"name": "buyInAmount", "type": "uint256"}
+    ],
+    "name": "joinTable",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "tableId", "type": "uint256"}],
+    "name": "leaveTable",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "", "type": "address"}],
+    "name": "players",
+    "outputs": [
+      {"name": "balance", "type": "uint256"},
+      {"name": "lockedAmount", "type": "uint256"},
+      {"name": "isRegistered", "type": "bool"},
+      {"name": "registeredAt", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "", "type": "address"}],
+    "name": "getPlayerInfo",
+    "outputs": [
+      {"name": "balance", "type": "uint256"},
+      {"name": "lockedAmount", "type": "uint256"},
+      {"name": "isRegistered", "type": "bool"},
+      {"name": "registeredAt", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "player", "type": "address"},
+      {"indexed": false, "name": "timestamp", "type": "uint256"}
+    ],
+    "name": "PlayerRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "player", "type": "address"},
+      {"indexed": false, "name": "amount", "type": "uint256"}
+    ],
+    "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "player", "type": "address"},
+      {"indexed": false, "name": "amount", "type": "uint256"}
+    ],
+    "name": "Withdrawn",
+    "type": "event"
+  }
 ];
 
 // Network configurations
@@ -49,7 +108,7 @@ const NETWORKS = {
     chainId: '0xcd8690dc', // 3448148188
     name: 'Nile Testnet',
     fullHost: 'https://nile.trongrid.io',
-    contractAddress: process.env.REACT_APP_TESTNET_CONTRACT_ADDRESS
+    contractAddress: process.env.REACT_APP_TESTNET_CONTRACT_ADDRESS || 'TLrp189jSVRdFSigEfECM7M4k2K73zdtp3'
   }
 };
 
@@ -60,7 +119,55 @@ let currentNetwork = 'testnet';
  * Check if TronLink is installed
  */
 export const isTronLinkInstalled = () => {
-  return typeof window !== 'undefined' && window.tronLink !== undefined;
+  if (typeof window === 'undefined') return false;
+  // TronLink injects both tronLink and tronWeb
+  return !!(window.tronLink || window.tronWeb);
+};
+
+/**
+ * Wait for TronLink to be ready
+ * @param {number} timeout - Timeout in ms
+ * @returns {Promise<boolean>}
+ */
+export const waitForTronLink = (timeout = 3000) => {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(false);
+      return;
+    }
+
+    // Already ready
+    if (window.tronLink?.ready || window.tronWeb) {
+      resolve(true);
+      return;
+    }
+
+    const startTime = Date.now();
+    
+    const check = () => {
+      if (window.tronLink?.ready || window.tronWeb) {
+        resolve(true);
+        return;
+      }
+      
+      if (Date.now() - startTime > timeout) {
+        resolve(false);
+        return;
+      }
+      
+      setTimeout(check, 100);
+    };
+    
+    check();
+  });
+};
+
+/**
+ * Check if TronLink is ready
+ */
+export const isTronLinkReady = () => {
+  if (typeof window === 'undefined') return false;
+  return !!(window.tronLink?.ready || window.tronWeb);
 };
 
 /**
@@ -68,22 +175,25 @@ export const isTronLinkInstalled = () => {
  * @returns {Promise<object>} Connection result
  */
 export const connectTronLink = async () => {
-  if (!isTronLinkInstalled()) {
+  // Wait for TronLink to be ready
+  const ready = await waitForTronLink(3000);
+  
+  if (!ready) {
     return {
       success: false,
-      error: 'TronLink not installed',
+      error: 'TronLink not detected. Please install or unlock TronLink.',
       installUrl: 'https://www.tronlink.org/'
     };
   }
 
   try {
-    const res = await window.tronLink.request({
-      method: 'tron_requestAccounts'
-    });
-
-    if (res.code === 200) {
-      const address = window.tronLink.tronWeb.defaultAddress.base58;
-      const chainId = await window.tronLink.tronWeb.fullNode.chainId;
+    // Use tronWeb if tronLink is not available
+    const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+    
+    // Check if already connected
+    if (tronWeb?.defaultAddress?.base58) {
+      const address = tronWeb.defaultAddress.base58;
+      const chainId = tronWeb.fullNode?.chainId;
       
       return {
         success: true,
@@ -91,15 +201,50 @@ export const connectTronLink = async () => {
         chainId,
         network: getNetworkByChainId(chainId)
       };
-    } else if (res.code === 4001) {
-      return {
-        success: false,
-        error: 'User rejected connection'
-      };
+    }
+
+    // Request connection via tronLink
+    if (window.tronLink?.request) {
+      const res = await window.tronLink.request({
+        method: 'tron_requestAccounts'
+      });
+
+      if (res.code === 200) {
+        const address = window.tronLink.tronWeb.defaultAddress.base58;
+        const chainId = await window.tronLink.tronWeb.fullNode.chainId;
+        
+        return {
+          success: true,
+          address,
+          chainId,
+          network: getNetworkByChainId(chainId)
+        };
+      } else if (res.code === 4001) {
+        return {
+          success: false,
+          error: 'User rejected connection'
+        };
+      } else {
+        return {
+          success: false,
+          error: res.message || 'Connection failed'
+        };
+      }
     } else {
+      // Direct tronWeb access (some wallets)
+      const address = tronWeb?.defaultAddress?.base58;
+      if (address) {
+        return {
+          success: true,
+          address,
+          chainId: tronWeb.fullNode?.chainId,
+          network: 'testnet'
+        };
+      }
+      
       return {
         success: false,
-        error: res.message || 'Connection failed'
+        error: 'Please unlock TronLink wallet'
       };
     }
   } catch (error) {
@@ -116,7 +261,8 @@ export const connectTronLink = async () => {
  */
 export const getCurrentAddress = () => {
   if (!isTronLinkInstalled()) return null;
-  return window.tronLink.tronWeb?.defaultAddress?.base58 || null;
+  const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+  return tronWeb?.defaultAddress?.base58 || null;
 };
 
 /**
@@ -130,7 +276,8 @@ export const getTrxBalance = async (address) => {
   }
 
   try {
-    const balance = await window.tronLink.tronWeb.trx.getBalance(address);
+    const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+    const balance = await tronWeb.trx.getBalance(address);
     return balance;
   } catch (error) {
     console.error('Error getting TRX balance:', error);
@@ -149,7 +296,8 @@ export const getContract = async (contractAddress) => {
   }
 
   try {
-    const contract = await window.tronLink.tronWeb.contract(
+    const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+    const contract = await tronWeb.contract(
       CONTRACT_ABI,
       contractAddress
     );
