@@ -124,6 +124,19 @@ class ContractService {
     }
 
     /**
+     * Convert value to number (handles BigNumber, BigInt, string, number)
+     */
+    toNumber(value) {
+        if (value === null || value === undefined) return 0;
+        if (typeof value === 'number') return value;
+        if (typeof value === 'bigint') return Number(value);
+        if (typeof value === 'string') return parseInt(value, 10);
+        if (typeof value.toNumber === 'function') return value.toNumber();
+        if (typeof value.toString === 'function') return parseInt(value.toString(), 10);
+        return Number(value);
+    }
+
+    /**
      * Get player balance from contract
      */
     async getPlayerBalance(address) {
@@ -131,7 +144,7 @@ class ContractService {
         
         try {
             const balance = await this.contract.getPlayerBalance(address).call();
-            return balance.toNumber();
+            return this.toNumber(balance);
         } catch (error) {
             console.error('[ContractService] Error getting balance:', error.message);
             throw error;
@@ -147,10 +160,10 @@ class ContractService {
         try {
             const info = await this.contract.getPlayerInfo(address).call();
             return {
-                balance: info.balance.toNumber(),
-                lockedAmount: info.lockedAmount.toNumber(),
+                balance: this.toNumber(info.balance),
+                lockedAmount: this.toNumber(info.lockedAmount),
                 isRegistered: info.isRegistered,
-                registeredAt: info.registeredAt.toNumber()
+                registeredAt: this.toNumber(info.registeredAt)
             };
         } catch (error) {
             console.error('[ContractService] Error getting player info:', error.message);
@@ -235,12 +248,12 @@ class ContractService {
         try {
             const session = await this.contract.getGameSession(tableId).call();
             return {
-                tableId: session.tableId.toNumber(),
+                tableId: this.toNumber(session.tableId),
                 players: session.players_,
-                buyInAmounts: session.buyInAmounts_.map(a => a.toNumber()),
-                totalPot: session.totalPot.toNumber(),
+                buyInAmounts: session.buyInAmounts_.map(a => this.toNumber(a)),
+                totalPot: this.toNumber(session.totalPot),
                 state: session.state,
-                rakeRateUsed: session.rakeRateUsed.toNumber()
+                rakeRateUsed: this.toNumber(session.rakeRateUsed)
             };
         } catch (error) {
             console.error('[ContractService] Error getting game session:', error.message);
@@ -359,12 +372,12 @@ class ContractService {
         try {
             const stats = await this.contract.getStatistics().call();
             return {
-                totalVolume: stats._totalVolume.toNumber(),
-                totalRakeCollected: stats._totalRakeCollected.toNumber(),
-                totalGamesPlayed: stats._totalGamesPlayed.toNumber(),
-                accumulatedRake: stats._accumulatedRake.toNumber(),
-                rakeRate: stats._rakeRate.toNumber(),
-                playerCount: stats._playerCount.toNumber()
+                totalVolume: this.toNumber(stats._totalVolume),
+                totalRakeCollected: this.toNumber(stats._totalRakeCollected),
+                totalGamesPlayed: this.toNumber(stats._totalGamesPlayed),
+                accumulatedRake: this.toNumber(stats._accumulatedRake),
+                rakeRate: this.toNumber(stats._rakeRate),
+                playerCount: this.toNumber(stats._playerCount)
             };
         } catch (error) {
             console.error('[ContractService] Error getting statistics:', error.message);
@@ -380,7 +393,7 @@ class ContractService {
         
         try {
             const rate = await this.contract.rakeRate().call();
-            return rate.toNumber();
+            return this.toNumber(rate);
         } catch (error) {
             console.error('[ContractService] Error getting rake rate:', error.message);
             throw error;
@@ -397,8 +410,8 @@ class ContractService {
             const pending = await this.contract.getPendingRakeChange().call();
             return {
                 exists: pending.exists,
-                newRate: pending.newRate.toNumber(),
-                effectiveTime: pending.effectiveTime.toNumber()
+                newRate: this.toNumber(pending.newRate),
+                effectiveTime: this.toNumber(pending.effectiveTime)
             };
         } catch (error) {
             console.error('[ContractService] Error getting pending rake change:', error.message);

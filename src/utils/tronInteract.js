@@ -176,82 +176,175 @@ export const isTronLinkReady = () => {
  */
 export const connectTronLink = async () => {
   // Wait for TronLink to be ready
-  const ready = await waitForTronLink(3000);
+  const ready = await waitForTronLink(5000);
   
-  if (!ready) {
+  // Debug: log tronLink state
+  console.log('[TronLink] Initial state:', {
+    ready,
+    tronLinkReady: window.tronLink?.ready,
+    hasTronLink: !!window.tronLink,
+    hasTronWeb: !!window.tronWeb,
+    tronWebAddress: window.tronWeb?.defaultAddress?.base58,
+    tronLinkAddress: window.tronLink?.tronWeb?.defaultAddress?.base58
+  });
+  
+  if (!ready && !window.tronLink && !window.tronWeb) {
     return {
       success: false,
-      error: 'TronLink not detected. Please install or unlock TronLink.',
+      error: 'TronLink 未检测到。请安装或解锁 TronLink 钱包。',
       installUrl: 'https://www.tronlink.org/'
     };
   }
 
   try {
-    // Use tronWeb if tronLink is not available
-    const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+    // Get tronWeb instance - try multiple access points
+    let tronWeb = window.tronLink?.tronWeb || window.tronWeb;
     
-    // Check if already connected
-    if (tronWeb?.defaultAddress?.base58) {
-      const address = tronWeb.defaultAddress.base58;
-      const chainId = tronWeb.fullNode?.chainId;
-      
+    // Check if already connected with an address (most reliable check)
+    const existingAddress = tronWeb?.defaultAddress?.base58;
+    if (existingAddress) {
+      console.log('[TronLink] Already connected:', existingAddress);
+      return {
+        success: true,
+        address: existingAddress,
+        chainId: tronWeb.fullNode?.chainId,
+        network: getNetworkByChainId(tronWeb.fullNode?.chainId)
+      };
+    }
+
+    // If tronLink exists but not ready, wait a bit more
+    if (window.tronLink && !window.tronLink.ready) {
+      console.log('[TronLink] Not ready, waiting...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Re-check address after waiting
+    tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+    const addressAfterWait = tronWeb?.defaultAddress?.base58;
+    if (addressAfterWait) {
+      console.log('[TronLink] Connected after wait:', addressAfterWait);
+      return {
+        success: true,
+        address: addressAfterWait,
+        chainId: tronWeb.fullNode?.chainId,
+        network: getNetworkByChainId(tronWeb.fullNode?.chainId)
+      };
+    }
+
+    // Try to request connection via tronLink (only if ready)
+    if (window.tronLink?.request && window.tronLink?.ready) {
+      try {
+        const res = await window.tronLink.request({
+          method: 'tron_requestAccounts'
+        });
+
+        console.log('[TronLink] Request response:', JSON.stringify(res, null, 2));
+
+        // Handle different response formats
+        if (res === true || res?.code === 200 || res?.result === true) {
+          // Refresh tronWeb reference after connection
+          tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+          const address = tronWeb?.defaultAddress?.base58;
+          
+          if (address) {
+            return {
+              success: true,
+              address,
+              chainId: tronWeb.fullNode?.chainId,
+              network: getNetworkByChainId(tronWeb.fullNode?.chainId)
+            };
+          }
+        }
+        
+        // Check for specific error codes
+        if (res?.code === 4001 || res?.error?.code === 4001) {
+          return {
+            success: false,
+            error: '用户拒绝了连接请求'
+          };
+        }
+        
+        if (res?.code === 4100 || res?.error?.code === 4100) {
+          return {
+            success: false,
+            error: '请先解锁 TronLink 钱包'
+          };
+        }
+        
+        // If response has an error message
+        if (res?.error?.message) {
+          return {
+            success: false,
+            error: res.error.message
+          };
+        }
+        
+        // If response has message directly
+        if (res?.message) {
+          return {
+            success: false,
+            error: res.message
+          };
+        }
+        
+        // Check if address became available after request
+        const address = window.tronLink?.tronWeb?.defaultAddress?.base58 || window.tronWeb?.defaultAddress?.base58;
+        if (address) {
+          return {
+            success: true,
+            address,
+            chainId: (window.tronLink?.tronWeb || window.tronWeb)?.fullNode?.chainId,
+            network: 'testnet'
+          };
+        }
+        
+        // Empty response usually means TronLink needs user interaction
+        if (res === '' || res === undefined || res === null) {
+          return {
+            success: false,
+            error: '请在 TronLink 钱包中确认连接请求，或检查钱包是否已解锁'
+          };
+        }
+        
+        return {
+          success: false,
+          error: `连接失败，请确保 TronLink 已解锁`
+        };
+      } catch (requestError) {
+        console.error('[TronLink] Request error:', requestError);
+        // Fall through to direct tronWeb check
+      }
+    }
+    
+    // Direct tronWeb access fallback (some wallets don't use request pattern)
+    const address = tronWeb?.defaultAddress?.base58;
+    if (address) {
+      console.log('[TronLink] Direct access address:', address);
       return {
         success: true,
         address,
-        chainId,
-        network: getNetworkByChainId(chainId)
+        chainId: tronWeb.fullNode?.chainId,
+        network: 'testnet'
       };
     }
-
-    // Request connection via tronLink
-    if (window.tronLink?.request) {
-      const res = await window.tronLink.request({
-        method: 'tron_requestAccounts'
-      });
-
-      if (res.code === 200) {
-        const address = window.tronLink.tronWeb.defaultAddress.base58;
-        const chainId = await window.tronLink.tronWeb.fullNode.chainId;
-        
-        return {
-          success: true,
-          address,
-          chainId,
-          network: getNetworkByChainId(chainId)
-        };
-      } else if (res.code === 4001) {
-        return {
-          success: false,
-          error: 'User rejected connection'
-        };
-      } else {
-        return {
-          success: false,
-          error: res.message || 'Connection failed'
-        };
-      }
-    } else {
-      // Direct tronWeb access (some wallets)
-      const address = tronWeb?.defaultAddress?.base58;
-      if (address) {
-        return {
-          success: true,
-          address,
-          chainId: tronWeb.fullNode?.chainId,
-          network: 'testnet'
-        };
-      }
-      
+    
+    // Check if TronLink is locked
+    if (window.tronLink && !window.tronLink.ready) {
       return {
         success: false,
-        error: 'Please unlock TronLink wallet'
+        error: '请先解锁 TronLink 钱包'
       };
     }
-  } catch (error) {
-    console.error('Error connecting to TronLink:', error);
+    
     return {
       success: false,
-      error: error.message
+      error: '无法获取钱包地址，请确保 TronLink 已解锁并刷新页面重试'
+    };
+  } catch (error) {
+    console.error('[TronLink] Error connecting:', error);
+    return {
+      success: false,
+      error: error.message || '连接钱包时发生错误'
     };
   }
 };
@@ -390,6 +483,19 @@ export const isPlayerRegistered = async (address) => {
 };
 
 /**
+ * Convert value to number (handles BigNumber, BigInt, string, number)
+ */
+const toNumber = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'string') return parseInt(value, 10);
+  if (typeof value.toNumber === 'function') return value.toNumber();
+  if (typeof value.toString === 'function') return parseInt(value.toString(), 10);
+  return Number(value);
+};
+
+/**
  * Get player balance from contract
  */
 export const getPlayerBalance = async (address) => {
@@ -401,8 +507,8 @@ export const getPlayerBalance = async (address) => {
   try {
     const info = await contract.getPlayerInfo(address).call();
     return {
-      balance: info.balance.toNumber(),
-      locked: info.lockedAmount.toNumber()
+      balance: toNumber(info.balance),
+      locked: toNumber(info.lockedAmount)
     };
   } catch (error) {
     console.error('Error getting player balance:', error);
