@@ -19,3 +19,12 @@ export const CS_STAND_UP = 'CS_STAND_UP';
 export const SITTING_OUT = 'SITTING_OUT';         // no emit event
 export const SITTING_IN = 'SITTING_IN';         // no emit event
 export const CS_DISCONNECT = 'CS_DISCONNECT';
+
+// Blockchain integration events
+export const CS_JOIN_TABLE_BLOCKCHAIN = 'CS_JOIN_TABLE_BLOCKCHAIN';
+export const CS_LEAVE_TABLE_BLOCKCHAIN = 'CS_LEAVE_TABLE_BLOCKCHAIN';
+export const SC_BLOCKCHAIN_STATUS = 'SC_BLOCKCHAIN_STATUS';
+export const SC_BLOCKCHAIN_TX_STATUS = 'SC_BLOCKCHAIN_TX_STATUS';
+export const SC_BLOCKCHAIN_ERROR = 'SC_BLOCKCHAIN_ERROR';
+export const SC_BLOCKCHAIN_SETTLEMENT = 'SC_BLOCKCHAIN_SETTLEMENT';
+export const SC_BALANCE_SYNCED = 'SC_BALANCE_SYNCED';

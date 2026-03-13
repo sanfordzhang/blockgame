@@ -5,6 +5,7 @@ import {
   CS_CHECK,
   CS_FOLD,
   CS_JOIN_TABLE,
+  CS_JOIN_TABLE_BLOCKCHAIN,
   CS_LEAVE_TABLE,
   CS_RAISE,
   CS_REBUY,
@@ -13,6 +14,9 @@ import {
   SC_TABLE_JOINED,
   SC_TABLE_LEFT,
   SC_TABLE_UPDATED,
+  SC_BALANCE_SYNCED,
+  SC_BLOCKCHAIN_ERROR,
+  SC_BLOCKCHAIN_TX_STATUS,
 } from '../../pokergame/actions'
 import socketContext from '../websocket/socketContext'
 import GameContext from './gameContext'
@@ -73,6 +77,20 @@ const GameState = ({ children }) => {
         setCurrentTable(null)
         setMessages([])
       })
+
+      // Blockchain event listeners
+      socket.on(SC_BALANCE_SYNCED, (data) => {
+        console.log(SC_BALANCE_SYNCED, data)
+      })
+
+      socket.on(SC_BLOCKCHAIN_ERROR, (data) => {
+        console.error(SC_BLOCKCHAIN_ERROR, data)
+        addMessage(`Blockchain error: ${data.message}`)
+      })
+
+      socket.on(SC_BLOCKCHAIN_TX_STATUS, (data) => {
+        console.log(SC_BLOCKCHAIN_TX_STATUS, data)
+      })
     }
     if(socket){
       return () => leaveTable()
@@ -80,9 +98,9 @@ const GameState = ({ children }) => {
     // eslint-disable-next-line
   }, [socket])
 
-  const joinTable = (tableId) => {
-    console.log(CS_JOIN_TABLE, tableId)
-    socket.emit(CS_JOIN_TABLE, tableId)
+  const joinTable = (tableId, buyInAmount = 1000) => {
+    console.log(CS_JOIN_TABLE_BLOCKCHAIN, tableId, buyInAmount)
+    socket.emit(CS_JOIN_TABLE_BLOCKCHAIN, { tableId, buyInAmount })
   }
 
   const leaveTable = () => {
