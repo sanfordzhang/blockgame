@@ -47,8 +47,10 @@
         "zustand": "^4.0.0-rc.0"
     },
     "devDependencies": {
+        "bs58": "^6.0.0",
         "concurrently": "^5.3.0",
         "core-js": "^3.6.5",
+        "ethereumjs-util": "^7.1.5",
         "nodemon": "^2.0.4",
         "playwright": "^1.58.2",
         "raf": "^3.4.1",

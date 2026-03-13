@@ -89,17 +89,40 @@
   color: #666;
 }
 
+.faucet-info {
+  margin-top: 8px;
+  padding: 10px;
+  background: rgba(0, 204, 102, 0.05);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.faucet-tip {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: #888;
+}
+
+.faucet-info ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: #666;
+}
+
+.faucet-info li {
+  margin-bottom: 4px;
+}
+
 .faucet-link {
-  display: inline-block;
+  display: inline;
   color: #00cc66;
-  font-size: 13px;
+  font-size: 12px;
   text-decoration: none;
-  padding: 6px 12px;
-  background: rgba(0, 204, 102, 0.1);
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .faucet-link:hover {
-  background: rgba(0, 204, 102, 0.2);
+  color: #00ff80;
+  text-decoration: underline;
 }

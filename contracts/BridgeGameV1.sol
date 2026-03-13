@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -125,7 +125,9 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
     
     // ============ Constructor ============
     
-    constructor(uint256 _initialRakeRate) {
+    constructor(uint256 _initialRakeRate, address initialOwner) 
+        Ownable(initialOwner) 
+    {
         require(_initialRakeRate >= MIN_RAKE_RATE && _initialRakeRate <= MAX_RAKE_RATE, 
                 "Invalid initial rake rate");
         rakeRate = _initialRakeRate;

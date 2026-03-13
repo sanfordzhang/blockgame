@@ -54,14 +54,22 @@ const GameModeSwitch = () => {
             <p className="info-text">
               🧪 Playing with Testnet TRX (no real value)
             </p>
-            <a 
-              href="https://nileex.io/join/getJoinPage"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="faucet-link"
-            >
-              Get Free Testnet TRX →
-            </a>
+            <div className="faucet-info">
+              <p className="faucet-tip">💡 Get Testnet TRX:</p>
+              <ul>
+                <li>Use TronLink wallet built-in faucet</li>
+                <li>
+                  <a 
+                    href="https://developers.tron.network/docs/getting-testnet-tokens-on-tron"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="faucet-link"
+                  >
+                    Official TRON Docs →
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         ) : (
           <div className="info-real">

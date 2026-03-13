@@ -82,11 +82,11 @@ test.describe('Game Mode Switch', () => {
     await expect(warning).toBeVisible();
   });
   
-  test('should show faucet link in fun mode', async ({ page }) => {
+  test('should show faucet info in fun mode', async ({ page }) => {
     await page.goto('/play');
     
-    // Should show faucet link
-    const faucetLink = page.locator('text=Get Test TRX');
-    await expect(faucetLink).toBeVisible();
+    // Should show faucet info
+    const faucetInfo = page.locator('.faucet-info');
+    await expect(faucetInfo).toBeVisible();
   });
 });

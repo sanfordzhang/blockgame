@@ -1,8 +1,11 @@
+// Load environment variables
+require('dotenv').config();
+
 module.exports = {
   networks: {
     // Nile Testnet for Fun Mode
-    testnet: {
-      privateKey: process.env.TESTNET_PRIVATE_KEY,
+    nile: {
+      privateKey: process.env.NILE_PRIVATE_KEY,
       userFeePercentage: 100,
       feeLimit: 1000 * 1e6, // 1000 TRX
       fullHost: 'https://nile.trongrid.io',
@@ -16,6 +19,14 @@ module.exports = {
       fullHost: 'https://api.trongrid.io',
       network_id: '*'
     },
+    // Shasta Testnet (alternative)
+    shasta: {
+      privateKey: process.env.SHASTA_PRIVATE_KEY,
+      userFeePercentage: 100,
+      feeLimit: 1000 * 1e6,
+      fullHost: 'https://api.shasta.trongrid.io',
+      network_id: '*'
+    },
     // Local development
     development: {
       privateKey: process.env.DEV_PRIVATE_KEY || '0000000000000000000000000000000000000000000000000000000000000001',
@@ -27,7 +38,7 @@ module.exports = {
   },
   compilers: {
     solc: {
-      version: '0.8.19',
+      version: '0.8.20',
       settings: {
         optimizer: {
           enabled: true,
