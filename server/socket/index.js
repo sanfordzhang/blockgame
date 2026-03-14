@@ -217,7 +217,8 @@ const init = (socket, io) => {
           player.id,
           tableId,
           cappedBuyIn,
-          socket.id
+          socket.id,
+          player.bankroll  // Pass current bankroll for logging
         );
         
         console.log('[Socket] handleJoinTable result:', result);
@@ -284,7 +285,13 @@ const init = (socket, io) => {
     if (config.BLOCKCHAIN_ENABLED && player && seat?.stack > 0) {
       try {
         console.log('[Socket] Calling blockchain leaveTable with stack:', seat.stack);
-        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id, seat.stack);
+        await gameFlowIntegration.handleLeaveTable(
+          player.id,
+          tableId,
+          socket.id,
+          seat.stack,
+          player.bankroll  // Pass current bankroll for logging
+        );
         console.log('[Socket] Blockchain leaveTable success');
       } catch (error) {
         // Log error but continue with local leave

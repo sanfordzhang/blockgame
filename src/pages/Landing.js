@@ -46,9 +46,14 @@ const Landing = () => {
   const [isRegistered, setIsRegistered] = useState(false);
   const [tronLinkInstalled, setTronLinkInstalled] = useState(true);
   const [contractBalance, setContractBalance] = useState(0);
+  const [lockedBalance, setLockedBalance] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
   const [depositing, setDepositing] = useState(false);
   const [depositAmount, setDepositAmount] = useState('100');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Calculate bankroll (available balance = total - locked)
+  const bankroll = contractBalance - lockedBalance;
 
   useScrollToTopOnPageLoad();
 
@@ -84,6 +89,7 @@ const Landing = () => {
           if (registered) {
             const balance = await getPlayerBalance(walletAddress);
             setContractBalance(balance.balance);
+            setLockedBalance(balance.locked || 0);
           }
           
           const trxBalance = await getTrxBalance(walletAddress);
@@ -95,6 +101,29 @@ const Landing = () => {
     };
     checkRegistration();
   }, [walletAddress]);
+
+  // Refresh all balances
+  const refreshAllBalances = async () => {
+    if (!walletAddress) return;
+    
+    setRefreshing(true);
+    try {
+      // Get wallet TRX balance
+      const trxBalance = await getTrxBalance(walletAddress);
+      setWalletBalance(trxBalance);
+      
+      // Get game balance (if registered)
+      if (isRegistered) {
+        const balance = await getPlayerBalance(walletAddress);
+        setContractBalance(balance.balance);
+        setLockedBalance(balance.locked || 0);
+      }
+    } catch (err) {
+      console.error('Error refreshing balances:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleConnectWallet = async () => {
     setConnecting(true);
@@ -193,6 +222,7 @@ const Landing = () => {
         try {
           const balance = await getPlayerBalance(walletAddress);
           setContractBalance(balance.balance);
+          setLockedBalance(balance.locked || 0);
           const trxBalance = await getTrxBalance(walletAddress);
           setWalletBalance(trxBalance);
         } catch (e) {
@@ -308,7 +338,23 @@ const Landing = () => {
                   <span>Game Balance:</span>
                   <span>{formatTrx(contractBalance)} TRX</span>
                 </BalanceRow>
+                <BalanceRow>
+                  <span>Bankroll:</span>
+                  <span>{formatTrx(bankroll)} TRX</span>
+                </BalanceRow>
+                {lockedBalance > 0 && (
+                  <BalanceRow style={{ color: '#f0883e', fontSize: '0.8rem' }}>
+                    <span>  └─ Locked:</span>
+                    <span>{formatTrx(lockedBalance)} TRX</span>
+                  </BalanceRow>
+                )}
               </BalanceInfo>
+              <RefreshButton 
+                onClick={refreshAllBalances} 
+                disabled={refreshing}
+              >
+                {refreshing ? '⟳' : '↻'} 刷新余额
+              </RefreshButton>
               <DepositSection>
                 <DepositInput
                   type="number"
@@ -527,6 +573,32 @@ const BalanceRow = styled.div`
   
   &:not(:last-child) {
     border-bottom: 1px solid rgba(36, 81, 106, 0.1);
+  }
+`;
+
+const RefreshButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(36, 81, 106, 0.1);
+  border: 1px solid rgba(36, 81, 106, 0.2);
+  border-radius: 4px;
+  color: #24516a;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover:not(:disabled) {
+    background: rgba(36, 81, 106, 0.2);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 `;
 

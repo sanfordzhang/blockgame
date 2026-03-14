@@ -61,7 +61,7 @@ class GameFlowIntegration {
      * @param {string} socketId - Socket ID for notifications
      * @returns {Promise<object>} Join result
      */
-    async handleJoinTable(playerAddress, tableId, buyInAmount, socketId) {
+    async handleJoinTable(playerAddress, tableId, buyInAmount, socketId, currentBankroll = 0) {
         console.log(`[GameFlowIntegration] Player ${playerAddress} joining table ${tableId}`);
 
         try {
@@ -70,6 +70,18 @@ class GameFlowIntegration {
             
             // Get cached balance first (fast)
             let cachedBalance = this.playerBalances.get(playerAddress);
+            
+            // Log balance info BEFORE join
+            const gameBalanceBefore = cachedBalance ? cachedBalance.balance : 0;
+            const lockedBefore = cachedBalance ? cachedBalance.lockedAmount : 0;
+            console.log(`[GameFlowIntegration] ========== JOIN TABLE BEFORE ==========`);
+            console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
+            console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceBefore / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedBefore / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceBefore - lockedBefore) / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Bankroll: ${currentBankroll / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Buy-in amount: ${buyInAmount / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] ============================================`);
             
             // For development: auto-register unregistered players
             if (!isRegistered) {
@@ -149,6 +161,18 @@ class GameFlowIntegration {
             // Update cached balance
             this.updatePlayerBalanceCache(playerAddress, -buyInAmount, buyInAmount);
 
+            // Log balance info AFTER join
+            const updatedCache = this.playerBalances.get(playerAddress);
+            const gameBalanceAfter = updatedCache ? updatedCache.balance : 0;
+            const lockedAfter = updatedCache ? updatedCache.lockedAmount : 0;
+            console.log(`[GameFlowIntegration] ========== JOIN TABLE AFTER ==========`);
+            console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
+            console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceAfter / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedAfter / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceAfter - lockedAfter) / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Bankroll: ${(currentBankroll - buyInAmount) / 1e6} TRX (estimated)`);
+            console.log(`[GameFlowIntegration] ============================================`);
+
             // Notify player about success
             this.notifyPlayer(socketId, 'blockchain:joinTable', {
                 status: 'completed',
@@ -190,8 +214,21 @@ class GameFlowIntegration {
      * @param {number} stack - Player's remaining stack on table (optional)
      * @returns {Promise<object>} Leave result
      */
-    async handleLeaveTable(playerAddress, tableId, socketId, stack = 0) {
+    async handleLeaveTable(playerAddress, tableId, socketId, stack = 0, currentBankroll = 0) {
         console.log(`[GameFlowIntegration] Player ${playerAddress} leaving table ${tableId}, stack: ${stack}`);
+
+        // Get cached balance BEFORE leave
+        const cachedBefore = this.playerBalances.get(playerAddress);
+        const gameBalanceBefore = cachedBefore ? cachedBefore.balance : 0;
+        const lockedBefore = cachedBefore ? cachedBefore.lockedAmount : 0;
+        console.log(`[GameFlowIntegration] ========== LEAVE TABLE BEFORE ==========`);
+        console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
+        console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceBefore / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedBefore / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceBefore - lockedBefore) / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Bankroll: ${currentBankroll / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Stack to return: ${stack / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] ============================================`);
 
         try {
             // Track pending leave
@@ -246,6 +283,18 @@ class GameFlowIntegration {
                 tableId,
                 txId: result
             });
+
+            // Log balance info AFTER leave
+            const cachedAfter = this.playerBalances.get(playerAddress);
+            const gameBalanceAfter = cachedAfter ? cachedAfter.balance : 0;
+            const lockedAfter = cachedAfter ? cachedAfter.lockedAmount : 0;
+            console.log(`[GameFlowIntegration] ========== LEAVE TABLE AFTER ==========`);
+            console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
+            console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceAfter / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedAfter / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceAfter - lockedAfter) / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Bankroll: ${(currentBankroll + stack) / 1e6} TRX (estimated)`);
+            console.log(`[GameFlowIntegration] ============================================`);
 
             return {
                 success: true,
