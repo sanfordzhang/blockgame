@@ -1,10 +1,12 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+const SERVER_URI = process.env.REACT_APP_SERVER_URI || 'http://localhost:7777';
+
 export const useApi = () => {
   const getUserProfile = async (address) => {
     try {
-      const { data } = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/get_profile`, {
+      const { data } = await axios.post(`${SERVER_URI}/get_profile`, {
         address: address
       }, {
         headers: {
@@ -26,7 +28,7 @@ export const useApi = () => {
 
   const getPokerTables = async (gameId) => {
     try {
-      const { data } = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/get_poker_tables`, {
+      const { data } = await axios.post(`${SERVER_URI}/get_poker_tables`, {
         gameId: gameId
       }, {
         headers: {
@@ -47,7 +49,7 @@ export const useApi = () => {
 
   const getGameById = async (gameId) => {
     try {
-      const { data } = await axios.post(`${process.env.NEXT_PUBLIC_SERVER_URI}/get_game_by_id`, {
+      const { data } = await axios.post(`${SERVER_URI}/get_game_by_id`, {
         gameId: gameId
       }, {
         headers: {
