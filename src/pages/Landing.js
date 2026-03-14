@@ -21,7 +21,12 @@ import {
   isPlayerRegistered,
   registerPlayer,
   getCurrentAddress,
-  formatAddress
+  formatAddress,
+  getPlayerBalance,
+  depositTrx,
+  getTrxBalance,
+  formatTrx,
+  parseTrx
 } from '../utils/tronInteract';
 
 const MarketingHeadline = styled(Heading)`
@@ -40,6 +45,10 @@ const Landing = () => {
   const [walletAddress, setLocalWalletAddress] = useState(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [tronLinkInstalled, setTronLinkInstalled] = useState(true);
+  const [contractBalance, setContractBalance] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [depositing, setDepositing] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('100');
 
   useScrollToTopOnPageLoad();
 
@@ -63,13 +72,22 @@ const Landing = () => {
     checkTronLink();
   }, []);
 
-  // Check registration status when wallet address changes
+  // Check registration status and balances when wallet address changes
   useEffect(() => {
     const checkRegistration = async () => {
       if (walletAddress) {
         try {
           const registered = await isPlayerRegistered(walletAddress);
           setIsRegistered(registered);
+          
+          // Get balances
+          if (registered) {
+            const balance = await getPlayerBalance(walletAddress);
+            setContractBalance(balance.balance);
+          }
+          
+          const trxBalance = await getTrxBalance(walletAddress);
+          setWalletBalance(trxBalance);
         } catch (err) {
           console.error('Error checking registration:', err);
         }
@@ -140,18 +158,48 @@ const Landing = () => {
         const registered = await isPlayerRegistered(walletAddress);
         setIsRegistered(registered);
         
-        if (registered) {
-          proceedToGame(walletAddress);
-        }
+        // Refresh balances
+        const balance = await getPlayerBalance(walletAddress);
+        setContractBalance(balance.balance);
       }, 2000);
       
       setIsRegistered(true);
-      proceedToGame(walletAddress);
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || '注册失败，请重试');
     } finally {
       setRegistering(false);
+    }
+  };
+
+  const handleDeposit = async () => {
+    setDepositing(true);
+    setError(null);
+
+    try {
+      const amount = parseTrx(depositAmount);
+      if (amount <= 0) {
+        setError('请输入有效的充值金额');
+        return;
+      }
+
+      console.log('Depositing', amount, 'SUN');
+      const tx = await depositTrx(amount);
+      console.log('Deposit tx:', tx);
+      
+      // Wait for confirmation and refresh balance
+      setTimeout(async () => {
+        const balance = await getPlayerBalance(walletAddress);
+        setContractBalance(balance.balance);
+        const trxBalance = await getTrxBalance(walletAddress);
+        setWalletBalance(trxBalance);
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Deposit error:', err);
+      setError(err.message || '充值失败，请重试');
+    } finally {
+      setDepositing(false);
     }
   };
 
@@ -215,6 +263,7 @@ const Landing = () => {
             <>
               <WalletInfo>
                 <span>Wallet: {formatAddress(walletAddress)}</span>
+                <span>TRX: {formatTrx(walletBalance)}</span>
               </WalletInfo>
               <InfoText>
                 You need to register on the blockchain to play.
@@ -245,13 +294,52 @@ const Landing = () => {
                 <span>Wallet: {formatAddress(walletAddress)}</span>
                 <RegisteredBadge>✓ Registered</RegisteredBadge>
               </WalletInfo>
+              <BalanceInfo>
+                <BalanceRow>
+                  <span>Wallet TRX:</span>
+                  <span>{formatTrx(walletBalance)} TRX</span>
+                </BalanceRow>
+                <BalanceRow>
+                  <span>Game Balance:</span>
+                  <span>{formatTrx(contractBalance)} TRX</span>
+                </BalanceRow>
+              </BalanceInfo>
+              {contractBalance < 1000000 && (
+                <>
+                  <DepositSection>
+                    <DepositInput
+                      type="number"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="Amount in TRX"
+                      min="1"
+                    />
+                    <Button
+                      primary
+                      onClick={handleDeposit}
+                      disabled={depositing}
+                      style={{ marginLeft: '0.5rem' }}
+                    >
+                      {depositing ? 'Depositing...' : 'Deposit'}
+                    </Button>
+                  </DepositSection>
+                  <FaucetLink>
+                    Need test TRX?{' '}
+                    <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
+                      Get from Nile Faucet
+                    </a>
+                  </FaucetLink>
+                </>
+              )}
               <Button
                 large
                 primary
                 fullWidthOnMobile
                 onClick={() => proceedToGame(walletAddress)}
+                disabled={contractBalance < 1000000}
+                style={{ marginTop: '1rem' }}
               >
-                Enter Game
+                {contractBalance < 1000000 ? 'Deposit Required to Play' : 'Enter Game'}
               </Button>
             </>
           )}
@@ -419,6 +507,62 @@ const InfoText = styled.p`
   
   small {
     color: #999;
+  }
+`;
+
+const BalanceInfo = styled.div`
+  background: rgba(36, 81, 106, 0.05);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  width: 100%;
+`;
+
+const BalanceRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+  
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(36, 81, 106, 0.1);
+  }
+`;
+
+const DepositSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  width: 100%;
+`;
+
+const DepositInput = styled.input`
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  
+  &:focus {
+    outline: none;
+    border-color: #24516a;
+  }
+`;
+
+const FaucetLink = styled.p`
+  text-align: center;
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  
+  a {
+    color: #24516a;
+    text-decoration: underline;
+    
+    &:hover {
+      color: #1a3d4d;
+    }
   }
 `;
 
