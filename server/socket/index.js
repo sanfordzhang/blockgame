@@ -276,7 +276,8 @@ const init = (socket, io) => {
     // Task 15.2: Blockchain leave table
     if (config.BLOCKCHAIN_ENABLED && player) {
       try {
-        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id);
+        const stack = seat?.stack || 0;
+        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id, stack);
       } catch (error) {
         // Log error but continue with local leave
         console.error('[Socket] Blockchain leave table error:', error.message);
@@ -322,7 +323,8 @@ const init = (socket, io) => {
     if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Task 15.2: Call blockchain integration
-        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id);
+        const stack = seat?.stack || 0;
+        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id, stack);
         
         if (seat) {
           updatePlayerBankroll(player, seat.stack);
@@ -409,11 +411,16 @@ const init = (socket, io) => {
         try {
           console.log('[Socket] Validating balance for sitDown...');
           
+          // Check if player is already at any table
+          const isPlayerAtTable = Object.values(tables).some(t => 
+            Object.values(t.seats).some(seat => seat && seat.player && seat.player.socketId === socket.id)
+          );
+          
           // Add timeout to prevent blocking
           const validation = await Promise.race([
-            gameFlowIntegration.validateBalanceForSitDown(player.id, amount),
+            gameFlowIntegration.validateBalanceForSitDown(player.id, amount, isPlayerAtTable),
             new Promise((resolve) => 
-              setTimeout(() => resolve({ valid: true, devMode: true, message: 'Validation timeout - using default' }), 2000)
+              setTimeout(() => resolve({ valid: false, message: 'Validation timeout' }), 3000)
             )
           ]);
           
@@ -566,11 +573,16 @@ const init = (socket, io) => {
   }
 
   function changeTurnAndBroadcast(table, seatId) {
-    setTimeout(() => {
+    console.log('[Socket] changeTurnAndBroadcast called, seatId:', seatId, 'current handOver:', table.handOver);
+    setTimeout(async () => {
       table.changeTurn(seatId);
+      console.log('[Socket] After changeTurn, handOver:', table.handOver, 'winMessages:', table.winMessages);
       broadcastToTable(table);
 
       if (table.handOver) {
+        console.log('[Socket] Hand is over, calling handleGameEnd...');
+        // Handle game end (settlement and balance updates) before starting new hand
+        await handleGameEnd(table);
         initNewHand(table);
       }
     }, 1000);
@@ -588,29 +600,116 @@ const init = (socket, io) => {
     }, 5000);
   }
 
-  // Task 15.4: Handle game end with settlement
+  // Task 15.4: Handle game end with settlement and balance updates
   async function handleGameEnd(table) {
+    console.log('[Socket] handleGameEnd called');
+    console.log('[Socket] winMessages:', table.winMessages);
+    console.log('[Socket] table.seats:', Object.keys(table.seats).filter(id => table.seats[id]?.player).map(id => ({
+      seatId: id,
+      playerName: table.seats[id]?.player?.name,
+      playerId: table.seats[id]?.player?.id,
+      socketId: table.seats[id]?.player?.socketId
+    })));
+    console.log('[Socket] players registry:', Object.keys(players).map(sid => ({
+      socketId: sid,
+      playerId: players[sid]?.id,
+      playerName: players[sid]?.name
+    })));
+
+    // Convert table result to settlement format
+    // Pass global players registry so we can find winners even if they left the table
+    const settlementData = gameFlowIntegration.convertTableResultToSettlement(
+      table,
+      table.winMessages,
+      players  // Pass global players registry for fallback lookup
+    );
+
+    console.log('[Socket] Settlement data winners:', settlementData.winners);
+
+    // Always update local player balances (regardless of blockchain mode)
+    if (settlementData.winners.length > 0) {
+      for (const winner of settlementData.winners) {
+        // Find the player by address in global players registry
+        // Note: We use global 'players' object, not 'table.seats', because the winner
+        // may have already left the table but should still receive their winnings
+        const playerEntry = Object.entries(players).find(
+          ([_, p]) => p.id === winner.address
+        );
+
+        console.log(`[Socket] Looking for winner ${winner.address} in players registry...`);
+        
+        if (playerEntry) {
+          const [socketId, player] = playerEntry;
+          // Update player's local bankroll
+          const oldBankroll = player.bankroll;
+          player.bankroll += winner.amount;
+          console.log(`[Socket] Updated ${player.name} bankroll: ${oldBankroll} -> ${player.bankroll} (+${winner.amount})`);
+
+          // Update cache in gameFlowIntegration - winner gets the amount, locked stays the same
+          gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
+
+          // Notify client about balance update
+          io.to(socketId).emit(SC_BALANCE_SYNCED, {
+            balance: player.bankroll,
+            locked: 0,
+            available: player.bankroll,
+            reason: 'game_won',
+            amount: winner.amount
+          });
+        } else {
+          console.warn(`[Socket] Winner player not found for address: ${winner.address}`);
+          // Player might have disconnected, but we should still track the win
+          // Update the balance cache anyway so when they reconnect they get their balance
+          gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
+        }
+      }
+
+      // Update locked amount for all players who were in this hand
+      // After game ends, their locked amount should reflect their current stack
+      for (const seatId of Object.keys(table.seats)) {
+        const seat = table.seats[seatId];
+        if (seat && seat.player) {
+          const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(seat.player.id);
+          if (cachedBalance) {
+            // Update locked to match current stack (what they have left on table)
+            const newLocked = seat.stack || 0;
+            console.log(`[Socket] Updating locked for ${seat.player.name}: ${cachedBalance.lockedAmount} -> ${newLocked}`);
+            gameFlowIntegration.updatePlayerBalanceCache(seat.player.id, 0, newLocked - cachedBalance.lockedAmount);
+          }
+        }
+      }
+
+      // Also notify all players at table about their final balance
+      for (const player of table.players) {
+        const playerEntry = Object.entries(players).find(
+          ([_, p]) => p.id === player.id
+        );
+        if (playerEntry) {
+          const [socketId, p] = playerEntry;
+          io.to(socketId).emit(SC_BALANCE_SYNCED, {
+            balance: p.bankroll,
+            locked: 0,
+            available: p.bankroll,
+            reason: 'game_end'
+          });
+        }
+      }
+    }
+
+    // Only do blockchain settlement if enabled
     if (!config.BLOCKCHAIN_ENABLED) {
-      return; // Skip blockchain settlement in non-blockchain mode
+      console.log('[Socket] Blockchain disabled, skipping on-chain settlement');
+      return;
     }
 
     try {
-      // Convert table result to settlement format
-      const settlementData = gameFlowIntegration.convertTableResultToSettlement(
-        table,
-        table.winMessages
-      );
+      // Task 15.4: Process blockchain settlement
+      const result = await gameFlowIntegration.handleGameSettlement(settlementData);
+      console.log('[Socket] Game settled on blockchain:', result.txId);
 
-      // Only settle if there are winners
-      if (settlementData.winners.length > 0) {
-        // Task 15.4: Process blockchain settlement
-        const result = await gameFlowIntegration.handleGameSettlement(settlementData);
-        
-        console.log('[Socket] Game settled on blockchain:', result.txId);
-      }
     } catch (error) {
       console.error('[Socket] Game settlement error:', error.message);
-      
+
       // Task 15.6: Notify players about settlement failure
       for (const player of table.players) {
         gameFlowIntegration.notifyPlayer(player.socketId, SC_BLOCKCHAIN_SETTLEMENT, {

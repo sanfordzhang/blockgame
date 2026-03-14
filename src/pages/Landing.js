@@ -309,7 +309,7 @@ const Landing = () => {
                   <span>{formatTrx(contractBalance)} TRX</span>
                 </BalanceRow>
               </BalanceInfo>
-              {contractBalance < 1000000 && (
+              {contractBalance < 100000000 && (
                 <>
                   <DepositSection>
                     <DepositInput
@@ -341,10 +341,10 @@ const Landing = () => {
                 primary
                 fullWidthOnMobile
                 onClick={() => proceedToGame(walletAddress)}
-                disabled={contractBalance < 1000000}
+                disabled={contractBalance < 100000000}
                 style={{ marginTop: '1rem' }}
               >
-                {contractBalance < 1000000 ? 'Deposit Required to Play' : 'Enter Game'}
+                {contractBalance < 100000000 ? 'Deposit Required to Play' : 'Enter Game'}
               </Button>
             </>
           )}

@@ -24,6 +24,7 @@ import globalContext from '../global/globalContext'
 
 const GameState = ({ children }) => {
   const { socket } = useContext(socketContext)
+  const { setChipsAmount } = useContext(globalContext)
   const navigate = useNavigate()
 
   const [messages, setMessages] = useState([])
@@ -82,6 +83,12 @@ const GameState = ({ children }) => {
       // Blockchain event listeners
       socket.on(SC_BALANCE_SYNCED, (data) => {
         console.log(SC_BALANCE_SYNCED, data)
+        // Update local chips amount when balance is synced
+        if (data.available !== undefined) {
+          setChipsAmount(data.available)
+        } else if (data.balance !== undefined) {
+          setChipsAmount(data.balance)
+        }
       })
 
       socket.on(SC_BLOCKCHAIN_ERROR, (data) => {

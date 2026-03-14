@@ -45,8 +45,14 @@ const WebSocketProvider = ({ children }) => {
 
   function connect() {
     const socket = io(config.socketURI, {
-      transports: ['websocket'],
-      upgrade: false,
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      cors: {
+        origin: '*',
+      }
     })
     registerCallbacks(socket)
     window.socket = socket
@@ -55,7 +61,24 @@ const WebSocketProvider = ({ children }) => {
 
   function registerCallbacks(socket) {
     socket.on('connect', () => {
+      console.log('Socket connected successfully')
       setSocket(socket)
+    })
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message)
+    })
+
+    socket.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason)
+    })
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('Socket reconnected after', attemptNumber, 'attempts')
+    })
+
+    socket.on('reconnect_error', (error) => {
+      console.error('Socket reconnection error:', error.message)
     })
 
     socket.on(SC_RECEIVE_LOBBY_INFO, ({ tables, players, socketId, amount }) => {

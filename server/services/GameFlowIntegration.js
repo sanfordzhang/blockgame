@@ -187,10 +187,11 @@ class GameFlowIntegration {
      * @param {string} playerAddress - Player wallet address
      * @param {number} tableId - Table ID
      * @param {string} socketId - Socket ID for notifications
+     * @param {number} stack - Player's remaining stack on table (optional)
      * @returns {Promise<object>} Leave result
      */
-    async handleLeaveTable(playerAddress, tableId, socketId) {
-        console.log(`[GameFlowIntegration] Player ${playerAddress} leaving table ${tableId}`);
+    async handleLeaveTable(playerAddress, tableId, socketId, stack = 0) {
+        console.log(`[GameFlowIntegration] Player ${playerAddress} leaving table ${tableId}, stack: ${stack}`);
 
         try {
             // Track pending leave
@@ -219,6 +220,24 @@ class GameFlowIntegration {
                 txId: result,
                 completedAt: Date.now()
             });
+
+            // Update cache: return stack to balance, reduce locked
+            // stack is the amount player takes back from table
+            if (stack > 0) {
+                const cached = this.playerBalances.get(playerAddress);
+                if (cached) {
+                    // Reduce locked by the original buy-in (approximated by stack)
+                    // Add stack back to balance
+                    const newLocked = Math.max(0, cached.lockedAmount - stack);
+                    console.log(`[GameFlowIntegration] Updating cache on leave: balance +${stack}, locked ${cached.lockedAmount} -> ${newLocked}`);
+                    this.playerBalances.set(playerAddress, {
+                        ...cached,
+                        balance: cached.balance + stack,
+                        lockedAmount: newLocked,
+                        lastSync: Date.now()
+                    });
+                }
+            }
 
             // Notify player about success
             this.notifyPlayer(socketId, 'blockchain:leaveTable', {
@@ -254,34 +273,15 @@ class GameFlowIntegration {
      * Validate player balance before sitting down
      * @param {string} playerAddress - Player wallet address
      * @param {number} requiredAmount - Required amount in SUN
+     * @param {boolean} isPlayerAtTable - Whether player is currently at a table
      * @returns {Promise<object>} Validation result
      */
-    async validateBalanceForSitDown(playerAddress, requiredAmount) {
-        console.log(`[GameFlowIntegration] Validating balance for ${playerAddress}, required: ${requiredAmount}`);
+    async validateBalanceForSitDown(playerAddress, requiredAmount, isPlayerAtTable = false) {
+        console.log(`[GameFlowIntegration] Validating balance for ${playerAddress}, required: ${requiredAmount}, isAtTable: ${isPlayerAtTable}`);
 
         try {
-            // First check local cache (for development mode)
-            const cached = this.playerBalances.get(playerAddress);
-            if (cached && !isNaN(cached.balance) && !isNaN(cached.lockedAmount)) {
-                const availableBalance = cached.balance - (cached.lockedAmount || 0);
-                console.log(`[GameFlowIntegration] Using cached balance: ${availableBalance}`);
-                
-                if (availableBalance >= requiredAmount) {
-                    return {
-                        valid: true,
-                        available: availableBalance,
-                        required: requiredAmount,
-                        balance: cached.balance,
-                        locked: cached.lockedAmount || 0,
-                        source: 'cache'
-                    };
-                }
-            }
-
-            // Default balance for development
-            const defaultBalance = 100000000000; // 100,000 TRX
-
-            // Try to get from contract with timeout
+            // First, try to get fresh balance from contract (in case user deposited)
+            // This ensures we have the most up-to-date balance
             let playerInfo;
             try {
                 playerInfo = await Promise.race([
@@ -290,52 +290,118 @@ class GameFlowIntegration {
                         setTimeout(() => reject(new Error('Balance fetch timeout')), 2000)
                     )
                 ]);
+                console.log('[GameFlowIntegration] Got balance from contract:', playerInfo);
             } catch (e) {
-                console.warn('[GameFlowIntegration] Balance fetch failed, using default');
-                playerInfo = { balance: defaultBalance, lockedAmount: 0 };
+                console.warn('[GameFlowIntegration] Balance fetch failed, trying cache:', e.message);
+                playerInfo = null;
             }
             
-            // Ensure values are valid numbers
-            const balance = !isNaN(playerInfo.balance) ? playerInfo.balance : defaultBalance;
-            const locked = !isNaN(playerInfo.lockedAmount) ? (playerInfo.lockedAmount || 0) : 0;
-            const availableBalance = balance - locked;
-
-            if (availableBalance < requiredAmount) {
-                // In development mode, allow anyway with warning
-                console.warn(`[GameFlowIntegration] Insufficient balance but allowing in dev mode. Available: ${availableBalance}, Required: ${requiredAmount}`);
-                return {
-                    valid: true, // Allow in dev mode
-                    available: availableBalance,
-                    required: requiredAmount,
+            // If contract fetch succeeded, update cache and use that balance
+            if (playerInfo && !isNaN(playerInfo.balance)) {
+                const balance = playerInfo.balance;
+                // Sanity check: if player is not at any table, locked should be 0
+                let locked = playerInfo.lockedAmount || 0;
+                if (!isPlayerAtTable && locked > 0) {
+                    console.log(`[GameFlowIntegration] Player not at table but contract has locked=${locked}, resetting to 0`);
+                    locked = 0;
+                }
+                const availableBalance = balance - locked;
+                
+                console.log(`[GameFlowIntegration] Contract balance: ${balance}, locked: ${locked}, available: ${availableBalance}`);
+                
+                // Update cache with fresh data
+                this.playerBalances.set(playerAddress, {
                     balance: balance,
-                    locked: locked,
-                    devMode: true,
-                    message: 'Insufficient balance - development mode override'
-                };
+                    lockedAmount: locked,
+                    lastSync: Date.now()
+                });
+                
+                if (availableBalance >= requiredAmount) {
+                    return {
+                        valid: true,
+                        available: availableBalance,
+                        required: requiredAmount,
+                        balance: balance,
+                        locked: locked,
+                        source: 'contract'
+                    };
+                } else {
+                    console.warn(`[GameFlowIntegration] Insufficient balance from contract. Available: ${availableBalance}, Required: ${requiredAmount}`);
+                    return {
+                        valid: false,
+                        available: availableBalance,
+                        required: requiredAmount,
+                        balance: balance,
+                        locked: locked,
+                        message: `Insufficient balance. Available: ${(availableBalance / 1000000).toFixed(2)} TRX, Required: ${(requiredAmount / 1000000).toFixed(2)} TRX`
+                    };
+                }
+            }
+            
+            // Fallback to cache if contract fetch failed
+            const cached = this.playerBalances.get(playerAddress);
+            if (cached && !isNaN(cached.balance) && !isNaN(cached.lockedAmount)) {
+                // Sanity check: if player is not at any table, locked should be 0
+                let locked = cached.lockedAmount || 0;
+                if (!isPlayerAtTable && locked > 0) {
+                    console.log(`[GameFlowIntegration] Player not at table but cache has locked=${locked}, resetting to 0`);
+                    locked = 0;
+                    // Update cache
+                    this.playerBalances.set(playerAddress, {
+                        ...cached,
+                        lockedAmount: 0,
+                        lastSync: Date.now()
+                    });
+                }
+                const availableBalance = cached.balance - locked;
+                console.log(`[GameFlowIntegration] Using cached balance: ${availableBalance} (balance: ${cached.balance}, locked: ${locked})`);
+                
+                if (availableBalance >= requiredAmount) {
+                    return {
+                        valid: true,
+                        available: availableBalance,
+                        required: requiredAmount,
+                        balance: cached.balance,
+                        locked: locked,
+                        source: 'cache'
+                    };
+                } else {
+                    console.warn(`[GameFlowIntegration] Insufficient balance from cache. Available: ${availableBalance}, Required: ${requiredAmount}`);
+                    return {
+                        valid: false,
+                        available: availableBalance,
+                        required: requiredAmount,
+                        balance: cached.balance,
+                        locked: locked,
+                        message: `Insufficient balance. Available: ${(availableBalance / 1000000).toFixed(2)} TRX, Required: ${(requiredAmount / 1000000).toFixed(2)} TRX`
+                    };
+                }
             }
 
+            // Default balance for development - only if no cache and contract failed
+            const defaultBalance = 100000000000; // 100,000 TRX
             return {
                 valid: true,
-                available: availableBalance,
+                available: defaultBalance,
                 required: requiredAmount,
-                balance: balance,
-                locked: locked,
-                source: 'contract'
+                balance: defaultBalance,
+                locked: 0,
+                source: 'fallback',
+                message: 'Using default balance (no cache/contract data)'
             };
 
         } catch (error) {
             console.error('[GameFlowIntegration] Balance validation error:', error.message);
             
-            // In development mode, allow with default balance
+            // Return failure instead of allowing in dev mode
             return {
-                valid: true,
-                available: 100000000000,
+                valid: false,
+                available: 0,
                 required: requiredAmount,
-                balance: 100000000000,
+                balance: 0,
                 locked: 0,
-                devMode: true,
-                source: 'fallback',
-                message: 'Validation failed - using fallback balance'
+                source: 'error',
+                message: `Validation error: ${error.message}`
             };
         }
     }
@@ -386,33 +452,82 @@ class GameFlowIntegration {
      * Convert table result to settlement format
      * @param {object} table - Table instance
      * @param {Array} winMessages - Win messages
+     * @param {object} playersRegistry - Optional global players registry for fallback lookup
      * @returns {object} Settlement data
      */
-    convertTableResultToSettlement(table, winMessages) {
+    convertTableResultToSettlement(table, winMessages, playersRegistry = null) {
+        console.log('[GameFlowIntegration] convertTableResultToSettlement called');
+        console.log('[GameFlowIntegration] winMessages:', winMessages);
+        console.log('[GameFlowIntegration] table.seats:', Object.keys(table.seats).map(id => ({
+            seatId: id,
+            playerName: table.seats[id]?.player?.name,
+            playerId: table.seats[id]?.player?.id
+        })));
+
         const winners = [];
-        
+        const foundPlayers = new Set(); // Track already found players to avoid duplicates
+
         // Parse win messages to extract winner info
         for (const msg of winMessages) {
-            // Extract winner name and amount from message like "Player wins $100.00"
+            console.log('[GameFlowIntegration] Parsing message:', msg);
+            // Extract winner name and amount from message like "Player wins $100000000.00"
+            // Note: amount is already in SUN units (table uses SUN internally)
             const match = msg.match(/(.+?) wins \$([0-9.]+)/);
             if (match) {
                 const name = match[1].trim();
                 const amount = parseFloat(match[2]);
-                
-                // Find player by name
+                console.log(`[GameFlowIntegration] Matched: name="${name}", amount=${amount}`);
+
+                // Skip if we already found this player (avoid duplicate processing)
+                if (foundPlayers.has(name)) {
+                    console.log(`[GameFlowIntegration] Skipping duplicate winner: ${name}`);
+                    continue;
+                }
+
+                // Find player by name in table seats first
+                let found = false;
                 for (const seatId of Object.keys(table.seats)) {
                     const seat = table.seats[seatId];
-                    if (seat && seat.player.name === name) {
+                    if (seat && seat.player && seat.player.name === name) {
+                        console.log(`[GameFlowIntegration] Found player in seat: ${seat.player.name} (id: ${seat.player.id})`);
                         winners.push({
                             address: seat.player.id,
                             socketId: seat.player.socketId,
-                            amount: Math.floor(amount * 1000000) // Convert to SUN
+                            name: seat.player.name,
+                            amount: Math.floor(amount) // Already in SUN, just round to integer
                         });
+                        foundPlayers.add(name);
+                        found = true;
                         break;
                     }
                 }
+
+                // If not found in seats, try global players registry (player may have left table)
+                if (!found && playersRegistry) {
+                    console.log(`[GameFlowIntegration] Player not in seats, checking global registry...`);
+                    const playerEntry = Object.entries(playersRegistry).find(
+                        ([_, p]) => p.name === name
+                    );
+                    if (playerEntry) {
+                        const [socketId, player] = playerEntry;
+                        console.log(`[GameFlowIntegration] Found player in global registry: ${player.name} (id: ${player.id})`);
+                        winners.push({
+                            address: player.id,
+                            socketId: socketId,
+                            name: player.name,
+                            amount: Math.floor(amount)
+                        });
+                        foundPlayers.add(name);
+                    } else {
+                        console.warn(`[GameFlowIntegration] Player not found anywhere: ${name}`);
+                    }
+                }
+            } else {
+                console.log('[GameFlowIntegration] No match for message:', msg);
             }
         }
+
+        console.log('[GameFlowIntegration] Final winners:', winners);
 
         return {
             tableId: table.id,
@@ -420,7 +535,7 @@ class GameFlowIntegration {
                 address: p.id,
                 socketId: p.socketId
             })),
-            pot: Math.floor(table.pot * 1000000), // Convert to SUN
+            pot: Math.floor(table.pot), // Already in SUN
             winners
         };
     }
@@ -744,15 +859,23 @@ class GameFlowIntegration {
     updatePlayerBalanceCache(playerAddress, balanceDelta, lockedDelta) {
         const cached = this.playerBalances.get(playerAddress) || {
             balance: 0,
-            locked: 0,
+            lockedAmount: 0,
             lastSync: Date.now()
         };
 
         this.playerBalances.set(playerAddress, {
+            ...cached,
             balance: cached.balance + balanceDelta,
-            locked: cached.locked + lockedDelta,
+            lockedAmount: (cached.lockedAmount || 0) + lockedDelta,
             lastSync: Date.now()
         });
+    }
+
+    /**
+     * Get player balance cache
+     */
+    getPlayerBalanceCache(playerAddress) {
+        return this.playerBalances.get(playerAddress) || null;
     }
 
     /**

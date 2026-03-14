@@ -221,6 +221,7 @@ class Table {
     this.winMessages = [];
   }
   endHand() {
+    console.log('[Table] endHand called, setting handOver=true, winMessages:', this.winMessages);
     this.clearSeatTurns();
     this.handOver = true;
     this.sitOutFeltedPlayers();
@@ -234,7 +235,9 @@ class Table {
     }
   }
   endWithoutShowdown() {
+    console.log('[Table] endWithoutShowdown called');
     const winner = this.unfoldedPlayers()[0];
+    console.log('[Table] Winner:', winner ? winner.player.name : 'none', 'Pot:', this.pot);
     winner && winner.winHand(this.pot);
     winner &&
       this.winMessages.push(
@@ -418,11 +421,13 @@ class Table {
     });
   }
   determineMainPotWinner() {
+    console.log('[Table] determineMainPotWinner called, pot:', this.pot);
     this.determineWinner(this.pot, Object.values(this.seats).slice());
     this.wentToShowdown = true;
     this.endHand();
   }
   determineWinner(amount, seats) {
+    console.log('[Table] determineWinner called, amount:', amount, 'seats count:', seats.length);
     const participants = seats
       .filter((seat) => seat && !seat.folded)
       .map((seat) => {
@@ -463,9 +468,11 @@ class Table {
         this.winMessages.push(
           `${seat.player.name} wins $${winAmount.toFixed(2)} with ${handDesc}`,
         );
+        console.log('[Table] Added winMessage:', `${seat.player.name} wins $${winAmount.toFixed(2)} with ${handDesc}`);
       }
     }
 
+    console.log('[Table] determineWinner complete, winMessages:', this.winMessages);
     this.updateHistory();
   }
   mapCardsForPokerSolver(cards) {
