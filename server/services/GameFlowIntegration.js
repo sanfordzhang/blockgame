@@ -68,44 +68,36 @@ class GameFlowIntegration {
             // Check if player is registered on contract
             const isRegistered = await this.checkPlayerRegistration(playerAddress);
             
+            // Get cached balance first (fast)
+            let cachedBalance = this.playerBalances.get(playerAddress);
+            
             // For development: auto-register unregistered players
             if (!isRegistered) {
-                console.log(`[GameFlowIntegration] Player ${playerAddress} not registered, auto-registering for development...`);
+                console.log(`[GameFlowIntegration] Player ${playerAddress} not registered, using development mode`);
                 
-                // In development mode, create a local player record
-                this.playerBalances.set(playerAddress, {
-                    balance: 100000000000, // 100,000 TRX default for development
-                    lockedAmount: 0,
-                    isRegistered: true,
-                    registeredAt: Date.now()
-                });
-                
-                this.notifyPlayer(socketId, 'blockchain:registration', {
-                    status: 'auto_registered',
-                    message: 'Player auto-registered for development mode',
-                    playerAddress
-                });
+                // Use existing cache or create default
+                if (!cachedBalance) {
+                    cachedBalance = {
+                        balance: 100000000000, // 100,000 TRX default for development
+                        lockedAmount: 0,
+                        isRegistered: false,
+                        registeredAt: Date.now()
+                    };
+                    this.playerBalances.set(playerAddress, cachedBalance);
+                }
             }
 
-            // Get player balance (from contract or local cache)
-            let playerInfo;
-            if (isRegistered) {
-                playerInfo = await this.getPlayerBalance(playerAddress);
-            } else {
-                // Use local cache for development
-                playerInfo = this.playerBalances.get(playerAddress) || {
-                    balance: 100000000000,
-                    lockedAmount: 0
-                };
+            // Get player balance (from cache first, then contract)
+            let playerInfo = cachedBalance;
+            if (isRegistered && !cachedBalance) {
+                try {
+                    playerInfo = await this.getPlayerBalance(playerAddress);
+                } catch (e) {
+                    console.warn('[GameFlowIntegration] Failed to get balance, using default');
+                    playerInfo = { balance: 100000000000, lockedAmount: 0 };
+                }
             }
             
-            const availableBalance = playerInfo.balance - playerInfo.lockedAmount;
-
-            if (availableBalance < buyInAmount) {
-                console.warn(`[GameFlowIntegration] Insufficient balance, using development mode override`);
-                // In development, allow join anyway
-            }
-
             // Track pending join
             const joinId = `${playerAddress}_${tableId}_${Date.now()}`;
             this.pendingJoinTable.set(joinId, {
@@ -116,25 +108,34 @@ class GameFlowIntegration {
                 createdAt: Date.now()
             });
 
-            // Notify player about transaction start
-            this.notifyPlayer(socketId, 'blockchain:joinTable', {
-                status: 'pending',
-                message: 'Processing join table transaction...',
-                tableId,
-                buyInAmount
-            });
-
-            // Try contract call, fall back to simulation for development
+            // Use simulation immediately for development mode or unregistered players
+            // This avoids the slow blockchain transaction wait
             let result;
-            try {
-                result = await contractService.joinTable(tableId, buyInAmount);
-            } catch (contractError) {
-                console.log(`[GameFlowIntegration] Contract call failed, using simulation: ${contractError.message}`);
-                // Simulate successful join for development
+            if (!isRegistered) {
+                // Skip contract call for unregistered players - use simulation
+                console.log('[GameFlowIntegration] Using simulation mode (player not registered on contract)');
                 result = {
                     txId: `sim_${Date.now()}_${playerAddress.slice(0, 8)}`,
-                    simulated: true
+                    simulated: true,
+                    reason: 'Player not registered on contract'
                 };
+            } else {
+                // Try contract call with timeout
+                try {
+                    result = await Promise.race([
+                        contractService.joinTable(tableId, buyInAmount),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Transaction timeout')), 5000)
+                        )
+                    ]);
+                } catch (contractError) {
+                    console.log(`[GameFlowIntegration] Contract call failed, using simulation: ${contractError.message}`);
+                    result = {
+                        txId: `sim_${Date.now()}_${playerAddress.slice(0, 8)}`,
+                        simulated: true,
+                        reason: contractError.message
+                    };
+                }
             }
 
             // Update pending join status
@@ -261,8 +262,8 @@ class GameFlowIntegration {
         try {
             // First check local cache (for development mode)
             const cached = this.playerBalances.get(playerAddress);
-            if (cached) {
-                const availableBalance = cached.balance - cached.lockedAmount;
+            if (cached && !isNaN(cached.balance) && !isNaN(cached.lockedAmount)) {
+                const availableBalance = cached.balance - (cached.lockedAmount || 0);
                 console.log(`[GameFlowIntegration] Using cached balance: ${availableBalance}`);
                 
                 if (availableBalance >= requiredAmount) {
@@ -271,15 +272,33 @@ class GameFlowIntegration {
                         available: availableBalance,
                         required: requiredAmount,
                         balance: cached.balance,
-                        locked: cached.lockedAmount,
+                        locked: cached.lockedAmount || 0,
                         source: 'cache'
                     };
                 }
             }
 
-            // Try to get from contract
-            const playerInfo = await this.getPlayerBalance(playerAddress);
-            const availableBalance = playerInfo.balance - playerInfo.lockedAmount;
+            // Default balance for development
+            const defaultBalance = 100000000000; // 100,000 TRX
+
+            // Try to get from contract with timeout
+            let playerInfo;
+            try {
+                playerInfo = await Promise.race([
+                    this.getPlayerBalance(playerAddress),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Balance fetch timeout')), 2000)
+                    )
+                ]);
+            } catch (e) {
+                console.warn('[GameFlowIntegration] Balance fetch failed, using default');
+                playerInfo = { balance: defaultBalance, lockedAmount: 0 };
+            }
+            
+            // Ensure values are valid numbers
+            const balance = !isNaN(playerInfo.balance) ? playerInfo.balance : defaultBalance;
+            const locked = !isNaN(playerInfo.lockedAmount) ? (playerInfo.lockedAmount || 0) : 0;
+            const availableBalance = balance - locked;
 
             if (availableBalance < requiredAmount) {
                 // In development mode, allow anyway with warning
@@ -288,8 +307,8 @@ class GameFlowIntegration {
                     valid: true, // Allow in dev mode
                     available: availableBalance,
                     required: requiredAmount,
-                    balance: playerInfo.balance,
-                    locked: playerInfo.lockedAmount,
+                    balance: balance,
+                    locked: locked,
                     devMode: true,
                     message: 'Insufficient balance - development mode override'
                 };
@@ -299,8 +318,8 @@ class GameFlowIntegration {
                 valid: true,
                 available: availableBalance,
                 required: requiredAmount,
-                balance: playerInfo.balance,
-                locked: playerInfo.lockedAmount,
+                balance: balance,
+                locked: locked,
                 source: 'contract'
             };
 
@@ -442,17 +461,28 @@ class GameFlowIntegration {
     async syncOnPlayerConnect(playerAddress, socketId) {
         console.log(`[GameFlowIntegration] Syncing on connect for ${playerAddress}`);
 
+        // Default balance for development mode
+        const defaultBalance = {
+            balance: 100000000000, // 100,000 TRX
+            lockedAmount: 0,
+            isRegistered: false,
+            registeredAt: 0
+        };
+
         try {
-            // Check registration
-            const isRegistered = await this.checkPlayerRegistration(playerAddress);
-            
-            // Default balance for development mode
-            const defaultBalance = {
-                balance: 100000000000, // 100,000 TRX
-                lockedAmount: 0,
-                isRegistered: false,
-                registeredAt: 0
-            };
+            // Check registration with timeout
+            let isRegistered = false;
+            try {
+                isRegistered = await Promise.race([
+                    this.checkPlayerRegistration(playerAddress),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Registration check timeout')), 3000)
+                    )
+                ]);
+            } catch (e) {
+                console.log('[GameFlowIntegration] Registration check timed out, using default balance');
+                isRegistered = false;
+            }
             
             if (!isRegistered) {
                 console.log(`[GameFlowIntegration] Player ${playerAddress} not registered, using development balance`);
@@ -485,8 +515,19 @@ class GameFlowIntegration {
                 return defaultBalance;
             }
 
-            // Sync balance
-            const balance = await this.syncPlayerBalance(playerAddress);
+            // Sync balance with timeout
+            let balance;
+            try {
+                balance = await Promise.race([
+                    this.syncPlayerBalance(playerAddress),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Balance sync timeout')), 3000)
+                    )
+                ]);
+            } catch (e) {
+                console.log('[GameFlowIntegration] Balance sync timed out, using default');
+                balance = defaultBalance;
+            }
 
             // Track session
             this.playerSessions.set(socketId, {
@@ -508,20 +549,13 @@ class GameFlowIntegration {
             console.error('[GameFlowIntegration] Connect sync error:', error.message);
             
             // Return default balance for development even on error
-            const fallbackBalance = {
-                balance: 100000000000,
-                lockedAmount: 0,
-                isRegistered: false,
-                registeredAt: 0
-            };
-            
             this.playerBalances.set(playerAddress, {
-                balance: fallbackBalance.balance,
+                balance: defaultBalance.balance,
                 lockedAmount: 0,
                 lastSync: Date.now()
             });
             
-            return fallbackBalance;
+            return defaultBalance;
         }
     }
 
@@ -664,7 +698,14 @@ class GameFlowIntegration {
      */
     async checkPlayerRegistration(playerAddress) {
         try {
-            return await contractService.isPlayerRegistered(playerAddress);
+            // Add timeout to prevent blocking
+            const result = await Promise.race([
+                contractService.isPlayerRegistered(playerAddress),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Registration check timeout')), 3000)
+                )
+            ]);
+            return result;
         } catch (error) {
             console.warn('[GameFlowIntegration] Registration check failed:', error.message);
             return false;

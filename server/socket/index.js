@@ -155,8 +155,17 @@ const init = (socket, io) => {
     socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId });
     socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
     
+    // Find an empty seat (seats are 1-indexed)
+    let emptySeatId = 1;
+    for (let i = 1; i <= table.maxPlayers; i++) {
+      if (!table.seats[i] || !table.seats[i].player) {
+        emptySeatId = i;
+        break;
+      }
+    }
+    
     // Auto sit down
-    await sitDown(tableId, table.players.length, table.limit);
+    await sitDown(tableId, emptySeatId, table.limit);
 
     if (
       tables[tableId].players &&
@@ -172,6 +181,8 @@ const init = (socket, io) => {
   socket.on(CS_JOIN_TABLE_BLOCKCHAIN, async ({ tableId, buyInAmount }) => {
     const table = tables[tableId];
     const player = players[socket.id];
+    
+    console.log('[Socket] CS_JOIN_TABLE_BLOCKCHAIN:', { tableId, buyInAmount, player: player?.id });
     
     if (!player) {
       socket.emit(SC_BLOCKCHAIN_ERROR, {
@@ -191,18 +202,32 @@ const init = (socket, io) => {
           socket.id
         );
         
+        console.log('[Socket] handleJoinTable result:', result);
+        
         // Add player to table after successful blockchain operation
         table.addPlayer(player);
         socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId: result.txId });
         socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
         
+        // Find an empty seat (seats are 1-indexed)
+        let emptySeatId = 1;
+        for (let i = 1; i <= table.maxPlayers; i++) {
+          if (!table.seats[i] || !table.seats[i].player) {
+            emptySeatId = i;
+            break;
+          }
+        }
+        
+        console.log('[Socket] Sitting down at seat:', emptySeatId);
+        
         // Sit down with the buy-in amount
-        await sitDown(tableId, table.players.length, buyInAmount);
+        await sitDown(tableId, emptySeatId, buyInAmount);
         
         let message = `${player.name} joined the table.`;
         broadcastToTable(table, message);
         
       } catch (error) {
+        console.error('[Socket] Join table error:', error);
         // Task 15.6: Error handling
         gameFlowIntegration.handleBlockchainError(error, 'joinTable', socket.id);
       }
@@ -211,7 +236,7 @@ const init = (socket, io) => {
       table.addPlayer(player);
       socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId });
       socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
-      await sitDown(tableId, table.players.length, table.limit);
+      await sitDown(tableId, table.players.length - 1, table.limit);
       
       let message = `${player.name} joined the table.`;
       broadcastToTable(table, message);
@@ -358,17 +383,27 @@ const init = (socket, io) => {
     const table = tables[tableId];
     const player = players[socket.id];
     
+    console.log('[Socket] sitDown called:', { tableId, seatId, amount, player: player?.id });
+    
     if (player) {
       // Task 15.3: Validate contract balance before sitting down
       if (config.BLOCKCHAIN_ENABLED) {
         try {
-          const validation = await gameFlowIntegration.validateBalanceForSitDown(
-            player.id,
-            amount
-          );
+          console.log('[Socket] Validating balance for sitDown...');
+          
+          // Add timeout to prevent blocking
+          const validation = await Promise.race([
+            gameFlowIntegration.validateBalanceForSitDown(player.id, amount),
+            new Promise((resolve) => 
+              setTimeout(() => resolve({ valid: true, devMode: true, message: 'Validation timeout - using default' }), 2000)
+            )
+          ]);
+          
+          console.log('[Socket] Validation result:', validation);
           
           if (!validation.valid) {
             // Task 15.7: Notify player about insufficient balance
+            console.warn('[Socket] Validation failed:', validation.message);
             socket.emit(SC_BLOCKCHAIN_ERROR, {
               operation: 'sitDown',
               message: validation.message,
@@ -391,15 +426,19 @@ const init = (socket, io) => {
         }
       }
       
+      console.log('[Socket] Calling table.sitPlayer...');
       table.sitPlayer(player, seatId, amount);
       let message = `${player.name} sat down in Seat ${seatId}`;
 
       updatePlayerBankroll(player, -amount);
 
       broadcastToTable(table, message);
+      console.log('[Socket] Active players:', table.activePlayers().length);
       if (table.activePlayers().length === 2) {
         initNewHand(table);
       }
+    } else {
+      console.error('[Socket] sitDown: Player not found');
     }
   }
 
