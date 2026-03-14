@@ -213,16 +213,65 @@ export const connectTronLink = async () => {
     }
 
     // Check if TronLink is locked (has tronLink but not ready and no address)
-    if (window.tronLink && !window.tronLink.ready && !tronWeb?.defaultAddress?.base58) {
-      // Try waiting a bit more for unlock
-      console.log('[TronLink] Detected but not ready, waiting for unlock...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    // Note: defaultAddress can be false, null, undefined, or empty string when not connected
+    const hasAddress = tronWeb?.defaultAddress?.base58 && tronWeb.defaultAddress.base58 !== false;
+    
+    if (window.tronLink && !hasAddress) {
+      // TronLink exists but no address - need to request connection
+      console.log('[TronLink] Detected but no address, requesting connection...');
+      
+      // Try to request accounts first (this triggers the authorization popup)
+      if (window.tronLink?.request) {
+        try {
+          const res = await window.tronLink.request({
+            method: 'tron_requestAccounts'
+          });
+          
+          console.log('[TronLink] Request response:', JSON.stringify(res, null, 2));
+          
+          // Refresh tronWeb reference
+          tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+          const address = tronWeb?.defaultAddress?.base58;
+          
+          // Handle successful connection
+          if (res === true || res?.code === 200 || res?.result === true || (address && address !== false)) {
+            if (address && address !== false) {
+              return {
+                success: true,
+                address,
+                chainId: tronWeb.fullNode?.chainId,
+                network: getNetworkByChainId(tronWeb.fullNode?.chainId)
+              };
+            }
+          }
+          
+          // Handle specific error codes
+          if (res?.code === 4001) {
+            return {
+              success: false,
+              error: '用户拒绝了连接请求，请在 TronLink 中点击确认'
+            };
+          }
+          
+          if (res?.code === 4100) {
+            return {
+              success: false,
+              error: '请先解锁 TronLink 钱包（点击浏览器扩展图标并输入密码）'
+            };
+          }
+        } catch (requestError) {
+          console.log('[TronLink] Request error:', requestError.message);
+        }
+      }
+      
+      // Wait and re-check
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Re-check after waiting
       tronWeb = window.tronLink?.tronWeb || window.tronWeb;
       const addressAfterWait = tronWeb?.defaultAddress?.base58;
-      if (addressAfterWait) {
-        console.log('[TronLink] Connected after wait:', addressAfterWait);
+      if (addressAfterWait && addressAfterWait !== false) {
+        console.log('[TronLink] Connected after request:', addressAfterWait);
         return {
           success: true,
           address: addressAfterWait,
@@ -231,17 +280,15 @@ export const connectTronLink = async () => {
         };
       }
       
-      // Still not ready - likely locked
-      if (!window.tronLink.ready) {
-        return {
-          success: false,
-          error: '请先解锁 TronLink 钱包（点击浏览器扩展图标并输入密码）'
-        };
-      }
+      // Still no address - need user to manually authorize
+      return {
+        success: false,
+        error: '请在 TronLink 钱包中点击"连接"按钮授权连接，然后刷新页面重试'
+      };
     }
 
-    // Try to request connection via tronLink
-    if (window.tronLink?.request) {
+    // Try to request connection via tronLink (only if ready)
+    if (window.tronLink?.request && window.tronLink?.ready) {
       try {
         const res = await window.tronLink.request({
           method: 'tron_requestAccounts'
