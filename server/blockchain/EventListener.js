@@ -7,8 +7,10 @@ class EventListener {
     constructor() {
         this.tronService = null;
         this.contractService = null;
-        this.subscriptions = new Map();
         this.running = false;
+        this.pollInterval = null;
+        this.lastBlockNumber = 0;
+        this.processedTxIds = new Set(); // Track processed transactions
     }
 
     /**
@@ -31,8 +33,10 @@ class EventListener {
         }
 
         this.running = true;
-        this.subscribeToEvents();
-        console.log('[EventListener] Started listening for events');
+        console.log('[EventListener] Started polling for events');
+
+        // Start polling immediately
+        this.pollEvents();
     }
 
     /**
@@ -40,69 +44,105 @@ class EventListener {
      */
     stop() {
         this.running = false;
-        
-        // Clear all subscriptions
-        for (const [name, sub] of this.subscriptions) {
-            if (sub && sub.unsubscribe) {
-                sub.unsubscribe();
-            }
+
+        if (this.pollInterval) {
+            clearTimeout(this.pollInterval);
+            this.pollInterval = null;
         }
-        this.subscriptions.clear();
-        
+
         console.log('[EventListener] Stopped');
     }
 
     /**
-     * Subscribe to all relevant events
+     * Poll for events using TronWeb's getEventResult
      */
-    subscribeToEvents() {
-        const contract = this.contractService.contract;
-        if (!contract) {
-            console.warn('[EventListener] No contract to subscribe to');
-            return;
+    async pollEvents() {
+        if (!this.running) return;
+
+        try {
+            const contractAddress = this.contractService.getContractAddress();
+            if (!contractAddress) {
+                console.warn('[EventListener] No contract address');
+                this.pollInterval = setTimeout(() => this.pollEvents(), 5000);
+                return;
+            }
+
+            const tronWeb = this.tronService.getTronWeb();
+
+            // Get events - returns {data: [...], success: true}
+            const result = await tronWeb.getEventResult(contractAddress, {
+                size: 20,
+                sort: 'block_timestamp'
+            });
+
+            const events = result?.data || [];
+            console.log(`[EventListener] Polled ${events.length} events from contract ${contractAddress}`);
+
+            if (events.length > 0) {
+                for (const event of events) {
+                    // Skip already processed events
+                    if (this.processedTxIds.has(event.transaction_id)) {
+                        continue;
+                    }
+
+                    console.log(`[EventListener] Event: ${event.event_name}`, event);
+                    this.handleEvent(event);
+
+                    // Mark as processed
+                    this.processedTxIds.add(event.transaction_id);
+
+                    // Limit set size to prevent memory leak (keep last 1000)
+                    if (this.processedTxIds.size > 1000) {
+                        const firstItem = this.processedTxIds.values().next().value;
+                        this.processedTxIds.delete(firstItem);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[EventListener] Poll error:', error.message);
         }
 
-        // Player events
-        this.subscribe('PlayerRegistered', this.onPlayerRegistered.bind(this));
-        this.subscribe('Deposited', this.onDeposited.bind(this));
-        this.subscribe('Withdrawn', this.onWithdrawn.bind(this));
-        
-        // Game events
-        this.subscribe('JoinedTable', this.onJoinedTable.bind(this));
-        this.subscribe('LeftTable', this.onLeftTable.bind(this));
-        this.subscribe('GameStarted', this.onGameStarted.bind(this));
-        this.subscribe('GameSettled', this.onGameSettled.bind(this));
-        
-        // Admin events
-        this.subscribe('RakeRateChanged', this.onRakeRateChanged.bind(this));
-        this.subscribe('RakeRateChangeScheduled', this.onRakeRateChangeScheduled.bind(this));
-        this.subscribe('RakeWithdrawn', this.onRakeWithdrawn.bind(this));
+        // Poll every 3 seconds
+        this.pollInterval = setTimeout(() => this.pollEvents(), 3000);
     }
 
     /**
-     * Subscribe to a specific event
+     * Handle a single event
      */
-    subscribe(eventName, callback) {
-        try {
-            const contract = this.contractService.contract;
-            
-            // Use TronWeb's event watching
-            const subscription = contract[eventName]().watch((err, event) => {
-                if (err) {
-                    console.error(`[EventListener] Error in ${eventName}:`, err);
-                    return;
-                }
-                
-                if (event) {
-                    console.log(`[EventListener] ${eventName}:`, event);
-                    callback(event);
-                }
-            });
-            
-            this.subscriptions.set(eventName, subscription);
-            console.log(`[EventListener] Subscribed to ${eventName}`);
-        } catch (error) {
-            console.error(`[EventListener] Failed to subscribe to ${eventName}:`, error.message);
+    handleEvent(event) {
+        const eventName = event.event_name;
+
+        switch (eventName) {
+            case 'PlayerRegistered':
+                this.onPlayerRegistered(event);
+                break;
+            case 'Deposited':
+                this.onDeposited(event);
+                break;
+            case 'Withdrawn':
+                this.onWithdrawn(event);
+                break;
+            case 'JoinedTable':
+                this.onJoinedTable(event);
+                break;
+            case 'LeftTable':
+                this.onLeftTable(event);
+                break;
+            case 'GameStarted':
+                this.onGameStarted(event);
+                break;
+            case 'GameSettled':
+                this.onGameSettled(event);
+                break;
+            case 'RakeRateChanged':
+                this.onRakeRateChanged(event);
+                break;
+            case 'RakeRateChangeScheduled':
+                this.onRakeRateChangeScheduled(event);
+                break;
+            case 'RakeWithdrawn':
+                this.onRakeWithdrawn(event);
+                break;
         }
     }
 
@@ -122,13 +162,16 @@ class EventListener {
     }
 
     onDeposited(event) {
-        const { player, amount } = event.result;
-        console.log(`[EventListener] Deposit: ${player} deposited ${amount} SUN`);
-        
+        const player = event.result.player || event.result[0];
+        const amount = event.result.amount || event.result[1];
+        const amountNum = typeof amount === 'object' && amount.toNumber ? amount.toNumber() : parseInt(amount);
+        console.log(`[EventListener] ✅ DEPOSIT EVENT: ${player} deposited ${amountNum} SUN (${amountNum/1000000} TRX)`);
+        console.log(`[EventListener] Event details:`, JSON.stringify(event.result, null, 2));
+
         if (global.io) {
             global.io.to(player).emit('balance:updated', {
                 type: 'deposit',
-                amount: amount.toNumber()
+                amount: amountNum
             });
         }
     }

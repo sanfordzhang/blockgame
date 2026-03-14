@@ -694,6 +694,9 @@ const init = (socket, io) => {
           });
         }
       }
+
+      // Broadcast updated table state so all players see updated stacks
+      broadcastToTable(table);
     }
 
     // Only do blockchain settlement if enabled

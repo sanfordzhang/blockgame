@@ -309,33 +309,29 @@ const Landing = () => {
                   <span>{formatTrx(contractBalance)} TRX</span>
                 </BalanceRow>
               </BalanceInfo>
-              {contractBalance < 100000000 && (
-                <>
-                  <DepositSection>
-                    <DepositInput
-                      type="number"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="Amount in TRX"
-                      min="1"
-                    />
-                    <Button
-                      primary
-                      onClick={handleDeposit}
-                      disabled={depositing}
-                      style={{ marginLeft: '0.5rem' }}
-                    >
-                      {depositing ? 'Depositing...' : 'Deposit'}
-                    </Button>
-                  </DepositSection>
-                  <FaucetLink>
-                    Need test TRX?{' '}
-                    <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
-                      Get from Nile Faucet
-                    </a>
-                  </FaucetLink>
-                </>
-              )}
+              <DepositSection>
+                <DepositInput
+                  type="number"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="Amount in TRX"
+                  min="1"
+                />
+                <Button
+                  primary
+                  onClick={handleDeposit}
+                  disabled={depositing}
+                  style={{ marginLeft: '0.5rem' }}
+                >
+                  {depositing ? 'Depositing...' : 'Deposit'}
+                </Button>
+              </DepositSection>
+              <FaucetLink>
+                Need test TRX?{' '}
+                <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
+                  Get from Nile Faucet
+                </a>
+              </FaucetLink>
               <Button
                 large
                 primary

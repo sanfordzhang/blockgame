@@ -277,46 +277,63 @@ class GameFlowIntegration {
      * @returns {Promise<object>} Validation result
      */
     async validateBalanceForSitDown(playerAddress, requiredAmount, isPlayerAtTable = false) {
-        console.log(`[GameFlowIntegration] Validating balance for ${playerAddress}, required: ${requiredAmount}, isAtTable: ${isPlayerAtTable}`);
+        console.log(`[GameFlowIntegration] ========== BALANCE VALIDATION START ==========`);
+        console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
+        console.log(`[GameFlowIntegration] Required: ${requiredAmount} SUN (${requiredAmount/1000000} TRX)`);
+        console.log(`[GameFlowIntegration] Is at table: ${isPlayerAtTable}`);
 
         try {
             // First, try to get fresh balance from contract (in case user deposited)
             // This ensures we have the most up-to-date balance
             let playerInfo;
             try {
+                console.log('[GameFlowIntegration] Fetching balance from contract...');
                 playerInfo = await Promise.race([
                     this.getPlayerBalance(playerAddress),
-                    new Promise((_, reject) => 
+                    new Promise((_, reject) =>
                         setTimeout(() => reject(new Error('Balance fetch timeout')), 2000)
                     )
                 ]);
-                console.log('[GameFlowIntegration] Got balance from contract:', playerInfo);
+                console.log('[GameFlowIntegration] ✅ Got balance from contract:', {
+                    balance: playerInfo.balance,
+                    balanceTRX: playerInfo.balance / 1000000,
+                    lockedAmount: playerInfo.lockedAmount,
+                    lockedTRX: playerInfo.lockedAmount / 1000000,
+                    isRegistered: playerInfo.isRegistered
+                });
             } catch (e) {
-                console.warn('[GameFlowIntegration] Balance fetch failed, trying cache:', e.message);
+                console.warn('[GameFlowIntegration] ❌ Balance fetch failed, trying cache:', e.message);
                 playerInfo = null;
             }
-            
+
             // If contract fetch succeeded, update cache and use that balance
             if (playerInfo && !isNaN(playerInfo.balance)) {
                 const balance = playerInfo.balance;
                 // Sanity check: if player is not at any table, locked should be 0
                 let locked = playerInfo.lockedAmount || 0;
+
+                console.log(`[GameFlowIntegration] Raw contract data: balance=${balance}, locked=${locked}`);
+
                 if (!isPlayerAtTable && locked > 0) {
-                    console.log(`[GameFlowIntegration] Player not at table but contract has locked=${locked}, resetting to 0`);
+                    console.log(`[GameFlowIntegration] ⚠️  ISSUE DETECTED: Player not at table but contract has locked=${locked} (${locked/1000000} TRX)`);
+                    console.log(`[GameFlowIntegration] This suggests deposit went into lockedAmount instead of balance`);
+                    console.log(`[GameFlowIntegration] Resetting locked to 0 for validation`);
                     locked = 0;
                 }
                 const availableBalance = balance - locked;
-                
-                console.log(`[GameFlowIntegration] Contract balance: ${balance}, locked: ${locked}, available: ${availableBalance}`);
-                
+
+                console.log(`[GameFlowIntegration] Calculated: balance=${balance} (${balance/1000000} TRX), locked=${locked} (${locked/1000000} TRX), available=${availableBalance} (${availableBalance/1000000} TRX)`);
+
                 // Update cache with fresh data
                 this.playerBalances.set(playerAddress, {
                     balance: balance,
                     lockedAmount: locked,
                     lastSync: Date.now()
                 });
-                
+
                 if (availableBalance >= requiredAmount) {
+                    console.log(`[GameFlowIntegration] ✅ VALIDATION PASSED: ${availableBalance/1000000} TRX >= ${requiredAmount/1000000} TRX`);
+                    console.log(`[GameFlowIntegration] ========== BALANCE VALIDATION END ==========`);
                     return {
                         valid: true,
                         available: availableBalance,
@@ -326,7 +343,9 @@ class GameFlowIntegration {
                         source: 'contract'
                     };
                 } else {
-                    console.warn(`[GameFlowIntegration] Insufficient balance from contract. Available: ${availableBalance}, Required: ${requiredAmount}`);
+                    console.error(`[GameFlowIntegration] ❌ VALIDATION FAILED: ${availableBalance/1000000} TRX < ${requiredAmount/1000000} TRX`);
+                    console.error(`[GameFlowIntegration] Contract balance=${balance/1000000} TRX, locked=${locked/1000000} TRX`);
+                    console.log(`[GameFlowIntegration] ========== BALANCE VALIDATION END ==========`);
                     return {
                         valid: false,
                         available: availableBalance,
@@ -876,6 +895,34 @@ class GameFlowIntegration {
      */
     getPlayerBalanceCache(playerAddress) {
         return this.playerBalances.get(playerAddress) || null;
+    }
+
+    /**
+     * Add balance instantly for development/testing (bypasses blockchain)
+     */
+    addBalanceInstant(playerAddress, amount) {
+        console.log(`[GameFlowIntegration] 💰 DEV MODE: Adding ${amount} SUN (${amount/1000000} TRX) to ${playerAddress}`);
+
+        const cached = this.playerBalances.get(playerAddress) || {
+            balance: 0,
+            lockedAmount: 0,
+            lastSync: Date.now()
+        };
+
+        const newBalance = cached.balance + amount;
+        this.playerBalances.set(playerAddress, {
+            ...cached,
+            balance: newBalance,
+            lastSync: Date.now()
+        });
+
+        console.log(`[GameFlowIntegration] ✅ New balance: ${newBalance} SUN (${newBalance/1000000} TRX)`);
+
+        return {
+            success: true,
+            balance: newBalance,
+            added: amount
+        };
     }
 
     /**

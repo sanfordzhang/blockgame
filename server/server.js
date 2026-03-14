@@ -14,6 +14,7 @@ const config = require("./config");
 
 // Blockchain services
 const { TronService, ContractService } = require("./blockchain");
+const EventListener = require("./blockchain/EventListener");
 const GameSettlementService = require("./services/GameSettlementService");
 const gameFlowIntegration = require("./services/GameFlowIntegration");
 // Connect and get reference to mongodb instance
@@ -50,7 +51,11 @@ async function initializeBlockchainServices() {
             
             // Initialize GameFlowIntegration
             gameFlowIntegration.init(TronService);
-            
+
+            // Initialize and start EventListener
+            EventListener.init(TronService, ContractService);
+            EventListener.start();
+
             console.log('[Server] Blockchain services initialized successfully');
         } catch (error) {
             console.error('[Server] Failed to initialize blockchain services:', error.message);
