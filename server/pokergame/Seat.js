@@ -30,16 +30,19 @@ class Seat {
 
   raise(amount) {
     const reRaiseAmount = amount - this.bet;
-    if (reRaiseAmount > this.stack) return;
+    // If not enough stack, go all-in with remaining stack
+    const actualRaise = Math.min(reRaiseAmount, this.stack);
 
-    this.bet = amount;
-    this.stack -= reRaiseAmount;
+    this.bet += actualRaise;
+    this.stack -= actualRaise;
     this.turn = false;
     this.lastAction = CS_RAISE;
   }
   placeBlind(amount) {
-    this.bet = amount;
-    this.stack -= amount;
+    // Ensure we don't go negative - use min of bet amount and available stack
+    const actualAmount = Math.min(amount, this.stack);
+    this.bet = actualAmount;
+    this.stack -= actualAmount;
   }
 
   callRaise(amount) {

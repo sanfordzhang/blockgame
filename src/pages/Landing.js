@@ -153,17 +153,14 @@ const Landing = () => {
       const tx = await registerPlayer();
       console.log('Registration tx:', tx);
       
-      // Wait a bit for the transaction to be confirmed
-      setTimeout(async () => {
-        const registered = await isPlayerRegistered(walletAddress);
-        setIsRegistered(registered);
-        
-        // Refresh balances
-        const balance = await getPlayerBalance(walletAddress);
-        setContractBalance(balance.balance);
-      }, 2000);
-      
+      // Optimistic update - set registered immediately
       setIsRegistered(true);
+      
+      // Refresh balance in background (don't wait)
+      getPlayerBalance(walletAddress).then(balance => {
+        setContractBalance(balance.balance);
+      }).catch(console.error);
+      
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || '注册失败，请重试');
@@ -187,13 +184,21 @@ const Landing = () => {
       const tx = await depositTrx(amount);
       console.log('Deposit tx:', tx);
       
-      // Wait for confirmation and refresh balance
+      // Optimistic update - add amount to balance immediately
+      setContractBalance(prev => prev + amount);
+      setWalletBalance(prev => Math.max(0, prev - amount));
+      
+      // Refresh actual balance in background after a short delay
       setTimeout(async () => {
-        const balance = await getPlayerBalance(walletAddress);
-        setContractBalance(balance.balance);
-        const trxBalance = await getTrxBalance(walletAddress);
-        setWalletBalance(trxBalance);
-      }, 3000);
+        try {
+          const balance = await getPlayerBalance(walletAddress);
+          setContractBalance(balance.balance);
+          const trxBalance = await getTrxBalance(walletAddress);
+          setWalletBalance(trxBalance);
+        } catch (e) {
+          console.error('Balance refresh error:', e);
+        }
+      }, 5000);  // Check actual balance after 5 seconds
       
     } catch (err) {
       console.error('Deposit error:', err);

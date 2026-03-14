@@ -56,6 +56,21 @@ class Table {
     if (this.seats[seatId]) {
       return;
     }
+    
+    // Validate buy-in amount - must be at least big blind
+    const bigBlind = this.minBet * 2;
+    const minBuyIn = bigBlind * 20; // 20 big blinds minimum
+    
+    if (amount < minBuyIn) {
+      console.warn(`[Table] Buy-in ${amount} is less than minimum ${minBuyIn}, adjusting to minimum`);
+      amount = minBuyIn;
+    }
+    
+    // Cap at table limit
+    if (amount > this.limit) {
+      amount = this.limit;
+    }
+    
     this.seats[seatId] = new Seat(seatId, player, amount, amount);
 
     const firstPlayer =

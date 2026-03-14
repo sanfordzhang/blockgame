@@ -154,10 +154,10 @@ export const Seat = ({ currentTable, seatNumber, sitDown }) => {
             origin="bottom center"
           >
             <p className="seat-name">{seat.player.name}</p>
-            {seat.stack && (
+            {seat.stack !== undefined && seat.stack !== null && (
               <p className="seat-stack">
                 {new Intl.NumberFormat(document.documentElement.lang).format(
-                  seat.stack,
+                  Math.max(0, seat.stack),  // Never show negative values
                 )}
               </p>
             )}

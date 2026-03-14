@@ -509,9 +509,11 @@ export const registerPlayer = async () => {
   const contract = await getContract(contractAddress);
   
   try {
+    // Use shouldPollResponse: false for faster response in development
+    // Transaction will still be processed, we just don't wait for confirmation
     const tx = await contract.registerPlayer().send({
       feeLimit: 100_000_000,
-      shouldPollResponse: true
+      shouldPollResponse: false  // Don't wait for confirmation
     });
     return tx;
   } catch (error) {
@@ -584,10 +586,11 @@ export const depositTrx = async (amount) => {
   const contract = await getContract(contractAddress);
   
   try {
+    // Use shouldPollResponse: false for faster response
     const tx = await contract.deposit().send({
       callValue: amount,
       feeLimit: 100_000_000,
-      shouldPollResponse: true
+      shouldPollResponse: false  // Don't wait for confirmation
     });
     return tx;
   } catch (error) {

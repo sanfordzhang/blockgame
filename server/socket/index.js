@@ -192,13 +192,31 @@ const init = (socket, io) => {
       return;
     }
 
+    // Validate buyInAmount - must be at least 20 big blinds
+    const bigBlind = table.minBet * 2;
+    const minBuyIn = bigBlind * 20; // Minimum 20 big blinds
+    
+    if (!buyInAmount || buyInAmount < minBuyIn) {
+      console.warn('[Socket] Invalid buyInAmount:', buyInAmount, 'min required:', minBuyIn);
+      socket.emit(SC_BLOCKCHAIN_ERROR, {
+        operation: 'joinTable',
+        message: `Buy-in must be at least ${minBuyIn} SUN (${minBuyIn / 1000000} TRX, 20 big blinds)`,
+        required: minBuyIn,
+        provided: buyInAmount || 0
+      });
+      return;
+    }
+
+    // Cap buyIn at table limit
+    const cappedBuyIn = Math.min(buyInAmount, table.limit);
+    
     if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Task 15.1: Call blockchain integration
         const result = await gameFlowIntegration.handleJoinTable(
           player.id,
           tableId,
-          buyInAmount,
+          cappedBuyIn,
           socket.id
         );
         
@@ -221,7 +239,7 @@ const init = (socket, io) => {
         console.log('[Socket] Sitting down at seat:', emptySeatId);
         
         // Sit down with the buy-in amount
-        await sitDown(tableId, emptySeatId, buyInAmount);
+        await sitDown(tableId, emptySeatId, cappedBuyIn);
         
         let message = `${player.name} joined the table.`;
         broadcastToTable(table, message);
