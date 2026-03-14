@@ -269,25 +269,41 @@ const init = (socket, io) => {
       (seat) => seat && seat.player.socketId === socket.id,
     );
 
+    console.log('[Socket] ========== LEAVE TABLE START ==========');
+    console.log('[Socket] Player:', player?.name, player?.id);
+    console.log('[Socket] Before leave - Bankroll:', player?.bankroll);
+    console.log('[Socket] Seat stack:', seat?.stack || 0);
+
     if (seat && player) {
+      const oldBankroll = player.bankroll;
       updatePlayerBankroll(player, seat.stack);
+      console.log('[Socket] After updatePlayerBankroll - Bankroll:', player.bankroll, `(${oldBankroll} + ${seat.stack})`);
     }
 
-    // Task 15.2: Blockchain leave table
-    if (config.BLOCKCHAIN_ENABLED && player) {
+    // Task 15.2: Blockchain leave table (only if stack > 0)
+    if (config.BLOCKCHAIN_ENABLED && player && seat?.stack > 0) {
       try {
-        const stack = seat?.stack || 0;
-        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id, stack);
+        console.log('[Socket] Calling blockchain leaveTable with stack:', seat.stack);
+        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id, seat.stack);
+        console.log('[Socket] Blockchain leaveTable success');
       } catch (error) {
         // Log error but continue with local leave
         console.error('[Socket] Blockchain leave table error:', error.message);
       }
+    } else {
+      console.log('[Socket] Skipping blockchain leaveTable (stack=0 or blockchain disabled)');
     }
 
     table.removePlayer(socket.id);
+    console.log('[Socket] Player removed from table');
+    console.log('[Socket] Final bankroll:', player?.bankroll);
+    console.log('[Socket] ========== LEAVE TABLE END ==========');
 
     socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
     socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+
+    // Broadcast updated player list so everyone sees the balance change
+    io.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
 
     if (
       tables[tableId].players &&
