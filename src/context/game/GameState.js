@@ -102,7 +102,7 @@ const GameState = ({ children }) => {
   const joinTable = (tableId, buyInAmount) => {
     // Default buyIn should be at least 20 big blinds (minBet * 2 * 20)
     // If no buyIn specified, use a reasonable default
-    const finalBuyIn = buyInAmount || 100000; // Default 100,000 SUN = 0.1 TRX (20 big blinds)
+    const finalBuyIn = buyInAmount || 100000000; // Default 100,000,000 SUN = 100 TRX (20 big blinds)
     console.log(CS_JOIN_TABLE_BLOCKCHAIN, tableId, finalBuyIn)
     socket.emit(CS_JOIN_TABLE_BLOCKCHAIN, { tableId, buyInAmount: finalBuyIn })
   }

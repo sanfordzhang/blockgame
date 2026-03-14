@@ -248,7 +248,7 @@ const Landing = () => {
             headingClass="h6"
             textCenteredOnMobile
             dangerouslySetInnerHTML={{
-              __html: 'You receive <span style=\"color: #24516a\">100,000 free chips</span> on connection',
+              __html: 'You receive <span style=\"color: #24516a\">100 TRX free chips</span> on connection',
             }}
           />
         </Markdown>

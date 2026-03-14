@@ -5,7 +5,7 @@ module.exports = {
   JWT_SECRET: process.env.JWT_SECRET,
   MONGO_URI: process.env.MONGO_URI,
   NODE_ENV: process.env.NODE_ENV,
-  INITIAL_CHIPS_AMOUNT: 100000,
+  INITIAL_CHIPS_AMOUNT: 100000000, // 100 TRX = 100,000,000 SUN
   
   // Blockchain configuration
   BLOCKCHAIN_ENABLED: process.env.BLOCKCHAIN_ENABLED === 'true' || false,
