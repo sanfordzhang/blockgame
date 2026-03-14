@@ -93,6 +93,20 @@ const CONTRACT_ABI = [
     ],
     "name": "Withdrawn",
     "type": "event"
+  },
+  {
+    "inputs": [{"name": "tableId", "type": "uint256"}],
+    "name": "getGameSession",
+    "outputs": [
+      {"name": "tableId", "type": "uint256"},
+      {"name": "players_", "type": "address[]"},
+      {"name": "buyInAmounts_", "type": "uint256[]"},
+      {"name": "totalPot", "type": "uint256"},
+      {"name": "state", "type": "uint8"},
+      {"name": "rakeRateUsed", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -646,6 +660,57 @@ export const parseTrx = (trx) => {
 };
 
 /**
+ * Try to unlock locked balance by leaving table
+ * This attempts to call leaveTable for a specific tableId
+ */
+export const tryUnlockLockedBalance = async (tableId = 1) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    throw new Error('Contract not deployed for this network');
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    // Try to leave table to unlock funds
+    const tx = await contract.leaveTable(tableId).send({
+      feeLimit: 100_000_000,
+      shouldPollResponse: true
+    });
+    return { success: true, tx };
+  } catch (error) {
+    console.error('Error unlocking balance:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get game session info
+ */
+export const getGameSession = async (tableId) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    return null;
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    const session = await contract.getGameSession(tableId).call();
+    return {
+      tableId: toNumber(session.tableId),
+      state: session.state, // 0=WAITING, 1=PLAYING, 2=SETTLING, 3=FINISHED
+      players: session.players_ || [],
+      totalPot: toNumber(session.totalPot),
+      stateName: ['WAITING', 'PLAYING', 'SETTLING', 'FINISHED'][session.state] || 'UNKNOWN'
+    };
+  } catch (error) {
+    console.error('Error getting game session:', error);
+    return null;
+  }
+};
+
+/**
  * Get transaction link
  */
 export const getTransactionLink = (txId, network = currentNetwork) => {
@@ -678,6 +743,8 @@ export default {
   getPlayerBalance,
   depositTrx,
   withdrawTrx,
+  tryUnlockLockedBalance,
+  getGameSession,
   formatAddress,
   formatTrx,
   parseTrx,

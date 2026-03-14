@@ -24,9 +24,12 @@ import {
   formatAddress,
   getPlayerBalance,
   depositTrx,
+  withdrawTrx,
   getTrxBalance,
   formatTrx,
-  parseTrx
+  parseTrx,
+  tryUnlockLockedBalance,
+  getGameSession
 } from '../utils/tronInteract';
 
 const MarketingHeadline = styled(Heading)`
@@ -49,7 +52,10 @@ const Landing = () => {
   const [lockedBalance, setLockedBalance] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
   const [depositing, setDepositing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const [depositAmount, setDepositAmount] = useState('100');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   // Calculate bankroll (available balance = total - locked)
@@ -238,6 +244,146 @@ const Landing = () => {
     }
   };
 
+  // Withdraw handler
+  const handleWithdraw = async () => {
+    if (!bankroll || bankroll <= 0) {
+      setError('没有可用余额可提现');
+      return;
+    }
+
+    // Check if there's locked balance
+    if (lockedBalance > 0) {
+      setError(`有 ${formatTrx(lockedBalance)} TRX 正在游戏中使用，请先离开游戏后再提现`);
+      return;
+    }
+
+    setWithdrawing(true);
+    setError(null);
+
+    try {
+      const amount = bankroll; // Withdraw all available balance
+      console.log('Withdrawing', amount, 'SUN');
+      const tx = await withdrawTrx(amount);
+      console.log('Withdraw tx:', tx);
+
+      // Optimistic update
+      setContractBalance(0);
+      setWalletBalance(prev => prev + amount);
+
+      // Refresh actual balance in background
+      setTimeout(async () => {
+        try {
+          const balance = await getPlayerBalance(walletAddress);
+          setContractBalance(balance.balance);
+          setLockedBalance(balance.locked || 0);
+          const trxBalance = await getTrxBalance(walletAddress);
+          setWalletBalance(trxBalance);
+        } catch (e) {
+          console.error('Balance refresh error:', e);
+        }
+      }, 5000);
+
+    } catch (err) {
+      console.error('Withdraw error:', err);
+      setError(err.message || '提现失败，请重试');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  // Withdraw all (including locked - emergency withdraw)
+  const handleWithdrawAll = async () => {
+    const totalBalance = contractBalance; // Total game balance
+
+    if (!totalBalance || totalBalance <= 0) {
+      setError('没有余额可提现');
+      return;
+    }
+
+    // If there's locked balance, show warning
+    if (lockedBalance > 0) {
+      const confirmWithdraw = window.confirm(
+        `您有 ${formatTrx(lockedBalance)} TRX 正在游戏中。\n` +
+        `提现可用余额 ${formatTrx(bankroll)} TRX 后，锁定余额将保留在游戏中。\n` +
+        `确定要继续吗？`
+      );
+      if (!confirmWithdraw) return;
+    }
+
+    setWithdrawing(true);
+    setError(null);
+
+    try {
+      // Only withdraw available balance (bankroll)
+      const amount = bankroll;
+      console.log('Withdrawing all available:', amount, 'SUN');
+      const tx = await withdrawTrx(amount);
+      console.log('Withdraw tx:', tx);
+
+      // Optimistic update
+      setContractBalance(lockedBalance); // Only locked remains
+      setWalletBalance(prev => prev + amount);
+
+      // Refresh actual balance in background
+      setTimeout(async () => {
+        try {
+          const balance = await getPlayerBalance(walletAddress);
+          setContractBalance(balance.balance);
+          setLockedBalance(balance.locked || 0);
+          const trxBalance = await getTrxBalance(walletAddress);
+          setWalletBalance(trxBalance);
+        } catch (e) {
+          console.error('Balance refresh error:', e);
+        }
+      }, 5000);
+
+    } catch (err) {
+      console.error('Withdraw error:', err);
+      setError(err.message || '提现失败，请重试');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  // Handle unlock locked balance
+  const handleUnlockLocked = async () => {
+    if (!lockedBalance || lockedBalance <= 0) {
+      setError('没有锁定余额需要解锁');
+      return;
+    }
+
+    setUnlocking(true);
+    setError(null);
+
+    try {
+      // First check game session state
+      const session = await getGameSession(1);
+      console.log('Game session:', session);
+
+      if (session && session.stateName === 'PLAYING') {
+        // Try to leave table to unlock funds
+        console.log('Attempting to leave table to unlock funds...');
+        const result = await tryUnlockLockedBalance(1);
+        console.log('Unlock result:', result);
+
+        // Refresh balances
+        await refreshAllBalances();
+      } else {
+        // Game not in playing state - cannot unlock via leaveTable
+        setError(
+          `无法解锁：游戏状态为 ${session?.stateName || '未知'}。\n` +
+          `锁定余额需要在游戏中才能通过 leaveTable 解锁。\n` +
+          `请联系管理员或等待游戏结算。`
+        );
+      }
+    } catch (err) {
+      console.error('Unlock error:', err);
+      setError(err.message || '解锁失败，请重试');
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   const proceedToGame = (address) => {
     const username = address.slice(0, 8);
     const gameId = '1';
@@ -372,6 +518,39 @@ const Landing = () => {
                   {depositing ? 'Depositing...' : 'Deposit'}
                 </Button>
               </DepositSection>
+              <WithdrawSection>
+                <WithdrawInfo>
+                  <span>可提现: {formatTrx(bankroll)} TRX</span>
+                  {lockedBalance > 0 && (
+                    <LockedWarning>
+                      ⚠️ {formatTrx(lockedBalance)} TRX 已锁定
+                    </LockedWarning>
+                  )}
+                </WithdrawInfo>
+                <WithdrawButtons>
+                  <Button
+                    onClick={handleWithdraw}
+                    disabled={withdrawing || bankroll <= 0}
+                    style={{ flex: 1 }}
+                  >
+                    {withdrawing ? '提现中...' : `提现 ${formatTrx(bankroll)} TRX`}
+                  </Button>
+                </WithdrawButtons>
+                {lockedBalance > 0 && (
+                  <UnlockSection>
+                    <Button
+                      onClick={handleUnlockLocked}
+                      disabled={unlocking}
+                      style={{ width: '100%', background: '#f0883e', borderColor: '#f0883e' }}
+                    >
+                      {unlocking ? '解锁中...' : `尝试解锁 ${formatTrx(lockedBalance)} TRX`}
+                    </Button>
+                    <UnlockHint>
+                      💡 锁定余额通常在游戏结束时自动释放。如果游戏异常结束，请点击上方按钮尝试解锁。
+                    </UnlockHint>
+                  </UnlockSection>
+                )}
+              </WithdrawSection>
               <FaucetLink>
                 Need test TRX?{' '}
                 <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
@@ -616,11 +795,53 @@ const DepositInput = styled.input`
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
-  
+
   &:focus {
     outline: none;
     border-color: #24516a;
   }
+`;
+
+const WithdrawSection = styled.div`
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(36, 81, 106, 0.05);
+  border-radius: 8px;
+  width: 100%;
+`;
+
+const WithdrawInfo = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+`;
+
+const LockedWarning = styled.span`
+  color: #f0883e;
+  font-size: 0.8rem;
+`;
+
+const WithdrawButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const UnlockSection = styled.div`
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(240, 136, 62, 0.1);
+  border: 1px solid rgba(240, 136, 62, 0.3);
+  border-radius: 8px;
+`;
+
+const UnlockHint = styled.p`
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 0.5rem;
+  line-height: 1.4;
 `;
 
 const FaucetLink = styled.p`

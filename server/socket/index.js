@@ -133,6 +133,8 @@ const init = (socket, io) => {
           console.error('[Socket] Balance sync error:', error.message);
           // Continue with default balance
         }
+      } else {
+        console.warn('⚠️ [BLOCKCHAIN DISABLED] syncOnPlayerConnect - Blockchain is disabled, using default balance. Check BLOCKCHAIN_ENABLED in .env.local');
       }
 
       socket.emit(SC_RECEIVE_LOBBY_INFO, {
@@ -251,6 +253,7 @@ const init = (socket, io) => {
         gameFlowIntegration.handleBlockchainError(error, 'joinTable', socket.id);
       }
     } else {
+      console.warn('⚠️ [BLOCKCHAIN DISABLED] handleJoinTable - No blockchain transaction. Check BLOCKCHAIN_ENABLED in .env.local');
       // Non-blockchain mode - use default behavior
       table.addPlayer(player);
       socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId });
@@ -282,7 +285,13 @@ const init = (socket, io) => {
     }
 
     // Task 15.2: Blockchain leave table (only if stack > 0)
-    if (config.BLOCKCHAIN_ENABLED && player && seat?.stack > 0) {
+    console.log('[Socket] ========== BLOCKCHAIN LEAVE CHECK ==========');
+    console.log('[Socket] BLOCKCHAIN_ENABLED:', config.BLOCKCHAIN_ENABLED);
+    console.log('[Socket] Player:', player?.name, player?.id);
+    console.log('[Socket] Seat stack:', seat?.stack || 0);
+    console.log('[Socket] Will call blockchain:', config.BLOCKCHAIN_ENABLED && player && (seat?.stack || 0) > 0);
+
+    if (config.BLOCKCHAIN_ENABLED && player && (seat?.stack || 0) > 0) {
       try {
         console.log('[Socket] Calling blockchain leaveTable with stack:', seat.stack);
         await gameFlowIntegration.handleLeaveTable(
@@ -292,14 +301,20 @@ const init = (socket, io) => {
           seat.stack,
           player.bankroll  // Pass current bankroll for logging
         );
-        console.log('[Socket] Blockchain leaveTable success');
+        console.log('[Socket] ✅ Blockchain leaveTable success');
       } catch (error) {
         // Log error but continue with local leave
-        console.error('[Socket] Blockchain leave table error:', error.message);
+        console.error('[Socket] ❌ Blockchain leave table error:', error.message);
+        console.error('[Socket] ❌ Error stack:', error.stack);
       }
     } else {
-      console.log('[Socket] Skipping blockchain leaveTable (stack=0 or blockchain disabled)');
+      if (!config.BLOCKCHAIN_ENABLED) {
+        console.warn('⚠️ [BLOCKCHAIN DISABLED] handleLeaveTable - No blockchain transaction. Check BLOCKCHAIN_ENABLED in .env.local');
+      } else {
+        console.log('[Socket] Skipping blockchain leaveTable (stack=0)');
+      }
     }
+    console.log('[Socket] ============================================');
 
     table.removePlayer(socket.id);
     console.log('[Socket] Player removed from table');
@@ -369,6 +384,7 @@ const init = (socket, io) => {
         gameFlowIntegration.handleBlockchainError(error, 'leaveTable', socket.id);
       }
     } else {
+      console.warn('⚠️ [BLOCKCHAIN DISABLED] CS_LEAVE_TABLE_BLOCKCHAIN - No blockchain transaction. Check BLOCKCHAIN_ENABLED in .env.local');
       // Non-blockchain mode - standard leave
       if (seat && player) {
         updatePlayerBankroll(player, seat.stack);
@@ -472,6 +488,8 @@ const init = (socket, io) => {
           console.error('[Socket] Balance validation error:', error.message);
           // Continue in non-blockchain mode
         }
+      } else {
+        console.warn('⚠️ [BLOCKCHAIN DISABLED] validateBalanceForSitDown - No blockchain validation. Check BLOCKCHAIN_ENABLED in .env.local');
       }
       
       console.log('[Socket] Calling table.sitPlayer...');
@@ -724,17 +742,22 @@ const init = (socket, io) => {
 
     // Only do blockchain settlement if enabled
     if (!config.BLOCKCHAIN_ENABLED) {
-      console.log('[Socket] Blockchain disabled, skipping on-chain settlement');
+      console.warn('⚠️ [BLOCKCHAIN DISABLED] handleGameSettlement - No on-chain settlement. Check BLOCKCHAIN_ENABLED in .env.local');
       return;
     }
+
+    console.log('[Socket] ========== BLOCKCHAIN SETTLEMENT ==========');
+    console.log('[Socket] BLOCKCHAIN_ENABLED:', config.BLOCKCHAIN_ENABLED);
+    console.log('[Socket] Settlement data:', JSON.stringify(settlementData, null, 2));
 
     try {
       // Task 15.4: Process blockchain settlement
       const result = await gameFlowIntegration.handleGameSettlement(settlementData);
-      console.log('[Socket] Game settled on blockchain:', result.txId);
+      console.log('[Socket] ✅ Game settled on blockchain:', result.txId);
 
     } catch (error) {
-      console.error('[Socket] Game settlement error:', error.message);
+      console.error('[Socket] ❌ Game settlement error:', error.message);
+      console.error('[Socket] ❌ Error stack:', error.stack);
 
       // Task 15.6: Notify players about settlement failure
       for (const player of table.players) {
@@ -745,6 +768,7 @@ const init = (socket, io) => {
         });
       }
     }
+    console.log('[Socket] ============================================');
   }
 
   function clearForOnePlayer(table) {

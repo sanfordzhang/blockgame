@@ -264,6 +264,42 @@ class ContractService {
     // ============ Admin Functions ============
 
     /**
+     * Set table owner (only contract owner can call this)
+     * This is needed for the server to be able to settle games
+     */
+    async setTableOwner(tableId, ownerAddress) {
+        this.ensureContract();
+
+        try {
+            const tx = await this.contract.setTableOwner(tableId, ownerAddress).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+
+            console.log(`[ContractService] Table ${tableId} owner set to ${ownerAddress}`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error setting table owner:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Get current table owner
+     */
+    async getTableOwner(tableId) {
+        this.ensureContract();
+
+        try {
+            const owner = await this.contract.tableOwners(tableId).call();
+            return owner;
+        } catch (error) {
+            console.error('[ContractService] Error getting table owner:', error.message);
+            return null;
+        }
+    }
+
+    /**
      * Schedule rake rate change
      */
     async scheduleRakeRateChange(newRate) {

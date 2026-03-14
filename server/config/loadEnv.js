@@ -1,11 +1,14 @@
 const dotenv = require("dotenv");
+const path = require("path");
 
 function loadEnv() {
-    //Load .env
-    dotenv.config();
+    const rootDir = path.resolve(__dirname, "../..");
+    
+    //Load .env (base config)
+    dotenv.config({ path: path.join(rootDir, ".env") });
 
-    //Load .env.local
-    dotenv.config({ path: ".env.local" });
+    //Load .env.local (local overrides, higher priority)
+    dotenv.config({ path: path.join(rootDir, ".env.local") });
 }
 
 module.exports = loadEnv;
