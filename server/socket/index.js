@@ -405,29 +405,37 @@ const init = (socket, io) => {
   });
 
   socket.on(CS_FOLD, (tableId) => {
+    console.log('[Socket] CS_FOLD received from', socket.id, 'for table', tableId);
     let table = tables[tableId];
     let res = table.handleFold(socket.id);
+    console.log('[Socket] handleFold result:', res);
     res && broadcastToTable(table, res.message);
     res && changeTurnAndBroadcast(table, res.seatId);
   });
 
   socket.on(CS_CHECK, (tableId) => {
+    console.log('[Socket] CS_CHECK received from', socket.id, 'for table', tableId);
     let table = tables[tableId];
     let res = table.handleCheck(socket.id);
+    console.log('[Socket] handleCheck result:', res);
     res && broadcastToTable(table, res.message);
     res && changeTurnAndBroadcast(table, res.seatId);
   });
 
   socket.on(CS_CALL, (tableId) => {
+    console.log('[Socket] CS_CALL received from', socket.id, 'for table', tableId);
     let table = tables[tableId];
     let res = table.handleCall(socket.id);
+    console.log('[Socket] handleCall result:', res);
     res && broadcastToTable(table, res.message);
     res && changeTurnAndBroadcast(table, res.seatId);
   });
 
   socket.on(CS_RAISE, ({ tableId, amount }) => {
+    console.log('[Socket] CS_RAISE received from', socket.id, 'for table', tableId, 'amount:', amount);
     let table = tables[tableId];
     let res = table.handleRaise(socket.id, amount);
+    console.log('[Socket] handleRaise result:', res);
     res && broadcastToTable(table, res.message);
     res && changeTurnAndBroadcast(table, res.seatId);
   });
@@ -614,10 +622,28 @@ const init = (socket, io) => {
   }
 
   function changeTurnAndBroadcast(table, seatId) {
-    console.log('[Socket] changeTurnAndBroadcast called, seatId:', seatId, 'current handOver:', table.handOver);
+    console.log('[Socket] ========== changeTurnAndBroadcast ==========');
+    console.log('[Socket] seatId:', seatId, 'handOver:', table.handOver);
+    console.log('[Socket] board length:', table.board.length);
+    console.log('[Socket] current turn:', table.turn);
+    console.log('[Socket] callAmount:', table.callAmount);
+
+    // Log all seats status
+    for (let i = 1; i <= table.maxPlayers; i++) {
+      const seat = table.seats[i];
+      if (seat && seat.player) {
+        console.log(`[Socket] Seat ${i}: ${seat.player.name}, bet=${seat.bet}, stack=${seat.stack}, folded=${seat.folded}, checked=${seat.checked}, lastAction=${seat.lastAction}`);
+      }
+    }
+
     setTimeout(async () => {
       table.changeTurn(seatId);
-      console.log('[Socket] After changeTurn, handOver:', table.handOver, 'winMessages:', table.winMessages);
+      console.log('[Socket] After changeTurn:');
+      console.log('[Socket] handOver:', table.handOver);
+      console.log('[Socket] board length:', table.board.length);
+      console.log('[Socket] board:', table.board.map(c => `${c.rank}${c.suit}`));
+      console.log('[Socket] winMessages:', table.winMessages);
+
       broadcastToTable(table);
 
       if (table.handOver) {
@@ -631,12 +657,29 @@ const init = (socket, io) => {
 
   // Modified to include blockchain settlement
   async function initNewHand(table) {
+    console.log('[Socket] initNewHand called, active players:', table.activePlayers().length);
     if (table.activePlayers().length > 1) {
       broadcastToTable(table, '---New hand starting in 5 seconds---');
     }
     setTimeout(() => {
       table.clearWinMessages();
       table.startHand();
+      console.log('[Socket] After startHand:');
+      console.log('[Socket] board length:', table.board.length);
+      console.log('[Socket] turn:', table.turn);
+      console.log('[Socket] button:', table.button);
+      console.log('[Socket] smallBlind:', table.smallBlind);
+      console.log('[Socket] bigBlind:', table.bigBlind);
+      console.log('[Socket] callAmount:', table.callAmount);
+
+      // Log seat hands
+      for (let i = 1; i <= table.maxPlayers; i++) {
+        const seat = table.seats[i];
+        if (seat && seat.player && seat.hand) {
+          console.log(`[Socket] Seat ${i} hand:`, seat.hand.map(c => `${c.rank}${c.suit}`));
+        }
+      }
+
       broadcastToTable(table, '--- New hand started ---');
     }, 5000);
   }
