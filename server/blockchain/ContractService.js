@@ -300,6 +300,48 @@ class ContractService {
     }
 
     /**
+     * Force unlock player's locked funds (only contract owner can call this)
+     * This is used when a player leaves a game that hasn't been settled
+     */
+    async forceUnlockPlayer(playerAddress) {
+        this.ensureContract();
+
+        try {
+            const tx = await this.contract.forceUnlockPlayer(playerAddress).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+
+            console.log(`[ContractService] Force unlocked funds for ${playerAddress}`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error force unlocking player:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Reset game session state (admin only)
+     * Used when game state is stuck
+     */
+    async resetGameSession(tableId) {
+        this.ensureContract();
+
+        try {
+            const tx = await this.contract.resetGameSession(tableId).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+
+            console.log(`[ContractService] Game session ${tableId} reset`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error resetting game session:', error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Schedule rake rate change
      */
     async scheduleRakeRateChange(newRate) {

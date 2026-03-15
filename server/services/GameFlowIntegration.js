@@ -304,15 +304,55 @@ class GameFlowIntegration {
 
         } catch (error) {
             console.error('[GameFlowIntegration] Leave table error:', error.message);
+            console.log('[GameFlowIntegration] Attempting force unlock as fallback...');
 
-            // Notify player about failure
-            this.notifyPlayer(socketId, 'blockchain:leaveTable', {
-                status: 'failed',
-                message: error.message,
-                tableId
-            });
+            // Try force unlock as fallback when leaveTable fails
+            // This handles cases where game state doesn't allow normal leave
+            try {
+                const forceResult = await contractService.forceUnlockPlayer(playerAddress);
+                console.log('[GameFlowIntegration] ✅ Force unlock successful:', forceResult);
 
-            throw error;
+                // Update cache - all locked amount is returned to balance
+                const cached = this.playerBalances.get(playerAddress);
+                if (cached) {
+                    const unlockedAmount = cached.lockedAmount;
+                    console.log(`[GameFlowIntegration] Force unlock - returning ${unlockedAmount / 1e6} TRX to balance`);
+                    this.playerBalances.set(playerAddress, {
+                        ...cached,
+                        balance: cached.balance + unlockedAmount + stack,
+                        lockedAmount: 0,
+                        lastSync: Date.now()
+                    });
+                }
+
+                // Notify player about success via force unlock
+                this.notifyPlayer(socketId, 'blockchain:leaveTable', {
+                    status: 'completed',
+                    message: 'Successfully left table (force unlock)',
+                    tableId,
+                    txId: forceResult,
+                    forceUnlocked: true
+                });
+
+                return {
+                    success: true,
+                    txId: forceResult,
+                    tableId,
+                    forceUnlocked: true
+                };
+
+            } catch (forceError) {
+                console.error('[GameFlowIntegration] Force unlock also failed:', forceError.message);
+
+                // Notify player about failure
+                this.notifyPlayer(socketId, 'blockchain:leaveTable', {
+                    status: 'failed',
+                    message: `Leave failed: ${error.message}. Force unlock also failed: ${forceError.message}`,
+                    tableId
+                });
+
+                throw error;
+            }
         }
     }
 

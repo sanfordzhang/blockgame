@@ -103,6 +103,8 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
     event RakeRateChanged(uint256 oldRate, uint256 newRate, uint256 effectiveTime);
     event RakeRateChangeScheduled(uint256 newRate, uint256 effectiveTime);
     event RakeWithdrawn(address indexed to, uint256 amount);
+    event ForceUnlocked(address indexed player, uint256 amount);
+    event GameSessionReset(uint256 indexed tableId);
     event RakeRateChangeCancelled();
     
     // ============ Modifiers ============
@@ -437,7 +439,36 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
     function setTableOwner(uint256 tableId, address owner) external onlyOwner {
         tableOwners[tableId] = owner;
     }
-    
+
+    /**
+     * @dev Force unlock player's locked funds (admin only)
+     * Used when player leaves table unexpectedly or game state is inconsistent
+     * @param playerAddress The player address to unlock
+     */
+    function forceUnlockPlayer(address playerAddress) external onlyOwner {
+        Player storage player = players[playerAddress];
+        require(player.lockedAmount > 0, "No locked funds to unlock");
+
+        uint256 lockedAmount = player.lockedAmount;
+        player.lockedAmount = 0;
+        player.balance += lockedAmount;
+
+        emit ForceUnlocked(playerAddress, lockedAmount);
+    }
+
+    /**
+     * @dev Reset game session state (admin only)
+     * Used when game state is stuck and needs to be reset
+     * @param tableId The table identifier
+     */
+    function resetGameSession(uint256 tableId) external onlyOwner {
+        GameSession storage session = gameSessions[tableId];
+        session.state = GameState.FINISHED;
+        session.settledAt = block.timestamp;
+
+        emit GameSessionReset(tableId);
+    }
+
     // ============ View Functions ============
     
     /**

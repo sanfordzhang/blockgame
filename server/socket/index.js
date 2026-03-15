@@ -273,10 +273,15 @@ const init = (socket, io) => {
       (seat) => seat && seat.player.socketId === socket.id,
     );
 
+    // IMPORTANT: Save seat info BEFORE any modifications
+    // This ensures we have the data needed for blockchain leave
+    const savedSeatStack = seat?.stack || 0;
+    const savedPlayerId = player?.id;
+
     console.log('[Socket] ========== LEAVE TABLE START ==========');
-    console.log('[Socket] Player:', player?.name, player?.id);
+    console.log('[Socket] Player:', player?.name, savedPlayerId);
     console.log('[Socket] Before leave - Bankroll:', player?.bankroll);
-    console.log('[Socket] Seat stack:', seat?.stack || 0);
+    console.log('[Socket] Seat stack (saved):', savedSeatStack);
 
     if (seat && player) {
       const oldBankroll = player.bankroll;
@@ -284,22 +289,23 @@ const init = (socket, io) => {
       console.log('[Socket] After updatePlayerBankroll - Bankroll:', player.bankroll, `(${oldBankroll} + ${seat.stack})`);
     }
 
-    // Task 15.2: Blockchain leave table (only if stack > 0)
+    // Task 15.2: Blockchain leave table
+    // IMPORTANT: Always call blockchain leave if enabled and player exists
+    // This ensures lockedAmount is properly released
     console.log('[Socket] ========== BLOCKCHAIN LEAVE CHECK ==========');
     console.log('[Socket] BLOCKCHAIN_ENABLED:', config.BLOCKCHAIN_ENABLED);
-    console.log('[Socket] Player:', player?.name, player?.id);
-    console.log('[Socket] Seat stack:', seat?.stack || 0);
-    console.log('[Socket] Will call blockchain:', config.BLOCKCHAIN_ENABLED && player && (seat?.stack || 0) > 0);
+    console.log('[Socket] Player ID:', savedPlayerId);
+    console.log('[Socket] Saved seat stack:', savedSeatStack);
 
-    if (config.BLOCKCHAIN_ENABLED && player && (seat?.stack || 0) > 0) {
+    if (config.BLOCKCHAIN_ENABLED && savedPlayerId) {
       try {
-        console.log('[Socket] Calling blockchain leaveTable with stack:', seat.stack);
+        console.log('[Socket] Calling blockchain leaveTable with stack:', savedSeatStack);
         await gameFlowIntegration.handleLeaveTable(
-          player.id,
+          savedPlayerId,
           tableId,
           socket.id,
-          seat.stack,
-          player.bankroll  // Pass current bankroll for logging
+          savedSeatStack,
+          player?.bankroll || 0  // Pass current bankroll for logging
         );
         console.log('[Socket] ✅ Blockchain leaveTable success');
       } catch (error) {
@@ -311,7 +317,7 @@ const init = (socket, io) => {
       if (!config.BLOCKCHAIN_ENABLED) {
         console.warn('⚠️ [BLOCKCHAIN DISABLED] handleLeaveTable - No blockchain transaction. Check BLOCKCHAIN_ENABLED in .env.local');
       } else {
-        console.log('[Socket] Skipping blockchain leaveTable (stack=0)');
+        console.log('[Socket] Skipping blockchain leaveTable (no player)');
       }
     }
     console.log('[Socket] ============================================');
