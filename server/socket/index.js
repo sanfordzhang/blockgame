@@ -42,10 +42,17 @@ const {
   CS_CONTRACT_JOIN_FAILED,
   CS_CONTRACT_LEAVE_SUCCESS,
   CS_CONTRACT_LEAVE_FAILED,
+  // Delegate (Server Proxy) events
+  CS_SET_DELEGATE,
+  SC_DELEGATE_SET,
+  SC_DELEGATE_ERROR,
+  CS_CHECK_DELEGATE,
+  SC_DELEGATE_STATUS,
 } = require('../pokergame/actions');
 const config = require('../config');
 const gameFlowIntegration = require('../services/GameFlowIntegration');
 const contractService = require('../blockchain/ContractService');
+const tronService = require('../blockchain/TronService');
 
 const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
@@ -221,20 +228,30 @@ const init = (socket, io) => {
     
     if (config.BLOCKCHAIN_ENABLED) {
       try {
-        // Task 15.1: Call blockchain integration
-        const result = await gameFlowIntegration.handleJoinTable(
-          player.id,
-          tableId,
-          cappedBuyIn,
-          socket.id,
-          player.bankroll  // Pass current bankroll for logging
-        );
+        // Check if player has authorized this server as delegate
+        const serverAddress = tronService.getSignerAddress();
+        const isAuthorized = await contractService.isAuthorizedDelegate(player.id, serverAddress);
         
-        console.log('[Socket] handleJoinTable result:', result);
+        console.log('[Socket] Delegate check:', { player: player.id, server: serverAddress, isAuthorized });
+        
+        if (!isAuthorized) {
+          // Player needs to authorize the server first
+          socket.emit(SC_DELEGATE_ERROR, {
+            message: '请先授权服务器代理操作。点击"授权服务器"按钮。',
+            serverAddress: serverAddress,
+            needAuthorization: true
+          });
+          return;
+        }
+        
+        // Use server proxy join (joinTableFor)
+        console.log('[Socket] Calling joinTableFor via server...');
+        const result = await contractService.joinTableFor(player.id, tableId, cappedBuyIn);
+        console.log('[Socket] joinTableFor result:', result);
         
         // Add player to table after successful blockchain operation
         table.addPlayer(player);
-        socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId: result.txId });
+        socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId: result.tx });
         socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
         
         // Find an empty seat (seats are 1-indexed)
@@ -251,12 +268,26 @@ const init = (socket, io) => {
         // Sit down with the buy-in amount
         await sitDown(tableId, emptySeatId, cappedBuyIn);
         
+        // Update balance cache
+        gameFlowIntegration.updatePlayerBalanceCache(player.id, -cappedBuyIn, cappedBuyIn);
+        
+        // Sync balance from contract
+        const freshBalance = await contractService.getPlayerInfo(player.id);
+        player.bankroll = freshBalance.balance;
+        
+        // Notify player about balance update
+        socket.emit(SC_BALANCE_SYNCED, {
+          balance: freshBalance.balance,
+          locked: freshBalance.lockedAmount,
+          available: freshBalance.balance,
+          reason: 'join_table'
+        });
+        
         let message = `${player.name} joined the table.`;
         broadcastToTable(table, message);
         
       } catch (error) {
         console.error('[Socket] Join table error:', error);
-        // Task 15.6: Error handling
         gameFlowIntegration.handleBlockchainError(error, 'joinTable', socket.id);
       }
     } else {
@@ -373,13 +404,35 @@ const init = (socket, io) => {
 
     if (config.BLOCKCHAIN_ENABLED) {
       try {
-        // Task 15.2: Call blockchain integration
-        const stack = seat?.stack || 0;
-        await gameFlowIntegration.handleLeaveTable(player.id, tableId, socket.id, stack);
+        // Check if player has authorized this server as delegate
+        const serverAddress = tronService.getSignerAddress();
+        const isAuthorized = await contractService.isAuthorizedDelegate(player.id, serverAddress);
         
-        if (seat) {
-          updatePlayerBankroll(player, seat.stack);
+        console.log('[Socket] Leave delegate check:', { player: player.id, server: serverAddress, isAuthorized });
+        
+        const stack = seat?.stack || 0;
+        
+        if (isAuthorized) {
+          // Use server proxy leave (leaveTableFor)
+          console.log('[Socket] Calling leaveTableFor via server...');
+          const result = await contractService.leaveTableFor(player.id, tableId, stack);
+          console.log('[Socket] leaveTableFor result:', result);
+        } else {
+          // Fallback: try direct leave (player-signed)
+          console.log('[Socket] Delegate not authorized, skipping blockchain leave');
         }
+        
+        // Sync balance from contract
+        const freshBalance = await contractService.getPlayerInfo(player.id);
+        player.bankroll = freshBalance.balance;
+        
+        // Notify player about balance update
+        socket.emit(SC_BALANCE_SYNCED, {
+          balance: freshBalance.balance,
+          locked: freshBalance.lockedAmount,
+          available: freshBalance.balance,
+          reason: 'leave_table'
+        });
         
         table.removePlayer(socket.id);
         socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
@@ -393,8 +446,16 @@ const init = (socket, io) => {
         }
         
       } catch (error) {
-        // Task 15.6: Error handling
+        console.error('[Socket] Leave table error:', error);
         gameFlowIntegration.handleBlockchainError(error, 'leaveTable', socket.id);
+        
+        // Still remove player from table locally
+        if (seat) {
+          updatePlayerBankroll(player, seat.stack);
+        }
+        table.removePlayer(socket.id);
+        socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+        socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
       }
     } else {
       console.warn('⚠️ [BLOCKCHAIN DISABLED] CS_LEAVE_TABLE_BLOCKCHAIN - No blockchain transaction. Check BLOCKCHAIN_ENABLED in .env.local');
@@ -414,6 +475,93 @@ const init = (socket, io) => {
       if (table.activePlayers().length === 1) {
         clearForOnePlayer(table);
       }
+    }
+  });
+
+  // ============ Delegate (Server Proxy) Event Handlers ============
+  
+  /**
+   * Check delegate authorization status
+   * @param {object} data - Optional data with walletAddress (for Landing page before full registration)
+   */
+  socket.on(CS_CHECK_DELEGATE, async (data) => {
+    // Get walletAddress from data or from registered players
+    const walletAddress = data?.walletAddress || players[socket.id]?.id;
+    
+    if (!walletAddress) {
+      socket.emit(SC_DELEGATE_STATUS, {
+        isAuthorized: false,
+        error: 'No wallet address provided'
+      });
+      return;
+    }
+
+    try {
+      const serverAddress = tronService.getSignerAddress();
+      const isAuthorized = await contractService.isAuthorizedDelegate(walletAddress, serverAddress);
+      const currentDelegate = await contractService.getPlayerDelegate(walletAddress);
+      
+      console.log('[Socket] CS_CHECK_DELEGATE:', {
+        player: walletAddress,
+        server: serverAddress,
+        isAuthorized,
+        currentDelegate
+      });
+      
+      socket.emit(SC_DELEGATE_STATUS, {
+        isAuthorized,
+        serverAddress,
+        currentDelegate,
+        playerAddress: walletAddress
+      });
+    } catch (error) {
+      console.error('[Socket] Error checking delegate:', error.message);
+      socket.emit(SC_DELEGATE_STATUS, {
+        isAuthorized: false,
+        error: error.message,
+        serverAddress: tronService.getSignerAddress() // Still send server address for reference
+      });
+    }
+  });
+  
+  /**
+   * Handle setDelegate success from frontend (player signed the transaction)
+   */
+  socket.on(CS_SET_DELEGATE, async ({ delegateAddress, txId }) => {
+    const player = players[socket.id];
+    
+    console.log('[Socket] CS_SET_DELEGATE:', { delegateAddress, txId, player: player?.id });
+    
+    if (!player) {
+      socket.emit(SC_DELEGATE_ERROR, {
+        message: 'Player not found'
+      });
+      return;
+    }
+    
+    try {
+      // Verify the delegate is set correctly
+      const currentDelegate = await contractService.getPlayerDelegate(player.id);
+      
+      if (currentDelegate && currentDelegate.toLowerCase() === delegateAddress.toLowerCase()) {
+        socket.emit(SC_DELEGATE_SET, {
+          success: true,
+          delegateAddress,
+          txId
+        });
+        console.log('[Socket] ✅ Delegate successfully set for player:', player.id);
+      } else {
+        socket.emit(SC_DELEGATE_ERROR, {
+          message: 'Delegate verification failed',
+          expected: delegateAddress,
+          actual: currentDelegate
+        });
+      }
+    } catch (error) {
+      console.error('[Socket] Error verifying delegate:', error.message);
+      socket.emit(SC_DELEGATE_ERROR, {
+        message: error.message
+      });
     }
   });
 

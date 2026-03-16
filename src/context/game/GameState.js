@@ -21,11 +21,23 @@ import {
   CS_CONTRACT_JOIN_FAILED,
   CS_CONTRACT_LEAVE_SUCCESS,
   CS_CONTRACT_LEAVE_FAILED,
+  // Delegate events
+  CS_SET_DELEGATE,
+  SC_DELEGATE_SET,
+  SC_DELEGATE_ERROR,
+  CS_CHECK_DELEGATE,
+  SC_DELEGATE_STATUS,
 } from '../../pokergame/actions'
 import socketContext from '../websocket/socketContext'
 import GameContext from './gameContext'
 import globalContext from '../global/globalContext'
-import { joinTable as contractJoinTable, leaveTableSession as contractLeaveTableSession } from '../../utils/tronInteract'
+import { 
+  joinTable as contractJoinTable, 
+  leaveTableSession as contractLeaveTableSession,
+  setDelegate as contractSetDelegate,
+  isAuthorizedDelegate,
+  getPlayerDelegate
+} from '../../utils/tronInteract'
 
 const GameState = ({ children }) => {
   const { socket } = useContext(socketContext)
@@ -109,6 +121,32 @@ const GameState = ({ children }) => {
       socket.on(SC_BLOCKCHAIN_TX_STATUS, (data) => {
         console.log(SC_BLOCKCHAIN_TX_STATUS, data)
       })
+
+      // Delegate event listeners
+      socket.on(SC_DELEGATE_SET, (data) => {
+        console.log(SC_DELEGATE_SET, data)
+        if (data.success) {
+          addMessage('✅ 服务器授权成功！之后进入/退出游戏无需签名。')
+        }
+      })
+
+      socket.on(SC_DELEGATE_ERROR, (data) => {
+        console.error(SC_DELEGATE_ERROR, data)
+        if (data.needAuthorization) {
+          addMessage(`⚠️ 请先授权服务器：${data.serverAddress}`)
+        } else {
+          addMessage(`授权错误: ${data.message}`)
+        }
+      })
+
+      socket.on(SC_DELEGATE_STATUS, (data) => {
+        console.log(SC_DELEGATE_STATUS, data)
+        if (data.isAuthorized) {
+          addMessage('✅ 已授权服务器代理操作')
+        } else if (data.serverAddress) {
+          addMessage(`⚠️ 需要授权服务器: ${data.serverAddress}`)
+        }
+      })
     }
     if(socket){
       return () => leaveTable()
@@ -122,32 +160,12 @@ const GameState = ({ children }) => {
     const finalBuyIn = buyInAmount || 100000000; // Default 100,000,000 SUN = 100 TRX (20 big blinds)
     console.log('[GameState] joinTable:', { tableId, buyInAmount: finalBuyIn })
     
-    try {
-      // Step 1: Call contract directly (player signs transaction)
-      console.log('[GameState] Calling contract joinTable...')
-      const result = await contractJoinTable(tableId, finalBuyIn)
-      console.log('[GameState] Contract joinTable success:', result)
-      
-      // Step 2: Notify server that contract call succeeded
-      socket.emit(CS_CONTRACT_JOIN_SUCCESS, { 
-        tableId, 
-        buyInAmount: finalBuyIn,
-        txId: result.tx
-      })
-      
-    } catch (error) {
-      console.error('[GameState] Contract joinTable failed:', error)
-      
-      // Notify server about the failure
-      socket.emit(CS_CONTRACT_JOIN_FAILED, {
-        tableId,
-        buyInAmount: finalBuyIn,
-        error: error.message
-      })
-      
-      // Show error to user
-      addMessage(`Failed to join table: ${error.message}`)
-    }
+    // Use server proxy mode - server will call joinTableFor on behalf of player
+    // Player must have authorized the server as delegate first
+    socket.emit(CS_JOIN_TABLE_BLOCKCHAIN, { 
+      tableId, 
+      buyInAmount: finalBuyIn 
+    })
   }
 
   const leaveTable = async () => {
@@ -166,32 +184,10 @@ const GameState = ({ children }) => {
     // Stand up from table first (local)
     standUp()
     
-    try {
-      // Step 1: Call contract directly (player signs transaction)
-      console.log('[GameState] Calling contract leaveTableSession...')
-      const result = await contractLeaveTableSession(tableId, stack)
-      console.log('[GameState] Contract leaveTableSession success:', result)
-      
-      // Step 2: Notify server that contract call succeeded
-      socket.emit(CS_CONTRACT_LEAVE_SUCCESS, {
-        tableId,
-        stack,
-        txId: result.tx
-      })
-      
-    } catch (error) {
-      console.error('[GameState] Contract leaveTableSession failed:', error)
-      
-      // Notify server about the failure (still leave locally)
-      socket.emit(CS_CONTRACT_LEAVE_FAILED, {
-        tableId,
-        stack,
-        error: error.message
-      })
-      
-      // Show error to user but still navigate away
-      addMessage(`Warning: Blockchain leave failed: ${error.message}`)
-    }
+    // Use server proxy mode - server will call leaveTableFor on behalf of player
+    socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, {
+      tableId
+    })
     
     navigate('/')
   }

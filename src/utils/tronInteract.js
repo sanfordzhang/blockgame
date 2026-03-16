@@ -117,6 +117,45 @@ const CONTRACT_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  // Delegate (Server Proxy) functions
+  {
+    "inputs": [{"name": "delegate", "type": "address"}],
+    "name": "setDelegate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "revokeDelegate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "player", "type": "address"},
+      {"name": "delegate", "type": "address"}
+    ],
+    "name": "isAuthorizedDelegate",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "player", "type": "address"}],
+    "name": "getPlayerDelegate",
+    "outputs": [{"name": "", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "", "type": "address"}],
+    "name": "playerDelegates",
+    "outputs": [{"name": "", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -132,7 +171,7 @@ const NETWORKS = {
     chainId: '0xcd8690dc', // 3448148188
     name: 'Nile Testnet',
     fullHost: 'https://nile.trongrid.io',
-    contractAddress: process.env.REACT_APP_TESTNET_CONTRACT_ADDRESS || 'TLrp189jSVRdFSigEfECM7M4k2K73zdtp3'
+    contractAddress: process.env.REACT_APP_TESTNET_CONTRACT_ADDRESS || 'TPrXy7qsoY3rEutSPmEF14sJjjijxpHGpv'
   }
 };
 
@@ -551,15 +590,29 @@ export const registerPlayer = async () => {
  */
 export const isPlayerRegistered = async (address) => {
   const contractAddress = getContractAddress();
-  if (!contractAddress) return false;
+  if (!contractAddress) {
+    console.error('[tronInteract] No contract address configured');
+    return false;
+  }
 
   const contract = await getContract(contractAddress);
   
   try {
+    console.log('[tronInteract] Checking registration for:', address, 'on contract:', contractAddress);
     const player = await contract.players(address).call();
-    return player.isRegistered;
+    console.log('[tronInteract] Player data:', { 
+      isRegistered: player.isRegistered, 
+      balance: player.balance?.toString?.() || player.balance 
+    });
+    
+    // Handle various return types (bool, string, BigNumber)
+    const isReg = player.isRegistered;
+    if (typeof isReg === 'boolean') return isReg;
+    if (typeof isReg === 'string') return isReg === 'true';
+    if (typeof isReg?.toNumber === 'function') return isReg.toNumber() === 1;
+    return Boolean(isReg);
   } catch (error) {
-    console.error('Error checking registration:', error);
+    console.error('[tronInteract] Error checking registration:', error);
     return false;
   }
 };
@@ -809,6 +862,112 @@ export const getGameSession = async (tableId) => {
   }
 };
 
+// ============ Delegate (Server Proxy) Functions ============
+
+/**
+ * Set delegate (server) for proxy operations
+ * Player authorizes a server to call joinTableFor/leaveTableFor on their behalf
+ * This only needs to be called once when the player first connects
+ * @param {string} delegateAddress - The server's TRON address
+ * @returns {Promise<object>} Transaction result
+ */
+export const setDelegate = async (delegateAddress) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    throw new Error('Contract not deployed for this network');
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    console.log(`[tronInteract] setDelegate: delegate=${delegateAddress}`);
+    
+    const tx = await contract.setDelegate(delegateAddress).send({
+      feeLimit: 100_000_000,
+      shouldPollResponse: true
+    });
+    
+    console.log(`[tronInteract] setDelegate success:`, tx);
+    return { success: true, tx };
+  } catch (error) {
+    console.error('[tronInteract] setDelegate error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Revoke delegate authorization
+ * @returns {Promise<object>} Transaction result
+ */
+export const revokeDelegate = async () => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    throw new Error('Contract not deployed for this network');
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    console.log('[tronInteract] revokeDelegate');
+    
+    const tx = await contract.revokeDelegate().send({
+      feeLimit: 100_000_000,
+      shouldPollResponse: true
+    });
+    
+    console.log('[tronInteract] revokeDelegate success:', tx);
+    return { success: true, tx };
+  } catch (error) {
+    console.error('[tronInteract] revokeDelegate error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a delegate is authorized for a player
+ * @param {string} playerAddress - Player's TRON address
+ * @param {string} delegateAddress - Delegate's TRON address
+ * @returns {Promise<boolean>} Whether delegate is authorized
+ */
+export const isAuthorizedDelegate = async (playerAddress, delegateAddress) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) return false;
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    const authorized = await contract.isAuthorizedDelegate(playerAddress, delegateAddress).call();
+    return authorized;
+  } catch (error) {
+    console.error('Error checking delegate authorization:', error);
+    return false;
+  }
+};
+
+/**
+ * Get player's current delegate
+ * @param {string} playerAddress - Player's TRON address
+ * @returns {Promise<string|null>} Delegate address or null
+ */
+export const getPlayerDelegate = async (playerAddress) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) return null;
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    const delegate = await contract.playerDelegates(playerAddress).call();
+    // Check if delegate is not zero address
+    if (delegate && delegate !== 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb') {
+      return delegate;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting player delegate:', error);
+    return null;
+  }
+};
+
 /**
  * Get transaction link
  */
@@ -847,6 +1006,11 @@ export default {
   leaveTableSession,
   tryUnlockLockedBalance,
   getGameSession,
+  // Delegate functions
+  setDelegate,
+  revokeDelegate,
+  isAuthorizedDelegate,
+  getPlayerDelegate,
   formatAddress,
   formatTrx,
   parseTrx,

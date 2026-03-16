@@ -83,6 +83,13 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
     // Game results hash for verification
     mapping(uint256 => bytes32) public gameResultHashes;
     
+    // ============ Delegate (Server Proxy) System ============
+    // Player's authorized delegate (server) for proxy operations
+    mapping(address => address) public playerDelegates;
+    
+    // Check if delegate is authorized for a player
+    mapping(address => mapping(address => bool)) public isDelegateAuthorized;
+    
     // Accumulated rake balance
     uint256 public accumulatedRake;
     
@@ -108,6 +115,12 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
     event RakeRateChangeCancelled();
     event RebuyEvent(address indexed player, uint256 indexed tableId, uint256 amount);
     event GameSettledSession(uint256 indexed gameId, address[] players, int256[] stackDeltas);
+    
+    // Delegate (Server Proxy) events
+    event DelegateSet(address indexed player, address indexed delegate);
+    event DelegateRevoked(address indexed player, address indexed delegate);
+    event JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate);
+    event LeftTableFor(address indexed player, uint256 indexed tableId, uint256 amount, address indexed delegate);
     
     // ============ Modifiers ============
     
@@ -154,6 +167,50 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
         });
         
         emit PlayerRegistered(msg.sender, block.timestamp);
+    }
+    
+    // ============ Delegate (Server Proxy) Functions ============
+    
+    /**
+     * @dev Set delegate (server) for proxy operations
+     * Player authorizes a server to call joinTableFor/leaveTableFor on their behalf
+     * @param delegate The address of the server/delegate to authorize
+     */
+    function setDelegate(address delegate) external onlyRegistered {
+        require(delegate != address(0), "Invalid delegate address");
+        require(delegate != msg.sender, "Cannot delegate to self");
+        
+        playerDelegates[msg.sender] = delegate;
+        isDelegateAuthorized[msg.sender][delegate] = true;
+        
+        emit DelegateSet(msg.sender, delegate);
+    }
+    
+    /**
+     * @dev Revoke delegate authorization
+     */
+    function revokeDelegate() external onlyRegistered {
+        address currentDelegate = playerDelegates[msg.sender];
+        require(currentDelegate != address(0), "No delegate set");
+        
+        isDelegateAuthorized[msg.sender][currentDelegate] = false;
+        playerDelegates[msg.sender] = address(0);
+        
+        emit DelegateRevoked(msg.sender, currentDelegate);
+    }
+    
+    /**
+     * @dev Check if an address is authorized delegate for a player
+     */
+    function isAuthorizedDelegate(address player, address delegate) external view returns (bool) {
+        return isDelegateAuthorized[player][delegate];
+    }
+    
+    /**
+     * @dev Get player's current delegate
+     */
+    function getPlayerDelegate(address player) external view returns (address) {
+        return playerDelegates[player];
     }
     
     /**
@@ -317,6 +374,110 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
         player.balance += finalStack;
         
         emit LeftTable(msg.sender, tableId, finalStack);
+    }
+
+    // ============ Delegate (Server Proxy) Game Functions ============
+    
+    /**
+     * @dev Server proxy join table on behalf of a player
+     * Called by the authorized delegate (server) after player authorization
+     * @param playerAddr The player's address
+     * @param tableId The table identifier
+     * @param buyInAmount Amount to buy in (in sun)
+     */
+    function joinTableFor(
+        address playerAddr, 
+        uint256 tableId, 
+        uint256 buyInAmount
+    ) external whenNotPaused {
+        // Verify delegate authorization
+        require(isDelegateAuthorized[playerAddr][msg.sender], "Not authorized delegate");
+        
+        Player storage player = players[playerAddr];
+        require(player.isRegistered, "Player not registered");
+        require(player.balance >= buyInAmount, "Insufficient available balance");
+        require(buyInAmount >= MIN_BUY_IN, "Below minimum buy-in");
+        require(buyInAmount <= MAX_BUY_IN, "Exceeds maximum buy-in");
+        
+        // Lock funds
+        player.balance -= buyInAmount;
+        player.lockedAmount += buyInAmount;
+        
+        // Initialize game session if new table
+        GameSession storage session = gameSessions[tableId];
+        if (session.state == GameState.WAITING || session.state == GameState.FINISHED) {
+            session.tableId = tableId;
+            session.state = GameState.PLAYING;
+            session.createdAt = block.timestamp;
+            session.rakeRateUsed = rakeRate;
+            session.totalPot = 0;
+            delete session.players;
+            delete session.buyInAmounts;
+            
+            // Set table owner if not set (to the delegate/server)
+            if (tableOwners[tableId] == address(0)) {
+                tableOwners[tableId] = msg.sender;
+            }
+        }
+        
+        session.players.push(playerAddr);
+        session.buyInAmounts.push(buyInAmount);
+        session.totalPot += buyInAmount;
+        
+        emit JoinedTable(playerAddr, tableId, buyInAmount);
+        emit JoinedTableFor(playerAddr, tableId, buyInAmount, msg.sender);
+    }
+    
+    /**
+     * @dev Server proxy leave table on behalf of a player
+     * Called by the authorized delegate (server)
+     * @param playerAddr The player's address
+     * @param tableId The table identifier
+     * @param finalStack The player's final stack amount
+     */
+    function leaveTableFor(
+        address playerAddr,
+        uint256 tableId,
+        uint256 finalStack
+    ) external whenNotPaused {
+        // Verify delegate authorization
+        require(isDelegateAuthorized[playerAddr][msg.sender], "Not authorized delegate");
+        
+        GameSession storage session = gameSessions[tableId];
+        require(session.state == GameState.PLAYING || session.state == GameState.FINISHED, "Invalid game state");
+        
+        Player storage player = players[playerAddr];
+        require(player.lockedAmount > 0, "No locked funds");
+        
+        // Find player in session
+        uint256 playerIndex = type(uint256).max;
+        for (uint256 i = 0; i < session.players.length; i++) {
+            if (session.players[i] == playerAddr) {
+                playerIndex = i;
+                break;
+            }
+        }
+        
+        require(playerIndex != type(uint256).max, "Player not in this table");
+        
+        uint256 buyInAmount = session.buyInAmounts[playerIndex];
+        
+        // Remove player from arrays
+        if (playerIndex < session.players.length - 1) {
+            session.players[playerIndex] = session.players[session.players.length - 1];
+            session.buyInAmounts[playerIndex] = session.buyInAmounts[session.buyInAmounts.length - 1];
+        }
+        session.players.pop();
+        session.buyInAmounts.pop();
+        session.totalPot -= buyInAmount;
+        
+        // Session mode settlement: return finalStack to balance, clear locked
+        uint256 lockedAmount = player.lockedAmount;
+        player.lockedAmount = 0;
+        player.balance += finalStack;
+        
+        emit LeftTable(playerAddr, tableId, finalStack);
+        emit LeftTableFor(playerAddr, tableId, finalStack, msg.sender);
     }
 
     /**

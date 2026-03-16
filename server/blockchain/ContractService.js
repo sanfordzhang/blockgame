@@ -235,6 +235,131 @@ class ContractService {
         }
     }
 
+    // ============ Delegate (Server Proxy) Functions ============
+
+    /**
+     * Set delegate for a player (called by player via frontend)
+     * Note: This should be called by the player, not the server
+     */
+    async setDelegate(delegateAddress) {
+        this.ensureContract();
+        
+        try {
+            const tx = await this.contract.setDelegate(delegateAddress).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log(`[ContractService] Delegate set to ${delegateAddress}`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error setting delegate:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Revoke delegate authorization (called by player via frontend)
+     */
+    async revokeDelegate() {
+        this.ensureContract();
+        
+        try {
+            const tx = await this.contract.revokeDelegate().send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log('[ContractService] Delegate revoked');
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error revoking delegate:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Check if delegate is authorized for a player
+     */
+    async isAuthorizedDelegate(playerAddress, delegateAddress) {
+        this.ensureContract();
+        
+        try {
+            const authorized = await this.contract.isAuthorizedDelegate(playerAddress, delegateAddress).call();
+            return authorized;
+        } catch (error) {
+            console.error('[ContractService] Error checking delegate:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Get player's current delegate
+     */
+    async getPlayerDelegate(playerAddress) {
+        this.ensureContract();
+        
+        try {
+            const delegate = await this.contract.playerDelegates(playerAddress).call();
+            return delegate;
+        } catch (error) {
+            console.error('[ContractService] Error getting player delegate:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Server proxy join table on behalf of a player
+     * This is called by the server using its private key
+     * @param {string} playerAddress - The player's TRON address
+     * @param {number} tableId - The table ID
+     * @param {number} buyInAmount - Buy-in amount in SUN
+     */
+    async joinTableFor(playerAddress, tableId, buyInAmount) {
+        this.ensureContract();
+        
+        try {
+            console.log(`[ContractService] joinTableFor: player=${playerAddress}, tableId=${tableId}, buyIn=${buyInAmount}`);
+            
+            const tx = await this.contract.joinTableFor(playerAddress, tableId, buyInAmount).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log(`[ContractService] joinTableFor success:`, tx);
+            return { success: true, tx };
+        } catch (error) {
+            console.error('[ContractService] Error joinTableFor:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Server proxy leave table on behalf of a player
+     * This is called by the server using its private key
+     * @param {string} playerAddress - The player's TRON address
+     * @param {number} tableId - The table ID
+     * @param {number} finalStack - Final stack amount to return
+     */
+    async leaveTableFor(playerAddress, tableId, finalStack) {
+        this.ensureContract();
+        
+        try {
+            console.log(`[ContractService] leaveTableFor: player=${playerAddress}, tableId=${tableId}, finalStack=${finalStack}`);
+            
+            const tx = await this.contract.leaveTableFor(playerAddress, tableId, finalStack).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log(`[ContractService] leaveTableFor success:`, tx);
+            return { success: true, tx };
+        } catch (error) {
+            console.error('[ContractService] Error leaveTableFor:', error.message);
+            throw error;
+        }
+    }
+
     /**
      * Rebuy in session mode
      * Rule f: Rebuy from balance, add to locked and stack

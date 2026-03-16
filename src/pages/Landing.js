@@ -13,7 +13,7 @@ import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
-import { CS_FETCH_LOBBY_INFO } from '../pokergame/actions';
+import { CS_FETCH_LOBBY_INFO, CS_CHECK_DELEGATE, SC_DELEGATE_STATUS } from '../pokergame/actions';
 import {
   isTronLinkInstalled,
   waitForTronLink,
@@ -29,7 +29,10 @@ import {
   formatTrx,
   parseTrx,
   tryUnlockLockedBalance,
-  getGameSession
+  getGameSession,
+  setDelegate,
+  isAuthorizedDelegate,
+  getPlayerDelegate
 } from '../utils/tronInteract';
 
 const MarketingHeadline = styled(Heading)`
@@ -57,6 +60,10 @@ const Landing = () => {
   const [depositAmount, setDepositAmount] = useState('100');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  // Delegate (Server Proxy) state
+  const [delegateAuthorized, setDelegateAuthorized] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
+  const [serverAddress, setServerAddress] = useState(null);
 
   // Calculate balances
   // contractBalance = balance (available in contract)
@@ -112,6 +119,46 @@ const Landing = () => {
     };
     checkRegistration();
   }, [walletAddress]);
+
+  // Fetch server address on mount (don't wait for socket)
+  useEffect(() => {
+    const fetchServerAddress = async () => {
+      try {
+        const response = await fetch('/api/blockchain/config');
+        const data = await response.json();
+        if (data.serverWalletAddress) {
+          setServerAddress(data.serverWalletAddress);
+          console.log('[Landing] Server address from API:', data.serverWalletAddress);
+        }
+      } catch (err) {
+        console.error('[Landing] Failed to fetch server address:', err);
+      }
+    };
+    fetchServerAddress();
+  }, []);
+
+  // Check delegate authorization when socket is connected and player is registered
+  useEffect(() => {
+    if (socket && socket.connected && walletAddress && isRegistered) {
+      // Listen for delegate status from server
+      const handleDelegateStatus = (data) => {
+        console.log('[Landing] SC_DELEGATE_STATUS:', data);
+        if (data.serverAddress) {
+          setServerAddress(data.serverAddress);
+        }
+        setDelegateAuthorized(data.isAuthorized);
+      };
+      
+      socket.on(SC_DELEGATE_STATUS, handleDelegateStatus);
+      
+      // Request delegate status from server (pass walletAddress for Landing page)
+      socket.emit(CS_CHECK_DELEGATE, { walletAddress });
+      
+      return () => {
+        socket.off(SC_DELEGATE_STATUS, handleDelegateStatus);
+      };
+    }
+  }, [socket, walletAddress, isRegistered]);
 
   // Refresh all balances
   const refreshAllBalances = async () => {
@@ -388,6 +435,70 @@ const Landing = () => {
     }
   };
 
+  // Handle delegate authorization
+  const handleAuthorizeServer = async () => {
+    if (!serverAddress) {
+      // Request server address if not available
+      if (socket && socket.connected) {
+        socket.emit(CS_CHECK_DELEGATE, { walletAddress });
+        setError('正在获取服务器地址，请稍后重试');
+      } else {
+        setError('服务器地址未配置，请刷新页面');
+      }
+      return;
+    }
+
+    setAuthorizing(true);
+    setError(null);
+
+    try {
+      // Verify registration status before authorizing
+      console.log('[Landing] Checking registration before authorize...');
+      const registered = await isPlayerRegistered(walletAddress);
+      if (!registered) {
+        setError('您还未在合约中注册，请先点击 "Register on Blockchain" 按钮');
+        setIsRegistered(false);
+        return;
+      }
+
+      console.log('[Landing] Authorizing server:', serverAddress);
+      const result = await setDelegate(serverAddress);
+      console.log('[Landing] setDelegate result:', result);
+      
+      if (result.success) {
+        // Notify server about the authorization
+        if (socket && socket.connected) {
+          socket.emit('CS_SET_DELEGATE', { 
+            delegateAddress: serverAddress, 
+            txId: result.tx 
+          });
+        }
+        
+        // Optimistically update state
+        setDelegateAuthorized(true);
+        
+        // Refresh the status from server
+        setTimeout(() => {
+          if (socket && socket.connected) {
+            socket.emit(CS_CHECK_DELEGATE, { walletAddress });
+          }
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('[Landing] Authorization error:', err);
+      // Handle specific contract errors
+      const errMsg = err.message || '';
+      if (errMsg.includes('REVERT') || errMsg.includes('not registered')) {
+        setError('授权失败：您还未在合约中注册。请先注册后再授权。');
+        setIsRegistered(false);
+      } else {
+        setError(errMsg || '授权失败，请重试');
+      }
+    } finally {
+      setAuthorizing(false);
+    }
+  };
+
   const proceedToGame = (address) => {
     const username = address.slice(0, 8);
     const gameId = '1';
@@ -580,6 +691,40 @@ const Landing = () => {
                   Get from Nile Faucet
                 </a>
               </FaucetLink>
+              {/* Server Authorization Section - Only show after registration */}
+              {isRegistered && (
+                <DelegateSection>
+                  <DelegateHeader>
+                    <span>服务器授权</span>
+                    {delegateAuthorized ? (
+                      <AuthorizedBadge>✓ 已授权</AuthorizedBadge>
+                    ) : (
+                      <NotAuthorizedBadge>未授权</NotAuthorizedBadge>
+                    )}
+                  </DelegateHeader>
+                  <DelegateInfo>
+                    {delegateAuthorized ? (
+                      <span>✅ 已授权服务器代理操作，进入/退出游戏无需签名</span>
+                    ) : (
+                      <span>⚠️ 授权后，服务器可代为执行游戏操作，无需每次签名</span>
+                    )}
+                  </DelegateInfo>
+                  {!delegateAuthorized && (
+                    <Button
+                      onClick={handleAuthorizeServer}
+                      disabled={authorizing || !serverAddress}
+                      style={{ 
+                        width: '100%', 
+                        background: '#28a745', 
+                        borderColor: '#28a745',
+                        marginTop: '0.5rem'
+                      }}
+                    >
+                      {authorizing ? '授权中...' : '授权服务器 (一次签名)'}
+                    </Button>
+                  )}
+                </DelegateSection>
+              )}
               <Button
                 large
                 primary
@@ -881,6 +1026,46 @@ const FaucetLink = styled.p`
       color: #1a3d4d;
     }
   }
+`;
+
+const DelegateSection = styled.div`
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.3);
+  border-radius: 8px;
+  width: 100%;
+`;
+
+const DelegateHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+`;
+
+const AuthorizedBadge = styled.span`
+  background: #28a745;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+`;
+
+const NotAuthorizedBadge = styled.span`
+  background: #dc3545;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+`;
+
+const DelegateInfo = styled.div`
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.5rem;
 `;
 
 const InstallPrompt = styled.div`

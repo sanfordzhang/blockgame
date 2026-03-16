@@ -29,7 +29,15 @@ class TronService {
         this.network = network;
         this.initialized = true;
         
+        // Get and log the server's wallet address (derived from private key)
+        const serverAddress = this.getSignerAddress();
         console.log(`[TronService] Initialized for ${network} at ${config.fullHost}`);
+        console.log(`[TronService] Server wallet address: ${serverAddress}`);
+        
+        // Set server wallet address in config for frontend to use
+        const appConfig = require('../config');
+        appConfig.setServerWalletAddress(serverAddress);
+        
         return this;
     }
 

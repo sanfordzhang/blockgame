@@ -10,8 +10,19 @@ const config = {
   // Blockchain configuration
   BLOCKCHAIN_ENABLED: process.env.BLOCKCHAIN_ENABLED === 'true' || false,
   TRON_NETWORK: process.env.TRON_NETWORK || 'testnet',
-  CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS || '',
+  // Use network-specific contract address
+  CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS || process.env.TESTNET_CONTRACT_ADDRESS || '',
   TRON_GRID_API_KEY: process.env.TRON_GRID_API_KEY || '',
+  
+  // Server wallet address (for delegate authorization)
+  // This is derived from TESTNET_PRIVATE_KEY or MAINNET_PRIVATE_KEY
+  // Players need to authorize this address to allow server proxy operations
+  SERVER_WALLET_ADDRESS: null, // Will be set by TronService.init()
+};
+
+// Function to set server wallet address (called by TronService after init)
+config.setServerWalletAddress = (address) => {
+  config.SERVER_WALLET_ADDRESS = address;
 };
 
 // Log blockchain configuration on load
