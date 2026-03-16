@@ -715,8 +715,9 @@ class ContractService {
      * Default ABI for development
      */
     getDefaultAbi() {
-        // Return minimal ABI for common functions
+        // Return complete ABI for all functions used by the game
         return [
+            // Player registration
             {
                 "inputs": [],
                 "name": "registerPlayer",
@@ -724,6 +725,21 @@ class ContractService {
                 "stateMutability": "nonpayable",
                 "type": "function"
             },
+            {
+                "inputs": [],
+                "name": "deposit",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "amount", "type": "uint256"}],
+                "name": "withdraw",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            // Player info
             {
                 "inputs": [{"name": "", "type": "address"}],
                 "name": "players",
@@ -735,6 +751,219 @@ class ContractService {
                 ],
                 "stateMutability": "view",
                 "type": "function"
+            },
+            {
+                "inputs": [{"name": "", "type": "address"}],
+                "name": "getPlayerInfo",
+                "outputs": [
+                    {"name": "balance", "type": "uint256"},
+                    {"name": "lockedAmount", "type": "uint256"},
+                    {"name": "isRegistered", "type": "bool"},
+                    {"name": "registeredAt", "type": "uint256"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            // Table operations
+            {
+                "inputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "buyInAmount", "type": "uint256"}
+                ],
+                "name": "joinTable",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "tableId", "type": "uint256"}],
+                "name": "leaveTable",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "finalStack", "type": "uint256"}
+                ],
+                "name": "leaveTableSession",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            // Game session info
+            {
+                "inputs": [{"name": "tableId", "type": "uint256"}],
+                "name": "getGameSession",
+                "outputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "players_", "type": "address[]"},
+                    {"name": "buyInAmounts_", "type": "uint256[]"},
+                    {"name": "totalPot", "type": "uint256"},
+                    {"name": "state", "type": "uint8"},
+                    {"name": "rakeRateUsed", "type": "uint256"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            // Delegate (Server Proxy) functions
+            {
+                "inputs": [{"name": "delegate", "type": "address"}],
+                "name": "setDelegate",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "revokeDelegate",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"name": "player", "type": "address"},
+                    {"name": "delegate", "type": "address"}
+                ],
+                "name": "isAuthorizedDelegate",
+                "outputs": [{"name": "", "type": "bool"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "player", "type": "address"}],
+                "name": "getPlayerDelegate",
+                "outputs": [{"name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "", "type": "address"}],
+                "name": "playerDelegates",
+                "outputs": [{"name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            // Server proxy functions
+            {
+                "inputs": [
+                    {"name": "player", "type": "address"},
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "buyInAmount", "type": "uint256"}
+                ],
+                "name": "joinTableFor",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"name": "player", "type": "address"},
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "finalStack", "type": "uint256"}
+                ],
+                "name": "leaveTableFor",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            // Settlement
+            {
+                "inputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "playersToUpdate", "type": "address[]"},
+                    {"name": "stackDeltas", "type": "int256[]"},
+                    {"name": "resultHash", "type": "bytes32"}
+                ],
+                "name": "settleGameSession",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "winners", "type": "address[]"},
+                    {"name": "amounts", "type": "uint256[]"},
+                    {"name": "resultHash", "type": "bytes32"}
+                ],
+                "name": "settleGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            // Rebuy
+            {
+                "inputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "rebuyAmount", "type": "uint256"}
+                ],
+                "name": "rebuy",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            // Admin functions
+            {
+                "inputs": [
+                    {"name": "tableId", "type": "uint256"},
+                    {"name": "owner", "type": "address"}
+                ],
+                "name": "setTableOwner",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "tableId", "type": "uint256"}],
+                "name": "tableOwners",
+                "outputs": [{"name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "player", "type": "address"}],
+                "name": "forceUnlockPlayer",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "tableId", "type": "uint256"}],
+                "name": "resetGameSession",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            // Events
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "name": "player", "type": "address"},
+                    {"indexed": false, "name": "timestamp", "type": "uint256"}
+                ],
+                "name": "PlayerRegistered",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "name": "player", "type": "address"},
+                    {"indexed": false, "name": "amount", "type": "uint256"}
+                ],
+                "name": "Deposited",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "name": "player", "type": "address"},
+                    {"indexed": false, "name": "amount", "type": "uint256"}
+                ],
+                "name": "Withdrawn",
+                "type": "event"
             }
         ];
     }

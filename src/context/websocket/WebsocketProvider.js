@@ -20,9 +20,21 @@ const WebSocketProvider = ({ children }) => {
   const [socketId, setSocketId] = useState(null)
 
   useEffect(() => {
-    window.addEventListener('beforeunload', cleanUp)
-    window.addEventListener('beforeclose', cleanUp)
-    return () => cleanUp()
+    const handleBeforeUnload = () => {
+      try {
+        cleanUp()
+      } catch (e) {
+        console.error('[WebSocket] Error in beforeunload:', e)
+      }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('beforeclose', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('beforeclose', handleBeforeUnload)
+      cleanUp()
+    }
     // eslint-disable-next-line
   }, [])
 
@@ -35,8 +47,17 @@ const WebSocketProvider = ({ children }) => {
   }, [])
 
   function cleanUp() {
-    window.socket && window.socket.emit(CS_DISCONNECT)
-    window.socket && window.socket.close()
+    try {
+      if (window.socket) {
+        if (window.socket.connected) {
+          window.socket.emit(CS_DISCONNECT)
+        }
+        window.socket.removeAllListeners()
+        window.socket.close()
+      }
+    } catch (e) {
+      console.error('[WebSocket] Error during cleanup:', e)
+    }
     setSocket(null)
     setSocketId(null)
     setPlayers(null)

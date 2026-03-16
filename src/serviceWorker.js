@@ -10,6 +10,10 @@
 // To learn more about the benefits of this model and instructions on how to
 // opt-in, read https://bit.ly/CRA-PWA
 
+// Safe access to environment variables
+const isProd = typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production';
+const publicUrl = (typeof process !== 'undefined' && process.env && process.env.PUBLIC_URL) || '';
+
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
     // [::1] is the IPv6 localhost address.
@@ -21,10 +25,10 @@ const isLocalhost = Boolean(
 );
 
 export function register(config) {
-  if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+  if (isProd && 'serviceWorker' in navigator) {
     // The URL constructor is available in all browsers that support SW.
-    const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
-    if (publicUrl.origin !== window.location.origin) {
+    const publicUrlObj = new URL(publicUrl, window.location.href);
+    if (publicUrlObj.origin !== window.location.origin) {
       // Our service worker won't work if PUBLIC_URL is on a different origin
       // from what our page is served on. This might happen if a CDN is used to
       // serve assets; see https://github.com/facebook/create-react-app/issues/2374
@@ -32,7 +36,7 @@ export function register(config) {
     }
 
     window.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+      const swUrl = `${publicUrl}/service-worker.js`;
 
       if (isLocalhost) {
         // This is running on localhost. Let's check if a service worker still exists or not.

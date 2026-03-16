@@ -6,6 +6,19 @@
   <meta name="viewport" content="width=device-width, user-scalable=no" />
   <meta name="theme-color" content="#eae1cd" />
   <title>CryptoCortex | Web3 Gaming, Staking & Betting</title>
+  <!-- Polyfill for Node.js process global - MUST be loaded before any other scripts -->
+  <script>
+    // Provide process polyfill for libraries that expect Node.js environment
+    window.process = window.process || { 
+      env: { 
+        NODE_ENV: 'development',
+        DEBUG: undefined
+      },
+      version: 'v16.0.0',
+      versions: {},
+      browser: true
+    };
+  </script>
   <meta name="description"
     content="CryptoCortex is a Web3 platform combining staking, gaming, sports betting, and blockchain education into one ecosystem — enabling users to play, earn, and learn in a secure, provably fair environment.
 " />
@@ -128,10 +141,6 @@
   <div id="root" style="display: none;"></div>
   <div id="cookie-banner" style="display: none;"></div>
   <div id="modal"></div>
-  <script>
-    // Polyfill for libraries that reference Node.js process global
-    window.process = window.process || { env: { NODE_ENV: 'development' } };
-  </script>
 </body>
 
 </html>

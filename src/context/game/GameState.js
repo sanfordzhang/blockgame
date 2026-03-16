@@ -81,8 +81,18 @@ const GameState = ({ children }) => {
 
   useEffect(() => {
     if (socket) {
-      window.addEventListener('unload', leaveTable)
-      window.addEventListener('close', leaveTable)
+      const handleUnload = () => {
+        try {
+          if (socket && socket.connected) {
+            leaveTable()
+          }
+        } catch (e) {
+          console.error('[GameState] Error in unload handler:', e)
+        }
+      }
+      
+      window.addEventListener('unload', handleUnload)
+      window.addEventListener('close', handleUnload)
 
       socket.on(SC_TABLE_UPDATED, ({ table, message, from }) => {
         console.log(SC_TABLE_UPDATED, { table, message, from })
@@ -147,10 +157,19 @@ const GameState = ({ children }) => {
           addMessage(`⚠️ 需要授权服务器: ${data.serverAddress}`)
         }
       })
+      
+      return () => {
+        window.removeEventListener('unload', handleUnload)
+        window.removeEventListener('close', handleUnload)
+        try {
+          if (socket && socket.connected) {
+            leaveTable()
+          }
+        } catch (e) {
+          console.error('[GameState] Error in cleanup:', e)
+        }
+      }
     }
-    if(socket){
-      return () => leaveTable()
-    } 
     // eslint-disable-next-line
   }, [socket])
 
@@ -181,13 +200,20 @@ const GameState = ({ children }) => {
       return
     }
     
-    // Stand up from table first (local)
-    standUp()
-    
-    // Use server proxy mode - server will call leaveTableFor on behalf of player
-    socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, {
-      tableId
-    })
+    try {
+      // Stand up from table first (local)
+      standUp()
+      
+      // Use server proxy mode - server will call leaveTableFor on behalf of player
+      if (socket && socket.connected) {
+        socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, {
+          tableId
+        })
+      }
+    } catch (error) {
+      console.error('[GameState] leaveTable error:', error)
+      // Continue with navigation even on error
+    }
     
     navigate('/')
   }

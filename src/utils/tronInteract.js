@@ -160,18 +160,26 @@ const CONTRACT_ABI = [
 ];
 
 // Network configurations
+// Use hardcoded default if process.env is not available (browser runtime)
+const getEnvVar = (name, defaultValue = '') => {
+  if (typeof process !== 'undefined' && process.env && process.env[name]) {
+    return process.env[name];
+  }
+  return defaultValue;
+};
+
 const NETWORKS = {
   mainnet: {
     chainId: '0x2b6653dc', // 728126428
     name: 'Mainnet',
     fullHost: 'https://api.trongrid.io',
-    contractAddress: process.env.REACT_APP_MAINNET_CONTRACT_ADDRESS
+    contractAddress: getEnvVar('REACT_APP_MAINNET_CONTRACT_ADDRESS', '')
   },
   testnet: {
     chainId: '0xcd8690dc', // 3448148188
     name: 'Nile Testnet',
     fullHost: 'https://nile.trongrid.io',
-    contractAddress: process.env.REACT_APP_TESTNET_CONTRACT_ADDRESS || 'TPrXy7qsoY3rEutSPmEF14sJjjijxpHGpv'
+    contractAddress: getEnvVar('REACT_APP_TESTNET_CONTRACT_ADDRESS', 'TPrXy7qsoY3rEutSPmEF14sJjjijxpHGpv')
   }
 };
 
@@ -724,9 +732,11 @@ export const parseTrx = (trx) => {
 
 /**
  * Try to unlock locked balance by leaving table
- * This attempts to call leaveTable for a specific tableId
+ * Uses leaveTableSession which works with PLAYING or FINISHED state
+ * @param {number} tableId - The table ID
+ * @param {number} finalStack - Amount to return (defaults to full locked amount)
  */
-export const tryUnlockLockedBalance = async (tableId = 1) => {
+export const tryUnlockLockedBalance = async (tableId = 1, finalStack = null) => {
   const contractAddress = getContractAddress();
   if (!contractAddress) {
     throw new Error('Contract not deployed for this network');
@@ -735,12 +745,22 @@ export const tryUnlockLockedBalance = async (tableId = 1) => {
   const contract = await getContract(contractAddress);
 
   try {
-    // Try to leave table to unlock funds
-    const tx = await contract.leaveTable(tableId).send({
+    // Get current locked amount if finalStack not provided
+    const address = getCurrentAddress();
+    let stackToReturn = finalStack;
+    
+    if (stackToReturn === null) {
+      const balance = await getPlayerBalance(address);
+      stackToReturn = balance.locked;
+      console.log(`[tryUnlockLockedBalance] Will return ${stackToReturn} SUN (${stackToReturn/1e6} TRX)`);
+    }
+
+    // Use leaveTableSession - works with PLAYING or FINISHED state
+    const tx = await contract.leaveTableSession(tableId, stackToReturn).send({
       feeLimit: 100_000_000,
       shouldPollResponse: true
     });
-    return { success: true, tx };
+    return { success: true, tx, amountReturned: stackToReturn };
   } catch (error) {
     console.error('Error unlocking balance:', error);
     throw error;

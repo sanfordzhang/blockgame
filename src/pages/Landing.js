@@ -197,15 +197,10 @@ const Landing = () => {
           setLocalWalletAddress(address);
           setWalletAddress(address);
           
-          // Check if registered
+          // Check if registered (don't auto-redirect, let user see the status)
           const registered = await isPlayerRegistered(address);
           setIsRegistered(registered);
-          
-          // If registered, proceed to game
-          if (registered) {
-            proceedToHomepage(address);
-          }
-          // If not registered, show registration button (state will update)
+          // User stays on Landing page to see registration/deposit options
         } else {
           setError(result.error || '连接 TronLink 失败');
         }
@@ -407,29 +402,32 @@ const Landing = () => {
     setError(null);
 
     try {
-      // First check game session state
-      const session = await getGameSession(1);
-      console.log('Game session:', session);
+      console.log(`[Landing] Attempting to unlock ${lockedBalance} SUN (${lockedBalance/1e6} TRX)...`);
+      
+      // Use leaveTableSession to unlock - works with PLAYING or FINISHED state
+      const result = await tryUnlockLockedBalance(1, lockedBalance);
+      console.log('Unlock result:', result);
 
-      if (session && session.stateName === 'PLAYING') {
-        // Try to leave table to unlock funds
-        console.log('Attempting to leave table to unlock funds...');
-        const result = await tryUnlockLockedBalance(1);
-        console.log('Unlock result:', result);
-
-        // Refresh balances
-        await refreshAllBalances();
-      } else {
-        // Game not in playing state - cannot unlock via leaveTable
-        setError(
-          `无法解锁：游戏状态为 ${session?.stateName || '未知'}。\n` +
-          `锁定余额需要在游戏中才能通过 leaveTable 解锁。\n` +
-          `请联系管理员或等待游戏结算。`
-        );
+      if (result.success) {
+        // Update balances optimistically
+        setContractBalance(prev => prev + result.amountReturned);
+        setLockedBalance(0);
+        
+        // Refresh actual balances after a short delay
+        setTimeout(() => refreshAllBalances(), 3000);
       }
     } catch (err) {
       console.error('Unlock error:', err);
-      setError(err.message || '解锁失败，请重试');
+      // Show more helpful error message
+      const errMsg = err.message || '';
+      if (errMsg.includes('Player not in this table')) {
+        setError('解锁失败：您不在该桌子中。可能是不同的 tableId，请尝试其他方法。');
+      } else if (errMsg.includes('No locked funds')) {
+        setError('没有锁定资金可解锁。');
+        setLockedBalance(0);
+      } else {
+        setError(`解锁失败: ${errMsg}`);
+      }
     } finally {
       setUnlocking(false);
     }
@@ -574,167 +572,180 @@ const Landing = () => {
             >
               {connecting ? 'Connecting...' : 'Connect Wallet'}
             </Button>
-          ) : !isRegistered ? (
+          ) : (
             <>
               <WalletInfo>
                 <span>Wallet: {formatAddress(walletAddress)}</span>
                 <span>TRX: {formatTrx(walletBalance)}</span>
               </WalletInfo>
-              <InfoText>
-                You need to register on the blockchain to play.
-                <br />
-                <small>This will create your player account in the game contract.</small>
-              </InfoText>
-              <Button
-                large
-                primary
-                fullWidthOnMobile
-                onClick={handleRegister}
-                disabled={registering}
-              >
-                {registering ? 'Registering...' : 'Register on Blockchain'}
-              </Button>
+              
+              {/* Registration Section - Always visible */}
+              <RegistrationSection>
+                {isRegistered ? (
+                  <RegisteredBadge>✓ 已注册</RegisteredBadge>
+                ) : (
+                  <>
+                    <InfoText>
+                      You need to register on the blockchain to play.
+                      <br />
+                      <small>This will create your player account in the game contract.</small>
+                    </InfoText>
+                    <Button
+                      large
+                      primary
+                      fullWidthOnMobile
+                      onClick={handleRegister}
+                      disabled={registering}
+                    >
+                      {registering ? 'Registering...' : 'Register on Blockchain'}
+                    </Button>
+                  </>
+                )}
+              </RegistrationSection>
+              
+              {/* Balance and Deposit/Withdraw - Only show if registered */}
+              {isRegistered && (
+                <>
+                  <BalanceInfo>
+                    <BalanceRow>
+                      <span>Wallet TRX:</span>
+                      <span>{formatTrx(walletBalance)} TRX</span>
+                    </BalanceRow>
+                    <BalanceRow>
+                      <span>Game Balance:</span>
+                      <span>{formatTrx(gameBalance)} TRX</span>
+                    </BalanceRow>
+                    <BalanceRow>
+                      <span>Bankroll:</span>
+                      <span>{formatTrx(bankroll)} TRX</span>
+                    </BalanceRow>
+                    {lockedBalance > 0 && (
+                      <BalanceRow style={{ color: '#f0883e', fontSize: '0.8rem' }}>
+                        <span>  └─ Locked:</span>
+                        <span>{formatTrx(lockedBalance)} TRX</span>
+                      </BalanceRow>
+                    )}
+                  </BalanceInfo>
+                  <RefreshButton 
+                    onClick={refreshAllBalances} 
+                    disabled={refreshing}
+                  >
+                    {refreshing ? '⟳' : '↻'} 刷新余额
+                  </RefreshButton>
+                  <DepositSection>
+                    <DepositInput
+                      type="number"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="Amount in TRX"
+                      min="1"
+                    />
+                    <Button
+                      primary
+                      onClick={handleDeposit}
+                      disabled={depositing}
+                      style={{ marginLeft: '0.5rem' }}
+                    >
+                      {depositing ? 'Depositing...' : 'Deposit'}
+                    </Button>
+                  </DepositSection>
+                  <WithdrawSection>
+                    <WithdrawInfo>
+                      <span>可提现: {formatTrx(bankroll)} TRX</span>
+                      {lockedBalance > 0 && (
+                        <LockedWarning>
+                          ⚠️ {formatTrx(lockedBalance)} TRX 已锁定
+                        </LockedWarning>
+                      )}
+                    </WithdrawInfo>
+                    <WithdrawButtons>
+                      <Button
+                        onClick={handleWithdraw}
+                        disabled={withdrawing || bankroll <= 0}
+                        style={{ flex: 1 }}
+                      >
+                        {withdrawing ? '提现中...' : `提现 ${formatTrx(bankroll)} TRX`}
+                      </Button>
+                    </WithdrawButtons>
+                    {lockedBalance > 0 && (
+                      <UnlockSection>
+                        <Button
+                          onClick={handleUnlockLocked}
+                          disabled={unlocking}
+                          style={{ width: '100%', background: '#f0883e', borderColor: '#f0883e' }}
+                        >
+                          {unlocking ? '解锁中...' : `尝试解锁 ${formatTrx(lockedBalance)} TRX`}
+                        </Button>
+                        <UnlockHint>
+                          💡 锁定余额通常在游戏结束时自动释放。如果游戏异常结束，请点击上方按钮尝试解锁。
+                        </UnlockHint>
+                      </UnlockSection>
+                    )}
+                  </WithdrawSection>
+                  <FaucetLink>
+                    Need test TRX?{' '}
+                    <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
+                      Get from Nile Faucet
+                    </a>
+                  </FaucetLink>
+                  {/* Server Authorization Section */}
+                  <DelegateSection>
+                    <DelegateHeader>
+                      <span>服务器授权</span>
+                      {delegateAuthorized ? (
+                        <AuthorizedBadge>✓ 已授权</AuthorizedBadge>
+                      ) : (
+                        <NotAuthorizedBadge>未授权</NotAuthorizedBadge>
+                      )}
+                    </DelegateHeader>
+                    <DelegateInfo>
+                      {delegateAuthorized ? (
+                        <span>✅ 已授权服务器代理操作，进入/退出游戏无需签名</span>
+                      ) : (
+                        <span>⚠️ 授权后，服务器可代为执行游戏操作，无需每次签名</span>
+                      )}
+                    </DelegateInfo>
+                    {!delegateAuthorized && (
+                      <Button
+                        onClick={handleAuthorizeServer}
+                        disabled={authorizing || !serverAddress}
+                        style={{ 
+                          width: '100%', 
+                          background: '#28a745', 
+                          borderColor: '#28a745',
+                          marginTop: '0.5rem'
+                        }}
+                      >
+                        {authorizing ? '授权中...' : '授权服务器 (一次签名)'}
+                      </Button>
+                    )}
+                  </DelegateSection>
+                </>
+              )}
+              
+              {/* Dev Mode Skip Button */}
               <Button
                 large
                 fullWidthOnMobile
                 onClick={() => proceedToGame(walletAddress)}
                 style={{ marginTop: '0.5rem' }}
               >
-                Skip (Dev Mode)
+                Skip to Game (Dev Mode)
               </Button>
-            </>
-          ) : (
-            <>
-              <WalletInfo>
-                <span>Wallet: {formatAddress(walletAddress)}</span>
-                <RegisteredBadge>✓ Registered</RegisteredBadge>
-              </WalletInfo>
-              <BalanceInfo>
-                <BalanceRow>
-                  <span>Wallet TRX:</span>
-                  <span>{formatTrx(walletBalance)} TRX</span>
-                </BalanceRow>
-                <BalanceRow>
-                  <span>Game Balance:</span>
-                  <span>{formatTrx(gameBalance)} TRX</span>
-                </BalanceRow>
-                <BalanceRow>
-                  <span>Bankroll:</span>
-                  <span>{formatTrx(bankroll)} TRX</span>
-                </BalanceRow>
-                {lockedBalance > 0 && (
-                  <BalanceRow style={{ color: '#f0883e', fontSize: '0.8rem' }}>
-                    <span>  └─ Locked:</span>
-                    <span>{formatTrx(lockedBalance)} TRX</span>
-                  </BalanceRow>
-                )}
-              </BalanceInfo>
-              <RefreshButton 
-                onClick={refreshAllBalances} 
-                disabled={refreshing}
-              >
-                {refreshing ? '⟳' : '↻'} 刷新余额
-              </RefreshButton>
-              <DepositSection>
-                <DepositInput
-                  type="number"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  placeholder="Amount in TRX"
-                  min="1"
-                />
-                <Button
-                  primary
-                  onClick={handleDeposit}
-                  disabled={depositing}
-                  style={{ marginLeft: '0.5rem' }}
-                >
-                  {depositing ? 'Depositing...' : 'Deposit'}
-                </Button>
-              </DepositSection>
-              <WithdrawSection>
-                <WithdrawInfo>
-                  <span>可提现: {formatTrx(bankroll)} TRX</span>
-                  {lockedBalance > 0 && (
-                    <LockedWarning>
-                      ⚠️ {formatTrx(lockedBalance)} TRX 已锁定
-                    </LockedWarning>
-                  )}
-                </WithdrawInfo>
-                <WithdrawButtons>
-                  <Button
-                    onClick={handleWithdraw}
-                    disabled={withdrawing || bankroll <= 0}
-                    style={{ flex: 1 }}
-                  >
-                    {withdrawing ? '提现中...' : `提现 ${formatTrx(bankroll)} TRX`}
-                  </Button>
-                </WithdrawButtons>
-                {lockedBalance > 0 && (
-                  <UnlockSection>
-                    <Button
-                      onClick={handleUnlockLocked}
-                      disabled={unlocking}
-                      style={{ width: '100%', background: '#f0883e', borderColor: '#f0883e' }}
-                    >
-                      {unlocking ? '解锁中...' : `尝试解锁 ${formatTrx(lockedBalance)} TRX`}
-                    </Button>
-                    <UnlockHint>
-                      💡 锁定余额通常在游戏结束时自动释放。如果游戏异常结束，请点击上方按钮尝试解锁。
-                    </UnlockHint>
-                  </UnlockSection>
-                )}
-              </WithdrawSection>
-              <FaucetLink>
-                Need test TRX?{' '}
-                <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
-                  Get from Nile Faucet
-                </a>
-              </FaucetLink>
-              {/* Server Authorization Section - Only show after registration */}
+              
+              {/* Enter Game Button */}
               {isRegistered && (
-                <DelegateSection>
-                  <DelegateHeader>
-                    <span>服务器授权</span>
-                    {delegateAuthorized ? (
-                      <AuthorizedBadge>✓ 已授权</AuthorizedBadge>
-                    ) : (
-                      <NotAuthorizedBadge>未授权</NotAuthorizedBadge>
-                    )}
-                  </DelegateHeader>
-                  <DelegateInfo>
-                    {delegateAuthorized ? (
-                      <span>✅ 已授权服务器代理操作，进入/退出游戏无需签名</span>
-                    ) : (
-                      <span>⚠️ 授权后，服务器可代为执行游戏操作，无需每次签名</span>
-                    )}
-                  </DelegateInfo>
-                  {!delegateAuthorized && (
-                    <Button
-                      onClick={handleAuthorizeServer}
-                      disabled={authorizing || !serverAddress}
-                      style={{ 
-                        width: '100%', 
-                        background: '#28a745', 
-                        borderColor: '#28a745',
-                        marginTop: '0.5rem'
-                      }}
-                    >
-                      {authorizing ? '授权中...' : '授权服务器 (一次签名)'}
-                    </Button>
-                  )}
-                </DelegateSection>
+                <Button
+                  large
+                  primary
+                  fullWidthOnMobile
+                  onClick={() => proceedToGame(walletAddress)}
+                  disabled={contractBalance < 100000000}
+                  style={{ marginTop: '1rem' }}
+                >
+                  {contractBalance < 100000000 ? 'Deposit Required to Play' : 'Enter Game'}
+                </Button>
               )}
-              <Button
-                large
-                primary
-                fullWidthOnMobile
-                onClick={() => proceedToGame(walletAddress)}
-                disabled={contractBalance < 100000000}
-                style={{ marginTop: '1rem' }}
-              >
-                {contractBalance < 100000000 ? 'Deposit Required to Play' : 'Enter Game'}
-              </Button>
             </>
           )}
         </Wrapper>
@@ -891,6 +902,15 @@ const RegisteredBadge = styled.span`
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.75rem;
+`;
+
+const RegistrationSection = styled.div`
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.3);
+  border-radius: 8px;
+  text-align: center;
 `;
 
 const InfoText = styled.p`

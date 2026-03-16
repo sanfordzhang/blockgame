@@ -23,8 +23,10 @@ const rootElement = document.getElementById('root');
   };
 
   // Disable react dev tools in production
+  // Safe check for process.env
+  const isProd = typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production';
   if (
-    process.env.NODE_ENV === 'production' &&
+    isProd &&
     typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object'
   ) {
     for (let [key, value] of Object.entries(
