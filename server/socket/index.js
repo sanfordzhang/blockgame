@@ -37,6 +37,11 @@ const {
   SC_BLOCKCHAIN_ERROR,
   SC_BLOCKCHAIN_SETTLEMENT,
   SC_BALANCE_SYNCED,
+  // Player-signed contract events
+  CS_CONTRACT_JOIN_SUCCESS,
+  CS_CONTRACT_JOIN_FAILED,
+  CS_CONTRACT_LEAVE_SUCCESS,
+  CS_CONTRACT_LEAVE_FAILED,
 } = require('../pokergame/actions');
 const config = require('../config');
 const gameFlowIntegration = require('../services/GameFlowIntegration');
@@ -119,8 +124,10 @@ const init = (socket, io) => {
           );
           
           // Use blockchain balance if available
+          // Rule a: bankroll = balance (don't subtract locked)
           if (blockchainBalance) {
-            const availableBalance = blockchainBalance.balance - blockchainBalance.lockedAmount;
+            // Rule a: bankroll = balance
+            const availableBalance = blockchainBalance.balance;
             players[socketId].bankroll = availableBalance;
             
             socket.emit(SC_BALANCE_SYNCED, {
@@ -410,6 +417,194 @@ const init = (socket, io) => {
     }
   });
 
+  // ============ Player-Signed Contract Events ============
+  // These events are emitted by the frontend AFTER the player has successfully
+  // called the contract directly (signing with their own wallet)
+
+  /**
+   * Handle successful contract joinTable call from frontend
+   * Player has already signed and the contract call succeeded
+   */
+  socket.on(CS_CONTRACT_JOIN_SUCCESS, async ({ tableId, buyInAmount, txId }) => {
+    const table = tables[tableId];
+    const player = players[socket.id];
+    
+    console.log('[Socket] CS_CONTRACT_JOIN_SUCCESS:', { tableId, buyInAmount, txId, player: player?.id });
+    
+    if (!player) {
+      console.error('[Socket] Player not found for CS_CONTRACT_JOIN_SUCCESS');
+      return;
+    }
+
+    // Cap buyIn at table limit
+    const cappedBuyIn = Math.min(buyInAmount, table.limit);
+    
+    try {
+      // Update local cache
+      const cached = gameFlowIntegration.getPlayerBalanceCache(player.id);
+      if (cached) {
+        gameFlowIntegration.updatePlayerBalanceCache(player.id, 0, cappedBuyIn);
+      }
+      
+      // Sync balance from contract
+      if (config.BLOCKCHAIN_ENABLED) {
+        try {
+          await gameFlowIntegration.syncPlayerBalance(player.id);
+        } catch (e) {
+          console.warn('[Socket] Failed to sync balance from contract:', e.message);
+        }
+      }
+      
+      // Add player to table
+      table.addPlayer(player);
+      socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId });
+      socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+      
+      // Find an empty seat (seats are 1-indexed)
+      let emptySeatId = 1;
+      for (let i = 1; i <= table.maxPlayers; i++) {
+        if (!table.seats[i] || !table.seats[i].player) {
+          emptySeatId = i;
+          break;
+        }
+      }
+      
+      console.log('[Socket] Sitting down at seat:', emptySeatId);
+      
+      // Sit down with the buy-in amount
+      await sitDown(tableId, emptySeatId, cappedBuyIn);
+      
+      let message = `${player.name} joined the table.`;
+      broadcastToTable(table, message);
+      
+    } catch (error) {
+      console.error('[Socket] Error processing CS_CONTRACT_JOIN_SUCCESS:', error);
+    }
+  });
+
+  /**
+   * Handle failed contract joinTable call from frontend
+   */
+  socket.on(CS_CONTRACT_JOIN_FAILED, ({ tableId, buyInAmount, error }) => {
+    console.error('[Socket] CS_CONTRACT_JOIN_FAILED:', { tableId, buyInAmount, error });
+    
+    // Notify the player about the failure
+    socket.emit(SC_BLOCKCHAIN_ERROR, {
+      operation: 'joinTable',
+      message: error || 'Contract call failed',
+      tableId,
+      buyInAmount
+    });
+  });
+
+  /**
+   * Handle successful contract leaveTableSession call from frontend
+   * Player has already signed and the contract call succeeded
+   */
+  socket.on(CS_CONTRACT_LEAVE_SUCCESS, async ({ tableId, stack, txId }) => {
+    const table = tables[tableId];
+    const player = players[socket.id];
+    
+    console.log('[Socket] CS_CONTRACT_LEAVE_SUCCESS:', { tableId, stack, txId, player: player?.id });
+    
+    if (!player) {
+      console.error('[Socket] Player not found for CS_CONTRACT_LEAVE_SUCCESS');
+      return;
+    }
+
+    const seat = Object.values(table.seats).find(
+      (seat) => seat && seat.player.socketId === socket.id,
+    );
+
+    try {
+      // Sync balance from contract (this is the source of truth)
+      if (config.BLOCKCHAIN_ENABLED) {
+        try {
+          const freshBalance = await gameFlowIntegration.syncPlayerBalance(player.id);
+          
+          // Notify player about synced balance
+          socket.emit(SC_BALANCE_SYNCED, {
+            balance: freshBalance.balance,
+            locked: freshBalance.lockedAmount,
+            available: freshBalance.balance,
+            reason: 'leave_table'
+          });
+          
+          // Update player bankroll from contract
+          player.bankroll = freshBalance.balance;
+        } catch (e) {
+          console.warn('[Socket] Failed to sync balance from contract:', e.message);
+          // Fallback: use the stack value from frontend
+          if (seat) {
+            player.bankroll += seat.stack;
+          }
+        }
+      } else {
+        // Non-blockchain mode: just add stack to bankroll
+        if (seat) {
+          player.bankroll += seat.stack;
+        }
+      }
+      
+      // Remove player from table
+      table.removePlayer(socket.id);
+      socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+      socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+      
+      // Broadcast updated player list
+      io.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
+      
+      let message = `${player.name} left the table.`;
+      broadcastToTable(table, message);
+      
+      if (table.activePlayers().length === 1) {
+        clearForOnePlayer(table);
+      }
+      
+    } catch (error) {
+      console.error('[Socket] Error processing CS_CONTRACT_LEAVE_SUCCESS:', error);
+    }
+  });
+
+  /**
+   * Handle failed contract leaveTableSession call from frontend
+   */
+  socket.on(CS_CONTRACT_LEAVE_FAILED, ({ tableId, stack, error }) => {
+    console.error('[Socket] CS_CONTRACT_LEAVE_FAILED:', { tableId, stack, error });
+    
+    const table = tables[tableId];
+    const player = players[socket.id];
+    
+    // Still remove player from table locally
+    if (player) {
+      const seat = Object.values(table.seats).find(
+        (seat) => seat && seat.player.socketId === socket.id,
+      );
+      
+      if (seat) {
+        updatePlayerBankroll(player, seat.stack);
+      }
+      
+      table.removePlayer(socket.id);
+      socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+      socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+      
+      let message = `${player.name} left the table (blockchain sync pending).`;
+      broadcastToTable(table, message);
+      
+      if (table.activePlayers().length === 1) {
+        clearForOnePlayer(table);
+      }
+    }
+    
+    // Notify the player about the failure
+    socket.emit(SC_BLOCKCHAIN_ERROR, {
+      operation: 'leaveTable',
+      message: error || 'Contract call failed. Your balance will be synced later.',
+      tableId
+    });
+  });
+
   socket.on(CS_FOLD, (tableId) => {
     console.log('[Socket] CS_FOLD received from', socket.id, 'for table', tableId);
     let table = tables[tableId];
@@ -510,7 +705,12 @@ const init = (socket, io) => {
       table.sitPlayer(player, seatId, amount);
       let message = `${player.name} sat down in Seat ${seatId}`;
 
-      updatePlayerBankroll(player, -amount);
+      // Note: In blockchain mode, bankroll is managed by blockchain cache
+      // The updatePlayerBankroll call was causing double deduction
+      // bankroll should reflect: contractBalance - lockedBalance
+      if (!config.BLOCKCHAIN_ENABLED) {
+        updatePlayerBankroll(player, -amount);
+      }
 
       broadcastToTable(table, message);
       console.log('[Socket] Active players:', table.activePlayers().length);
@@ -526,12 +726,80 @@ const init = (socket, io) => {
     await sitDown(tableId, seatId, amount);
   });
 
-  socket.on(CS_REBUY, ({ tableId, seatId, amount }) => {
+  // Rule f: Rebuy from balance (not from locked)
+  // Rebuy: balance -= amount, locked += amount, stack += amount
+  socket.on(CS_REBUY, async ({ tableId, seatId, amount }) => {
     const table = tables[tableId];
     const player = players[socket.id];
 
+    console.log('[Socket] CS_REBUY received:', { tableId, seatId, amount, player: player?.id });
+
+    if (!player) {
+      socket.emit(SC_BLOCKCHAIN_ERROR, {
+        operation: 'rebuy',
+        message: 'Player not found'
+      });
+      return;
+    }
+
+    // Rule f: Check if player has enough balance for rebuy
+    // Balance (not locked) is used for rebuy
+    if (config.BLOCKCHAIN_ENABLED) {
+      try {
+        const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(player.id);
+        const availableBalance = cachedBalance ? cachedBalance.balance : player.bankroll;
+        
+        console.log(`[Socket] Rebuy validation: availableBalance=${availableBalance}, amount=${amount}`);
+        
+        if (availableBalance < amount) {
+          socket.emit(SC_BLOCKCHAIN_ERROR, {
+            operation: 'rebuy',
+            message: `Insufficient balance for rebuy. Available: ${availableBalance / 1e6} TRX, Required: ${amount / 1e6} TRX`,
+            available: availableBalance,
+            required: amount
+          });
+          return;
+        }
+
+        // Rule f: Rebuy from balance
+        // balance -= amount, locked += amount, stack += amount
+        gameFlowIntegration.updatePlayerBalanceCache(player.id, -amount, amount);
+        
+        // Update local player bankroll
+        player.bankroll -= amount;
+
+        console.log(`[Socket] Rebuy executed: player ${player.name}`);
+        console.log(`[Socket]   balance decreased by ${amount}`);
+        console.log(`[Socket]   locked increased by ${amount}`);
+        console.log(`[Socket]   stack will increase by ${amount}`);
+
+      } catch (error) {
+        console.error('[Socket] Rebuy error:', error.message);
+        socket.emit(SC_BLOCKCHAIN_ERROR, {
+          operation: 'rebuy',
+          message: error.message
+        });
+        return;
+      }
+    } else {
+      // Non-blockchain mode
+      updatePlayerBankroll(player, -amount);
+    }
+
+    // Execute rebuy in table (updates stack)
     table.rebuyPlayer(seatId, amount);
-    updatePlayerBankroll(player, -amount);
+
+    // Notify player about balance update
+    const updatedCache = gameFlowIntegration.getPlayerBalanceCache(player.id);
+    if (updatedCache) {
+      socket.emit(SC_BALANCE_SYNCED, {
+        balance: updatedCache.balance,
+        locked: updatedCache.lockedAmount,
+        available: updatedCache.balance,
+        reason: 'rebuy',
+        amount: -amount
+      });
+    }
 
     broadcastToTable(table);
   });
@@ -593,8 +861,9 @@ const init = (socket, io) => {
   });
 
   async function updatePlayerBankroll(player, amount) {
-    players[socket.id].bankroll += amount;
-    io.to(socket.id).emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
+    if (!player) return;
+    player.bankroll += amount;
+    io.to(player.socketId).emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
   }
 
   function findSeatBySocketId(socketId) {
@@ -661,6 +930,9 @@ const init = (socket, io) => {
     }, 1000);
   }
 
+  // Track stack before each hand for session mode settlement
+  const stackBeforeHand = new Map();
+
   // Modified to include blockchain settlement
   async function initNewHand(table) {
     console.log('[Socket] initNewHand called, active players:', table.activePlayers().length);
@@ -670,6 +942,17 @@ const init = (socket, io) => {
     setTimeout(() => {
       table.clearWinMessages();
       table.startHand();
+      
+      // Record stack before hand for session mode settlement
+      stackBeforeHand.clear();
+      for (const seatId of Object.keys(table.seats)) {
+        const seat = table.seats[seatId];
+        if (seat && seat.player && seat.stack !== undefined) {
+          stackBeforeHand.set(seat.player.id, seat.stack);
+          console.log(`[Socket] Recorded stack before hand: ${seat.player.name} = ${seat.stack}`);
+        }
+      }
+      
       console.log('[Socket] After startHand:');
       console.log('[Socket] board length:', table.board.length);
       console.log('[Socket] turn:', table.turn);
@@ -691,19 +974,17 @@ const init = (socket, io) => {
   }
 
   // Task 15.4: Handle game end with settlement and balance updates
+  // Rule j: Session mode - settleGame only updates stack, locked unchanged
+  // Final settlement happens when player leaves table (leaveTable)
   async function handleGameEnd(table) {
-    console.log('[Socket] handleGameEnd called');
+    console.log('[Socket] handleGameEnd called (Session Mode)');
     console.log('[Socket] winMessages:', table.winMessages);
     console.log('[Socket] table.seats:', Object.keys(table.seats).filter(id => table.seats[id]?.player).map(id => ({
       seatId: id,
       playerName: table.seats[id]?.player?.name,
       playerId: table.seats[id]?.player?.id,
-      socketId: table.seats[id]?.player?.socketId
-    })));
-    console.log('[Socket] players registry:', Object.keys(players).map(sid => ({
-      socketId: sid,
-      playerId: players[sid]?.id,
-      playerName: players[sid]?.name
+      socketId: table.seats[id]?.player?.socketId,
+      stack: table.seats[id]?.stack
     })));
 
     // Convert table result to settlement format
@@ -716,12 +997,14 @@ const init = (socket, io) => {
 
     console.log('[Socket] Settlement data winners:', settlementData.winners);
 
-    // Always update local player balances (regardless of blockchain mode)
+    // Collect stack changes for session mode settlement
+    const playerStacks = [];
+
+    // Rule d: During game, only stack changes, locked stays unchanged
+    // Rule j: Session mode - don't update locked, only update local stack
     if (settlementData.winners.length > 0) {
       for (const winner of settlementData.winners) {
         // Find the player by address in global players registry
-        // Note: We use global 'players' object, not 'table.seats', because the winner
-        // may have already left the table but should still receive their winnings
         const playerEntry = Object.entries(players).find(
           ([_, p]) => p.id === winner.address
         );
@@ -730,18 +1013,36 @@ const init = (socket, io) => {
         
         if (playerEntry) {
           const [socketId, player] = playerEntry;
-          // Update player's local bankroll
-          const oldBankroll = player.bankroll;
-          player.bankroll += winner.amount;
-          console.log(`[Socket] Updated ${player.name} bankroll: ${oldBankroll} -> ${player.bankroll} (+${winner.amount})`);
+          // Rule d: Don't update player.bankroll during game (only stack changes)
+          // The winner's stack is already updated in Table.determineWinner
+          // We just need to update the cache balance for tracking purposes
+          console.log(`[Socket] Winner ${player.name} won ${winner.amount}. Stack already updated in game logic.`);
 
-          // Update cache in gameFlowIntegration - winner gets the amount, locked stays the same
+          // Update cache: balance increases (winner gets amount), locked stays same
+          // This is for tracking purposes - actual locked is settled on leaveTable
           gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
 
-          // Notify client about balance update
+          // Collect stack info for session settlement
+          const stackBefore = stackBeforeHand.get(winner.address) || 0;
+          // Find current stack from table seats
+          let stackAfter = stackBefore;
+          for (const seatId of Object.keys(table.seats)) {
+            const seat = table.seats[seatId];
+            if (seat && seat.player && seat.player.id === winner.address) {
+              stackAfter = seat.stack;
+              break;
+            }
+          }
+          playerStacks.push({
+            address: winner.address,
+            stackBefore,
+            stackAfter
+          });
+
+          // Notify client about balance update (for display purposes)
           io.to(socketId).emit(SC_BALANCE_SYNCED, {
             balance: player.bankroll,
-            locked: 0,
+            locked: gameFlowIntegration.getPlayerBalanceCache(winner.address)?.lockedAmount || 0,
             available: player.bankroll,
             reason: 'game_won',
             amount: winner.amount
@@ -749,45 +1050,37 @@ const init = (socket, io) => {
         } else {
           console.warn(`[Socket] Winner player not found for address: ${winner.address}`);
           // Player might have disconnected, but we should still track the win
-          // Update the balance cache anyway so when they reconnect they get their balance
           gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
         }
       }
 
-      // Update locked amount for all players who were in this hand
-      // After game ends, their locked amount should reflect their current stack
+      // Also collect non-winner players' stack changes
       for (const seatId of Object.keys(table.seats)) {
         const seat = table.seats[seatId];
-        if (seat && seat.player) {
-          const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(seat.player.id);
-          if (cachedBalance) {
-            // Update locked to match current stack (what they have left on table)
-            const newLocked = seat.stack || 0;
-            console.log(`[Socket] Updating locked for ${seat.player.name}: ${cachedBalance.lockedAmount} -> ${newLocked}`);
-            gameFlowIntegration.updatePlayerBalanceCache(seat.player.id, 0, newLocked - cachedBalance.lockedAmount);
+        if (seat && seat.player && seat.stack !== undefined) {
+          const address = seat.player.id;
+          // Check if already added
+          if (!playerStacks.find(p => p.address === address)) {
+            const stackBefore = stackBeforeHand.get(address) || 0;
+            playerStacks.push({
+              address,
+              stackBefore,
+              stackAfter: seat.stack
+            });
           }
         }
       }
 
-      // Also notify all players at table about their final balance
-      for (const player of table.players) {
-        const playerEntry = Object.entries(players).find(
-          ([_, p]) => p.id === player.id
-        );
-        if (playerEntry) {
-          const [socketId, p] = playerEntry;
-          io.to(socketId).emit(SC_BALANCE_SYNCED, {
-            balance: p.bankroll,
-            locked: 0,
-            available: p.bankroll,
-            reason: 'game_end'
-          });
-        }
-      }
+      // Rule j: Session mode - don't update locked after each hand
+      // Locked will be settled when player leaves table
+      // Stack is already managed by the game engine (Table.js)
 
       // Broadcast updated table state so all players see updated stacks
       broadcastToTable(table);
     }
+
+    // Clear stack tracking for next hand
+    stackBeforeHand.clear();
 
     // Only do blockchain settlement if enabled
     if (!config.BLOCKCHAIN_ENABLED) {
@@ -795,14 +1088,20 @@ const init = (socket, io) => {
       return;
     }
 
-    console.log('[Socket] ========== BLOCKCHAIN SETTLEMENT ==========');
+    console.log('[Socket] ========== BLOCKCHAIN SETTLEMENT (Session Mode) ==========');
     console.log('[Socket] BLOCKCHAIN_ENABLED:', config.BLOCKCHAIN_ENABLED);
+    console.log('[Socket] Player stacks for settlement:', playerStacks);
     console.log('[Socket] Settlement data:', JSON.stringify(settlementData, null, 2));
 
     try {
-      // Task 15.4: Process blockchain settlement
-      const result = await gameFlowIntegration.handleGameSettlement(settlementData);
-      console.log('[Socket] ✅ Game settled on blockchain:', result.txId);
+      // Rule j: Use session mode settlement
+      // Call settleGameSession with stack deltas
+      if (playerStacks.length > 0) {
+        const result = await gameFlowIntegration.handleGameSettlementSession(settlementData, playerStacks);
+        console.log('[Socket] ✅ Game settled on blockchain (session mode):', result.txId);
+      } else {
+        console.log('[Socket] No stack changes to settle');
+      }
 
     } catch (error) {
       console.error('[Socket] ❌ Game settlement error:', error.message);

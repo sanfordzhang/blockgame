@@ -6,6 +6,7 @@
 const contractService = require('../blockchain/ContractService');
 const gameSettlementService = require('./GameSettlementService');
 const transactionQueue = require('../blockchain/TransactionQueue');
+const { SC_BALANCE_SYNCED } = require('../pokergame/actions');
 
 class GameFlowIntegration {
     constructor() {
@@ -15,6 +16,110 @@ class GameFlowIntegration {
         this.pendingJoinTable = new Map(); // Track pending join operations
         this.pendingLeaveTable = new Map(); // Track pending leave operations
         this.notificationCallbacks = new Map(); // Callbacks for notifications
+        this.asyncRetryTasks = new Map(); // Track async retry tasks
+        this.retryIntervals = new Map(); // Track retry intervals
+    }
+
+    /**
+     * Start async retry task for failed contract calls
+     * 【要求5】异步重试机制
+     */
+    startAsyncRetry(operationType, playerAddress, tableId, amount, socketId, operationId) {
+        const taskId = `${operationType}_${playerAddress}_${Date.now()}`;
+
+        console.log(`[GameFlowIntegration] Starting async retry task: ${taskId}`);
+
+        // 每30秒重试一次，最多重试10次
+        let retryCount = 0;
+        const maxRetries = 10;
+        const retryInterval = 30000; // 30秒
+
+        const intervalId = setInterval(async () => {
+            retryCount++;
+            console.log(`[GameFlowIntegration] Async retry ${retryCount}/${maxRetries} for ${taskId}`);
+
+            if (retryCount > maxRetries) {
+                console.error(`[GameFlowIntegration] Async retry exhausted for ${taskId}`);
+                clearInterval(intervalId);
+                this.retryIntervals.delete(taskId);
+                this.asyncRetryTasks.delete(taskId);
+                return;
+            }
+
+            try {
+                let result;
+                if (operationType === 'joinTable') {
+                    result = await contractService.joinTable(tableId, amount);
+                } else if (operationType === 'leaveTable') {
+                    result = await contractService.leaveTableSession(tableId, amount);
+                }
+
+                console.log(`[GameFlowIntegration] ✅ Async retry SUCCESS for ${taskId}`);
+
+                // 成功后同步状态
+                clearInterval(intervalId);
+                this.retryIntervals.delete(taskId);
+                this.asyncRetryTasks.delete(taskId);
+
+                // 从合约同步最新状态
+                await this.syncPlayerBalance(playerAddress);
+
+                // 通知客户端
+                this.notifyPlayer(socketId, SC_BALANCE_SYNCED, {
+                    balance: this.playerBalances.get(playerAddress)?.balance || 0,
+                    locked: this.playerBalances.get(playerAddress)?.lockedAmount || 0,
+                    available: this.playerBalances.get(playerAddress)?.balance || 0,
+                    message: `${operationType} completed successfully (async retry)`
+                });
+
+            } catch (error) {
+                console.error(`[GameFlowIntegration] Async retry failed for ${taskId}:`, error.message);
+                // 继续重试
+            }
+        }, retryInterval);
+
+        this.retryIntervals.set(taskId, intervalId);
+        this.asyncRetryTasks.set(taskId, { operationType, playerAddress, tableId, amount, socketId, operationId, retryCount: 0 });
+    }
+
+    /**
+     * Sync player balance from contract
+     * 【要求5】从合约同步最新状态
+     */
+    async syncPlayerBalance(playerAddress) {
+        try {
+            const contractBalance = await contractService.getPlayerInfo(playerAddress);
+            const newBalance = this.toNumber(contractBalance.balance);
+            const newLocked = this.toNumber(contractBalance.lockedAmount);
+
+            const cached = this.playerBalances.get(playerAddress);
+
+            console.log(`[GameFlowIntegration] Syncing balance for ${playerAddress}`);
+            console.log(`[GameFlowIntegration]   Contract: balance=${newBalance/1e6} TRX, locked=${newLocked/1e6} TRX`);
+            console.log(`[GameFlowIntegration]   Cache:    balance=${(cached?.balance || 0)/1e6} TRX, locked=${(cached?.lockedAmount || 0)/1e6} TRX`);
+
+            this.playerBalances.set(playerAddress, {
+                balance: newBalance,
+                lockedAmount: newLocked,
+                lastSync: Date.now(),
+                pendingSync: false,
+                isRegistered: true
+            });
+
+            return { balance: newBalance, lockedAmount: newLocked };
+        } catch (error) {
+            console.error('[GameFlowIntegration] Failed to sync balance from contract:', error.message);
+            throw error;
+        }
+    }
+
+    toNumber(value) {
+        if (value === null || value === undefined) return 0;
+        if (typeof value === 'number') return value;
+        if (typeof value === 'bigint') return Number(value);
+        if (typeof value === 'string') return parseInt(value, 10);
+        if (typeof value.toNumber === 'function') return value.toNumber();
+        return Number(value);
     }
 
     /**
@@ -67,49 +172,47 @@ class GameFlowIntegration {
         try {
             // Check if player is registered on contract
             const isRegistered = await this.checkPlayerRegistration(playerAddress);
-            
+
+            // 【要求3】注册失败不让进入游戏 - 抛出错误而不是回退到开发模式
+            if (!isRegistered) {
+                console.log(`[GameFlowIntegration] Player ${playerAddress} not registered`);
+
+                // Try to auto-register on contract
+                try {
+                    console.log('[GameFlowIntegration] Attempting auto-registration...');
+                    await this.registerPlayer(playerAddress);
+                    console.log('[GameFlowIntegration] Auto-registration successful!');
+                } catch (registerError) {
+                    console.error('[GameFlowIntegration] Auto-registration FAILED:', registerError.message);
+                    // 【要求3】不回退到开发模式，直接拒绝进入
+                    throw new Error(`Registration required. Please register on the smart contract first. Error: ${registerError.message}`);
+                }
+            }
+
             // Get cached balance first (fast)
             let cachedBalance = this.playerBalances.get(playerAddress);
-            
+
             // Log balance info BEFORE join
             const gameBalanceBefore = cachedBalance ? cachedBalance.balance : 0;
             const lockedBefore = cachedBalance ? cachedBalance.lockedAmount : 0;
             console.log(`[GameFlowIntegration] ========== JOIN TABLE BEFORE ==========`);
             console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
-            console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceBefore / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (balance): ${gameBalanceBefore / 1e6} TRX`);
             console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedBefore / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceBefore - lockedBefore) / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Bankroll: ${currentBankroll / 1e6} TRX`);
             console.log(`[GameFlowIntegration] Buy-in amount: ${buyInAmount / 1e6} TRX`);
             console.log(`[GameFlowIntegration] ============================================`);
-            
-            // For development: auto-register unregistered players
-            if (!isRegistered) {
-                console.log(`[GameFlowIntegration] Player ${playerAddress} not registered, using development mode`);
-                
-                // Use existing cache or create default
-                if (!cachedBalance) {
-                    cachedBalance = {
-                        balance: 100000000000, // 100,000 TRX default for development
-                        lockedAmount: 0,
-                        isRegistered: false,
-                        registeredAt: Date.now()
-                    };
-                    this.playerBalances.set(playerAddress, cachedBalance);
-                }
-            }
 
             // Get player balance (from cache first, then contract)
             let playerInfo = cachedBalance;
-            if (isRegistered && !cachedBalance) {
+            if (!cachedBalance) {
                 try {
                     playerInfo = await this.getPlayerBalance(playerAddress);
                 } catch (e) {
-                    console.warn('[GameFlowIntegration] Failed to get balance, using default');
-                    playerInfo = { balance: 100000000000, lockedAmount: 0 };
+                    console.error('[GameFlowIntegration] Failed to get balance:', e.message);
+                    throw new Error('Failed to get player balance from contract');
                 }
             }
-            
+
             // Track pending join
             const joinId = `${playerAddress}_${tableId}_${Date.now()}`;
             this.pendingJoinTable.set(joinId, {
@@ -120,46 +223,84 @@ class GameFlowIntegration {
                 createdAt: Date.now()
             });
 
-            // Use simulation immediately for development mode or unregistered players
-            // This avoids the slow blockchain transaction wait
-            let result;
-            if (!isRegistered) {
-                // Skip contract call for unregistered players - use simulation
-                console.log('[GameFlowIntegration] Using simulation mode (player not registered on contract)');
-                result = {
-                    txId: `sim_${Date.now()}_${playerAddress.slice(0, 8)}`,
-                    simulated: true,
-                    reason: 'Player not registered on contract'
-                };
-            } else {
-                // Try contract call with timeout
+            // 【要求5】先更新本地缓存，确保用户可以继续操作
+            // 这样即使合约调用还在进行，用户也能看到本地状态
+            const cachedBeforeUpdate = this.playerBalances.get(playerAddress);
+            const localBalance = cachedBeforeUpdate ? cachedBeforeUpdate.balance : (playerInfo?.balance || 0);
+            const localLocked = cachedBeforeUpdate ? cachedBeforeUpdate.lockedAmount : (playerInfo?.lockedAmount || 0);
+
+            // 更新本地缓存：balance 不变，locked 增加
+            this.playerBalances.set(playerAddress, {
+                balance: localBalance,
+                lockedAmount: localLocked + buyInAmount,
+                lastSync: Date.now(),
+                pendingSync: true,  // 标记为待同步
+                pendingTxType: 'joinTable',
+                pendingTxData: { tableId, buyInAmount }
+            });
+
+            console.log(`[GameFlowIntegration] Local cache updated: balance=${localBalance/1e6} TRX, locked=${(localLocked + buyInAmount)/1e6} TRX`);
+
+            // 【要求4和5】合约调用，加入重试机制
+            const MAX_RETRIES = 3;
+            const RETRY_DELAY = 2000; // 2秒
+            let result = null;
+            let lastError = null;
+
+            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 try {
+                    console.log(`[GameFlowIntegration] Contract joinTable attempt ${attempt}/${MAX_RETRIES}`);
                     result = await Promise.race([
                         contractService.joinTable(tableId, buyInAmount),
-                        new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Transaction timeout')), 5000)
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Transaction timeout')), 30000)  // 30秒超时
                         )
                     ]);
+                    console.log(`[GameFlowIntegration] ✅ Contract joinTable SUCCESS on attempt ${attempt}`);
+                    break; // 成功则退出循环
                 } catch (contractError) {
-                    console.log(`[GameFlowIntegration] Contract call failed, using simulation: ${contractError.message}`);
-                    result = {
-                        txId: `sim_${Date.now()}_${playerAddress.slice(0, 8)}`,
-                        simulated: true,
-                        reason: contractError.message
-                    };
+                    lastError = contractError;
+                    console.error(`[GameFlowIntegration] ❌ Contract joinTable FAILED attempt ${attempt}: ${contractError.message}`);
+
+                    if (attempt < MAX_RETRIES) {
+                        console.log(`[GameFlowIntegration] Retrying in ${RETRY_DELAY/1000}s...`);
+                        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                    }
                 }
+            }
+
+            if (!result) {
+                // 【要求5】所有重试都失败，启动异步重试任务
+                console.error(`[GameFlowIntegration] All ${MAX_RETRIES} attempts failed, starting async retry task`);
+                this.startAsyncRetry('joinTable', playerAddress, tableId, buyInAmount, socketId, joinId);
+
+                // 暂时返回成功（使用本地缓存），用户可以继续游戏
+                // 异步重试成功后会同步状态
+                result = {
+                    txId: `pending_${Date.now()}_${playerAddress.slice(0, 8)}`,
+                    pending: true,
+                    message: 'Transaction pending, will retry in background'
+                };
             }
 
             // Update pending join status
             this.pendingJoinTable.set(joinId, {
                 ...this.pendingJoinTable.get(joinId),
-                status: 'completed',
+                status: result?.pending ? 'pending_retry' : 'completed',
                 txId: result?.txId || result,
                 completedAt: Date.now()
             });
 
-            // Update cached balance
-            this.updatePlayerBalanceCache(playerAddress, -buyInAmount, buyInAmount);
+            // 【要求5】如果合约调用成功，从合约同步最新状态
+            if (result && !result.pending) {
+                try {
+                    console.log('[GameFlowIntegration] Syncing balance from contract after successful join...');
+                    const freshBalance = await this.syncPlayerBalance(playerAddress);
+                    console.log(`[GameFlowIntegration] Synced from contract: balance=${freshBalance.balance/1e6} TRX, locked=${freshBalance.lockedAmount/1e6} TRX`);
+                } catch (syncError) {
+                    console.warn('[GameFlowIntegration] Failed to sync from contract, keeping local cache:', syncError.message);
+                }
+            }
 
             // Log balance info AFTER join
             const updatedCache = this.playerBalances.get(playerAddress);
@@ -167,16 +308,15 @@ class GameFlowIntegration {
             const lockedAfter = updatedCache ? updatedCache.lockedAmount : 0;
             console.log(`[GameFlowIntegration] ========== JOIN TABLE AFTER ==========`);
             console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
-            console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceAfter / 1e6} TRX`);
+            console.log(`[GameFlowIntegration] Game Balance (balance): ${gameBalanceAfter / 1e6} TRX`);
             console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedAfter / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceAfter - lockedAfter) / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Bankroll: ${(currentBankroll - buyInAmount) / 1e6} TRX (estimated)`);
+            console.log(`[GameFlowIntegration] Pending sync: ${updatedCache?.pendingSync || false}`);
             console.log(`[GameFlowIntegration] ============================================`);
 
             // Notify player about success
             this.notifyPlayer(socketId, 'blockchain:joinTable', {
-                status: 'completed',
-                message: 'Successfully joined table',
+                status: result?.pending ? 'pending' : 'completed',
+                message: result?.pending ? 'Join table pending, retrying in background' : 'Successfully joined table',
                 tableId,
                 buyInAmount,
                 txId: result?.txId || result
@@ -208,10 +348,12 @@ class GameFlowIntegration {
 
     /**
      * Handle leave table with blockchain integration
+     * Rule e: On leaving, stack returns to balance, then sync bankroll
+     * Rule j: Session mode - final settlement happens here
      * @param {string} playerAddress - Player wallet address
      * @param {number} tableId - Table ID
      * @param {string} socketId - Socket ID for notifications
-     * @param {number} stack - Player's remaining stack on table (optional)
+     * @param {number} stack - Player's remaining stack on table
      * @returns {Promise<object>} Leave result
      */
     async handleLeaveTable(playerAddress, tableId, socketId, stack = 0, currentBankroll = 0) {
@@ -223,137 +365,148 @@ class GameFlowIntegration {
         const lockedBefore = cachedBefore ? cachedBefore.lockedAmount : 0;
         console.log(`[GameFlowIntegration] ========== LEAVE TABLE BEFORE ==========`);
         console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
-        console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceBefore / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Game Balance (balance): ${gameBalanceBefore / 1e6} TRX`);
         console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedBefore / 1e6} TRX`);
-        console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceBefore - lockedBefore) / 1e6} TRX`);
-        console.log(`[GameFlowIntegration] Bankroll: ${currentBankroll / 1e6} TRX`);
         console.log(`[GameFlowIntegration] Stack to return: ${stack / 1e6} TRX`);
         console.log(`[GameFlowIntegration] ============================================`);
 
-        try {
-            // Track pending leave
-            const leaveId = `${playerAddress}_${tableId}_${Date.now()}`;
-            this.pendingLeaveTable.set(leaveId, {
-                playerAddress,
-                tableId,
-                status: 'pending',
-                createdAt: Date.now()
-            });
+        // Track pending leave
+        const leaveId = `${playerAddress}_${tableId}_${Date.now()}`;
+        this.pendingLeaveTable.set(leaveId, {
+            playerAddress,
+            tableId,
+            stack,
+            status: 'pending',
+            createdAt: Date.now()
+        });
 
-            // Notify player about transaction start
-            this.notifyPlayer(socketId, 'blockchain:leaveTable', {
-                status: 'pending',
-                message: 'Processing leave table transaction...',
-                tableId
-            });
+        // 【要求5】先更新本地缓存
+        // locked 清零，balance 增加 stack（stack 是玩家在桌上的筹码）
+        const localBalance = cachedBefore ? cachedBefore.balance : 0;
+        const localLocked = cachedBefore ? cachedBefore.lockedAmount : 0;
 
-            // Call contract to leave table
-            const result = await contractService.leaveTable(tableId);
+        // 注意：根据合约逻辑，leaveTableSession 会：
+        // 1. 清除 locked
+        // 2. 将 finalStack 加到 balance
+        // 所以本地缓存应该：balance = balance + stack, locked = 0
+        this.playerBalances.set(playerAddress, {
+            balance: localBalance + stack,
+            lockedAmount: 0,  // 清除 locked
+            lastSync: Date.now(),
+            pendingSync: true,
+            pendingTxType: 'leaveTable',
+            pendingTxData: { tableId, stack }
+        });
 
-            // Update pending leave status
-            this.pendingLeaveTable.set(leaveId, {
-                ...this.pendingLeaveTable.get(leaveId),
-                status: 'completed',
-                txId: result,
-                completedAt: Date.now()
-            });
+        console.log(`[GameFlowIntegration] Local cache updated: balance=${(localBalance + stack)/1e6} TRX, locked=0 TRX`);
 
-            // Update cache: return stack to balance, reduce locked
-            // stack is the amount player takes back from table
-            if (stack > 0) {
-                const cached = this.playerBalances.get(playerAddress);
-                if (cached) {
-                    // Reduce locked by the original buy-in (approximated by stack)
-                    // Add stack back to balance
-                    const newLocked = Math.max(0, cached.lockedAmount - stack);
-                    console.log(`[GameFlowIntegration] Updating cache on leave: balance +${stack}, locked ${cached.lockedAmount} -> ${newLocked}`);
-                    this.playerBalances.set(playerAddress, {
-                        ...cached,
-                        balance: cached.balance + stack,
-                        lockedAmount: newLocked,
-                        lastSync: Date.now()
-                    });
-                }
-            }
+        // 通知玩家本地状态已更新
+        this.notifyPlayer(socketId, SC_BALANCE_SYNCED, {
+            balance: localBalance + stack,
+            locked: 0,
+            available: localBalance + stack,
+            message: 'Local balance updated, confirming on blockchain...'
+        });
 
-            // Notify player about success
-            this.notifyPlayer(socketId, 'blockchain:leaveTable', {
-                status: 'completed',
-                message: 'Successfully left table',
-                tableId,
-                txId: result
-            });
+        // 【要求4和5】合约调用，加入重试机制
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY = 2000;
+        let result = null;
+        let lastError = null;
 
-            // Log balance info AFTER leave
-            const cachedAfter = this.playerBalances.get(playerAddress);
-            const gameBalanceAfter = cachedAfter ? cachedAfter.balance : 0;
-            const lockedAfter = cachedAfter ? cachedAfter.lockedAmount : 0;
-            console.log(`[GameFlowIntegration] ========== LEAVE TABLE AFTER ==========`);
-            console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
-            console.log(`[GameFlowIntegration] Game Balance (total): ${gameBalanceAfter / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedAfter / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Game Balance (available): ${(gameBalanceAfter - lockedAfter) / 1e6} TRX`);
-            console.log(`[GameFlowIntegration] Bankroll: ${(currentBankroll + stack) / 1e6} TRX (estimated)`);
-            console.log(`[GameFlowIntegration] ============================================`);
-
-            return {
-                success: true,
-                txId: result,
-                tableId
-            };
-
-        } catch (error) {
-            console.error('[GameFlowIntegration] Leave table error:', error.message);
-            console.log('[GameFlowIntegration] Attempting force unlock as fallback...');
-
-            // Try force unlock as fallback when leaveTable fails
-            // This handles cases where game state doesn't allow normal leave
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                const forceResult = await contractService.forceUnlockPlayer(playerAddress);
-                console.log('[GameFlowIntegration] ✅ Force unlock successful:', forceResult);
+                console.log(`[GameFlowIntegration] leaveTableSession attempt ${attempt}/${MAX_RETRIES}`);
+                result = await Promise.race([
+                    contractService.leaveTableSession(tableId, stack),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Transaction timeout')), 30000)
+                    )
+                ]);
+                console.log(`[GameFlowIntegration] ✅ leaveTableSession SUCCESS on attempt ${attempt}`);
+                break;
+            } catch (sessionError) {
+                lastError = sessionError;
+                console.error(`[GameFlowIntegration] ❌ leaveTableSession FAILED attempt ${attempt}: ${sessionError.message}`);
 
-                // Update cache - all locked amount is returned to balance
-                const cached = this.playerBalances.get(playerAddress);
-                if (cached) {
-                    const unlockedAmount = cached.lockedAmount;
-                    console.log(`[GameFlowIntegration] Force unlock - returning ${unlockedAmount / 1e6} TRX to balance`);
-                    this.playerBalances.set(playerAddress, {
-                        ...cached,
-                        balance: cached.balance + unlockedAmount + stack,
-                        lockedAmount: 0,
-                        lastSync: Date.now()
-                    });
+                // 尝试备用方法
+                if (attempt === 1) {
+                    try {
+                        console.log('[GameFlowIntegration] Trying fallback: regular leaveTable');
+                        result = await contractService.leaveTable(tableId);
+                        console.log('[GameFlowIntegration] ✅ regular leaveTable SUCCESS');
+                        break;
+                    } catch (regularError) {
+                        console.error(`[GameFlowIntegration] Regular leaveTable also failed: ${regularError.message}`);
+                    }
                 }
 
-                // Notify player about success via force unlock
-                this.notifyPlayer(socketId, 'blockchain:leaveTable', {
-                    status: 'completed',
-                    message: 'Successfully left table (force unlock)',
-                    tableId,
-                    txId: forceResult,
-                    forceUnlocked: true
-                });
-
-                return {
-                    success: true,
-                    txId: forceResult,
-                    tableId,
-                    forceUnlocked: true
-                };
-
-            } catch (forceError) {
-                console.error('[GameFlowIntegration] Force unlock also failed:', forceError.message);
-
-                // Notify player about failure
-                this.notifyPlayer(socketId, 'blockchain:leaveTable', {
-                    status: 'failed',
-                    message: `Leave failed: ${error.message}. Force unlock also failed: ${forceError.message}`,
-                    tableId
-                });
-
-                throw error;
+                if (attempt < MAX_RETRIES) {
+                    console.log(`[GameFlowIntegration] Retrying in ${RETRY_DELAY/1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                }
             }
         }
+
+        if (!result) {
+            // 【要求5】所有重试都失败，启动异步重试任务
+            console.error(`[GameFlowIntegration] All ${MAX_RETRIES} attempts failed, starting async retry task`);
+            this.startAsyncRetry('leaveTable', playerAddress, tableId, stack, socketId, leaveId);
+
+            // 返回成功（本地缓存已更新），异步重试会同步状态
+            result = {
+                txId: `pending_${Date.now()}_${playerAddress.slice(0, 8)}`,
+                pending: true,
+                message: 'Transaction pending, will retry in background'
+            };
+        }
+
+        // Update pending leave status
+        this.pendingLeaveTable.set(leaveId, {
+            ...this.pendingLeaveTable.get(leaveId),
+            status: result?.pending ? 'pending_retry' : 'completed',
+            txId: result?.txId || result,
+            completedAt: Date.now()
+        });
+
+        // 【要求5】如果合约调用成功，从合约同步最新状态
+        if (result && !result.pending) {
+            try {
+                console.log('[GameFlowIntegration] Syncing balance from contract after successful leave...');
+                const freshBalance = await this.syncPlayerBalance(playerAddress);
+                console.log(`[GameFlowIntegration] Synced from contract: balance=${freshBalance.balance/1e6} TRX, locked=${freshBalance.lockedAmount/1e6} TRX`);
+            } catch (syncError) {
+                console.warn('[GameFlowIntegration] Failed to sync from contract, keeping local cache:', syncError.message);
+            }
+        }
+
+        // Notify player about result
+        this.notifyPlayer(socketId, 'blockchain:leaveTable', {
+            status: result?.pending ? 'pending' : 'completed',
+            message: result?.pending ? 'Leave table pending, retrying in background' : 'Successfully left table',
+            tableId,
+            txId: result?.txId || result,
+            stackReturned: stack
+        });
+
+        // Log balance info AFTER leave
+        const cachedAfter = this.playerBalances.get(playerAddress);
+        const gameBalanceAfter = cachedAfter ? cachedAfter.balance : 0;
+        const lockedAfter = cachedAfter ? cachedAfter.lockedAmount : 0;
+        console.log(`[GameFlowIntegration] ========== LEAVE TABLE AFTER ==========`);
+        console.log(`[GameFlowIntegration] Player: ${playerAddress}`);
+        console.log(`[GameFlowIntegration] Game Balance (balance): ${gameBalanceAfter / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Game Balance (locked): ${lockedAfter / 1e6} TRX`);
+        console.log(`[GameFlowIntegration] Pending sync: ${cachedAfter?.pendingSync || false}`);
+        console.log(`[GameFlowIntegration] ============================================`);
+
+        return {
+            success: true,
+            txId: result?.txId || result,
+            tableId,
+            stackReturned: stack,
+            pending: result?.pending || false
+        };
     }
 
     // ============ Task 15.3: Sit Down Balance Validation ============
@@ -403,13 +556,20 @@ class GameFlowIntegration {
 
                 console.log(`[GameFlowIntegration] Raw contract data: balance=${balance}, locked=${locked}`);
 
+                // Rule a: bankroll = balance (don't subtract locked)
+                // Rule c: Don't subtract locked locally, wait for contract sync
+                // Player can use their full balance for sit-down if not at table
+                // If at table, check if balance (not locked) is enough for rebuy
                 if (!isPlayerAtTable && locked > 0) {
                     console.log(`[GameFlowIntegration] ⚠️  ISSUE DETECTED: Player not at table but contract has locked=${locked} (${locked/1000000} TRX)`);
                     console.log(`[GameFlowIntegration] This suggests deposit went into lockedAmount instead of balance`);
                     console.log(`[GameFlowIntegration] Resetting locked to 0 for validation`);
                     locked = 0;
                 }
-                const availableBalance = balance - locked;
+                
+                // Rule a: availableBalance = balance (bankroll = balance)
+                // For sit-down validation: player needs to have enough balance
+                const availableBalance = balance;  // Rule a: bankroll = balance
 
                 console.log(`[GameFlowIntegration] Calculated: balance=${balance} (${balance/1000000} TRX), locked=${locked} (${locked/1000000} TRX), available=${availableBalance} (${availableBalance/1000000} TRX)`);
 
@@ -461,7 +621,8 @@ class GameFlowIntegration {
                         lastSync: Date.now()
                     });
                 }
-                const availableBalance = cached.balance - locked;
+                // Rule a: availableBalance = balance (bankroll = balance)
+                const availableBalance = cached.balance;  // Rule a: bankroll = balance
                 console.log(`[GameFlowIntegration] Using cached balance: ${availableBalance} (balance: ${cached.balance}, locked: ${locked})`);
                 
                 if (availableBalance >= requiredAmount) {
@@ -517,7 +678,7 @@ class GameFlowIntegration {
     // ============ Task 15.4: Game Settlement Integration ============
 
     /**
-     * Handle game settlement with blockchain
+     * Handle game settlement with blockchain (Legacy mode)
      * @param {object} gameResult - Game result from Table.determineWinner
      * @returns {Promise<object>} Settlement result
      */
@@ -549,6 +710,78 @@ class GameFlowIntegration {
                     status: 'failed',
                     tableId: gameResult.tableId,
                     message: error.message
+                });
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * Handle game settlement in Session mode
+     * Rule j: settleGameSession only updates stack, locked unchanged
+     * @param {object} gameResult - Game result from Table.determineWinner
+     * @param {Array} playerStacks - Array of {address, stackBefore, stackAfter} for all players
+     * @returns {Promise<object>} Settlement result
+     */
+    async handleGameSettlementSession(gameResult, playerStacks = []) {
+        console.log(`[GameFlowIntegration] Processing SESSION MODE settlement for table ${gameResult.tableId}`);
+
+        try {
+            // Prepare data for settleGameSession
+            const playersToUpdate = [];
+            const stackDeltas = [];
+
+            // Calculate stack delta for each player
+            for (const playerStack of playerStacks) {
+                playersToUpdate.push(playerStack.address);
+                // Delta = stackAfter - stackBefore (positive = win, negative = lose)
+                const delta = playerStack.stackAfter - playerStack.stackBefore;
+                stackDeltas.push(delta);
+                console.log(`[GameFlowIntegration] Player ${playerStack.address}: stack ${playerStack.stackBefore} -> ${playerStack.stackAfter}, delta=${delta}`);
+            }
+
+            // Generate result hash for verification
+            const crypto = require('crypto');
+            const resultHash = '0x' + crypto
+                .createHash('sha256')
+                .update(JSON.stringify({ playersToUpdate, stackDeltas, tableId: gameResult.tableId }))
+                .digest('hex');
+
+            console.log(`[GameFlowIntegration] Session settlement: ${playersToUpdate.length} players`);
+            console.log(`[GameFlowIntegration] Stack deltas:`, stackDeltas);
+
+            // Call contract settleGameSession
+            const result = await contractService.settleGameSession(
+                gameResult.tableId,
+                playersToUpdate,
+                stackDeltas,
+                resultHash
+            );
+
+            // Notify all players involved
+            for (const winner of gameResult.winners) {
+                this.notifyPlayer(winner.socketId, 'blockchain:settlement', {
+                    status: 'completed',
+                    tableId: gameResult.tableId,
+                    amount: winner.amount,
+                    txId: result,
+                    mode: 'session'
+                });
+            }
+
+            return { txId: result, mode: 'session' };
+
+        } catch (error) {
+            console.error('[GameFlowIntegration] Session settlement error:', error.message);
+
+            // Notify players about settlement failure
+            for (const player of gameResult.players || []) {
+                this.notifyPlayer(player.socketId, 'blockchain:settlement', {
+                    status: 'failed',
+                    tableId: gameResult.tableId,
+                    message: error.message,
+                    mode: 'session'
                 });
             }
 
@@ -664,7 +897,7 @@ class GameFlowIntegration {
             // Update cache
             this.playerBalances.set(playerAddress, {
                 balance: playerInfo.balance,
-                locked: playerInfo.lockedAmount,
+                lockedAmount: playerInfo.lockedAmount,
                 lastSync: Date.now()
             });
 
@@ -964,17 +1197,19 @@ class GameFlowIntegration {
     /**
      * Update player balance cache
      */
-    updatePlayerBalanceCache(playerAddress, balanceDelta, lockedDelta) {
+    updatePlayerBalanceCache(playerAddress, balanceDelta, lockedDelta, devMode = false) {
         const cached = this.playerBalances.get(playerAddress) || {
             balance: 0,
             lockedAmount: 0,
-            lastSync: Date.now()
+            lastSync: Date.now(),
+            devMode: false
         };
 
         this.playerBalances.set(playerAddress, {
             ...cached,
             balance: cached.balance + balanceDelta,
             lockedAmount: (cached.lockedAmount || 0) + lockedDelta,
+            devMode: devMode || cached.devMode || false,  // Once in devMode, stay in devMode
             lastSync: Date.now()
         });
     }

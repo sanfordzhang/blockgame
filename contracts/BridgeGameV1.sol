@@ -106,6 +106,8 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
     event ForceUnlocked(address indexed player, uint256 amount);
     event GameSessionReset(uint256 indexed tableId);
     event RakeRateChangeCancelled();
+    event RebuyEvent(address indexed player, uint256 indexed tableId, uint256 amount);
+    event GameSettledSession(uint256 indexed gameId, address[] players, int256[] stackDeltas);
     
     // ============ Modifiers ============
     
@@ -266,6 +268,135 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
         player.balance += buyInAmount;
         
         emit LeftTable(msg.sender, tableId, buyInAmount);
+    }
+
+    /**
+     * @dev Session mode leave table - settle with final stack amount
+     * In session mode, player's lockedAmount may differ from initial buyIn due to game results
+     * This function settles the locked funds based on final stack
+     * @param tableId The table identifier
+     * @param finalStack The player's final stack amount
+     */
+    function leaveTableSession(uint256 tableId, uint256 finalStack) external onlyRegistered whenNotPaused {
+        GameSession storage session = gameSessions[tableId];
+        require(session.state == GameState.PLAYING || session.state == GameState.FINISHED, "Invalid game state");
+        
+        Player storage player = players[msg.sender];
+        require(player.lockedAmount > 0, "No locked funds");
+        
+        // Find player in session
+        uint256 playerIndex = type(uint256).max;
+        for (uint256 i = 0; i < session.players.length; i++) {
+            if (session.players[i] == msg.sender) {
+                playerIndex = i;
+                break;
+            }
+        }
+        
+        require(playerIndex != type(uint256).max, "Player not in this table");
+        
+        uint256 buyInAmount = session.buyInAmounts[playerIndex];
+        
+        // Remove player from arrays
+        if (playerIndex < session.players.length - 1) {
+            session.players[playerIndex] = session.players[session.players.length - 1];
+            session.buyInAmounts[playerIndex] = session.buyInAmounts[session.buyInAmounts.length - 1];
+        }
+        session.players.pop();
+        session.buyInAmounts.pop();
+        session.totalPot -= buyInAmount;
+        
+        // Session mode settlement: return finalStack to balance, clear locked
+        // Note: finalStack should be <= lockedAmount in normal cases
+        // If player lost, finalStack < lockedAmount, the difference stays in contract (house wins)
+        // If player won, finalStack may be > lockedAmount, but locked is cleared and balance gets finalStack
+        
+        // Clear all locked and add final stack to balance
+        uint256 lockedAmount = player.lockedAmount;
+        player.lockedAmount = 0;
+        player.balance += finalStack;
+        
+        emit LeftTable(msg.sender, tableId, finalStack);
+    }
+
+    /**
+     * @dev Rebuy in session mode - add more chips to stack
+     * Deducts from balance, adds to locked
+     * @param tableId The table identifier
+     * @param rebuyAmount Amount to rebuy
+     */
+    function rebuy(uint256 tableId, uint256 rebuyAmount) external onlyRegistered whenNotPaused {
+        Player storage player = players[msg.sender];
+        
+        require(player.balance >= rebuyAmount, "Insufficient balance for rebuy");
+        require(rebuyAmount >= MIN_BUY_IN, "Below minimum rebuy");
+        require(rebuyAmount <= MAX_BUY_IN, "Exceeds maximum rebuy");
+        
+        GameSession storage session = gameSessions[tableId];
+        require(session.state == GameState.PLAYING, "Game not in playing state");
+        
+        // Find player in session
+        bool found = false;
+        for (uint256 i = 0; i < session.players.length; i++) {
+            if (session.players[i] == msg.sender) {
+                found = true;
+                // Update buyInAmount to track total
+                session.buyInAmounts[i] += rebuyAmount;
+                session.totalPot += rebuyAmount;
+                break;
+            }
+        }
+        
+        require(found, "Player not in this table");
+        
+        // Rule f: Rebuy from balance, add to locked
+        player.balance -= rebuyAmount;
+        player.lockedAmount += rebuyAmount;
+        
+        emit RebuyEvent(msg.sender, tableId, rebuyAmount);
+    }
+
+    /**
+     * @dev Session mode settlement - only update stack, don't change locked
+     * This is called after each hand in session mode
+     * @param tableId The table identifier
+     * @param playersToUpdate Array of player addresses
+     * @param stackDeltas Array of stack changes (positive = win, negative = lose)
+     * @param resultHash Hash of game result for verification
+     */
+    function settleGameSession(
+        uint256 tableId,
+        address[] calldata playersToUpdate,
+        int256[] calldata stackDeltas,
+        bytes32 resultHash
+    ) external onlyTableOwner(tableId) nonReentrant whenNotPaused {
+        require(playersToUpdate.length == stackDeltas.length, "Array length mismatch");
+        
+        GameSession storage session = gameSessions[tableId];
+        require(session.state == GameState.PLAYING, "Game not in playing state");
+        
+        gameResultHashes[tableId] = resultHash;
+        
+        // Update each player's locked based on stack delta
+        // Positive delta = they won, negative = they lost
+        for (uint256 i = 0; i < playersToUpdate.length; i++) {
+            Player storage player = players[playersToUpdate[i]];
+            int256 delta = stackDeltas[i];
+            
+            if (delta > 0) {
+                // Winner: add to balance (after rake would be handled off-chain)
+                player.balance += uint256(delta);
+            } else if (delta < 0) {
+                // Loser: their locked already covers the loss
+                // The actual loss is reflected when they leave with reduced finalStack
+            }
+        }
+        
+        // Update statistics
+        totalGamesPlayed += 1;
+        gameCounter++;
+        
+        emit GameSettledSession(gameCounter, playersToUpdate, stackDeltas);
     }
     
     /**

@@ -215,6 +215,74 @@ class ContractService {
     }
 
     /**
+     * Session mode leave table - settle with final stack
+     * Rule e: On leaving, stack returns to balance, then sync bankroll
+     */
+    async leaveTableSession(tableId, finalStack) {
+        this.ensureContract();
+        
+        try {
+            const tx = await this.contract.leaveTableSession(tableId, finalStack).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log(`[ContractService] Session leave table ${tableId} with final stack ${finalStack}`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error session leaving table:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Rebuy in session mode
+     * Rule f: Rebuy from balance, add to locked and stack
+     */
+    async rebuy(tableId, rebuyAmount) {
+        this.ensureContract();
+        
+        try {
+            const tx = await this.contract.rebuy(tableId, rebuyAmount).send({
+                feeLimit: 100_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log(`[ContractService] Rebuy ${rebuyAmount} SUN for table ${tableId}`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error rebuy:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Session mode game settlement - only updates stack, locked unchanged
+     * Rule j: settleGame only updates stack, final settlement on leaveTable
+     */
+    async settleGameSession(tableId, playersToUpdate, stackDeltas, resultHash) {
+        this.ensureContract();
+        
+        try {
+            const tx = await this.contract.settleGameSession(
+                tableId,
+                playersToUpdate,
+                stackDeltas,
+                resultHash
+            ).send({
+                feeLimit: 500_000_000,
+                shouldPollResponse: true
+            });
+            
+            console.log(`[ContractService] Session game settled for table ${tableId}`);
+            return tx;
+        } catch (error) {
+            console.error('[ContractService] Error session settling game:', error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Settle a game
      */
     async settleGame(tableId, winners, amounts, resultHash) {

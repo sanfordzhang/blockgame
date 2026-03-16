@@ -58,8 +58,13 @@ const Landing = () => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Calculate bankroll (available balance = total - locked)
-  const bankroll = contractBalance - lockedBalance;
+  // Calculate balances
+  // contractBalance = balance (available in contract)
+  // lockedBalance = lockedAmount (in game)
+  // gameBalance = total funds in contract (available + locked)
+  // bankroll = available balance for games/withdraw
+  const gameBalance = contractBalance + lockedBalance;
+  const bankroll = contractBalance;
 
   useScrollToTopOnPageLoad();
 
@@ -151,7 +156,7 @@ const Landing = () => {
           
           // If registered, proceed to game
           if (registered) {
-            proceedToGame(address);
+            proceedToHomepage(address);
           }
           // If not registered, show registration button (state will update)
         } else {
@@ -165,7 +170,7 @@ const Landing = () => {
           const address = result.response;
           setLocalWalletAddress(address);
           setWalletAddress(address);
-          proceedToGame(address);
+          proceedToHomepage(address);
         } else if (result?.event === 'No Wallet') {
           setError('请先安装 TronLink 或 MetaMask 钱包');
           setTronLinkInstalled(false);
@@ -293,7 +298,7 @@ const Landing = () => {
 
   // Withdraw all (including locked - emergency withdraw)
   const handleWithdrawAll = async () => {
-    const totalBalance = contractBalance; // Total game balance
+    const totalBalance = gameBalance; // Total game balance
 
     if (!totalBalance || totalBalance <= 0) {
       setError('没有余额可提现');
@@ -320,9 +325,8 @@ const Landing = () => {
       const tx = await withdrawTrx(amount);
       console.log('Withdraw tx:', tx);
 
-      // Optimistic update
-      setContractBalance(lockedBalance); // Only locked remains
-      setWalletBalance(prev => prev + amount);
+      // Optimistic update - after withdraw, balance becomes 0 (locked remains)
+      setContractBalance(0);
 
       // Refresh actual balance in background
       setTimeout(async () => {
@@ -396,6 +400,25 @@ const Landing = () => {
         username
       });
       navigate('/play');
+    } else {
+      setError('Socket 未连接，请刷新页面重试');
+    }
+  };
+
+
+  const proceedToHomepage = (address) => {
+    const username = address.slice(0, 8);
+    const gameId = '1';
+
+    if (socket && socket.connected) {
+      socket.emit(CS_FETCH_LOBBY_INFO, {
+        walletAddress: address,
+        socketId: socket.id,
+        gameId,
+        username
+      });
+      //navigate('/play');
+      navigate('/');
     } else {
       setError('Socket 未连接，请刷新页面重试');
     }
@@ -482,7 +505,7 @@ const Landing = () => {
                 </BalanceRow>
                 <BalanceRow>
                   <span>Game Balance:</span>
-                  <span>{formatTrx(contractBalance)} TRX</span>
+                  <span>{formatTrx(gameBalance)} TRX</span>
                 </BalanceRow>
                 <BalanceRow>
                   <span>Bankroll:</span>

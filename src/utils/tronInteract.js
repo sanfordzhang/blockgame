@@ -44,6 +44,16 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [
+      {"name": "tableId", "type": "uint256"},
+      {"name": "finalStack", "type": "uint256"}
+    ],
+    "name": "leaveTableSession",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [{"name": "", "type": "address"}],
     "name": "players",
     "outputs": [
@@ -685,6 +695,95 @@ export const tryUnlockLockedBalance = async (tableId = 1) => {
 };
 
 /**
+ * Join table - Player signs transaction directly
+ * @param {number} tableId - The table ID
+ * @param {number} buyInAmount - Buy-in amount in SUN
+ * @returns {Promise<object>} Transaction result
+ */
+export const joinTable = async (tableId, buyInAmount) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    throw new Error('Contract not deployed for this network');
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    console.log(`[tronInteract] joinTable: tableId=${tableId}, buyInAmount=${buyInAmount}`);
+    
+    const tx = await contract.joinTable(tableId, buyInAmount).send({
+      feeLimit: 100_000_000,
+      shouldPollResponse: true
+    });
+    
+    console.log(`[tronInteract] joinTable success:`, tx);
+    return { success: true, tx };
+  } catch (error) {
+    console.error('[tronInteract] joinTable error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Leave table session - Player signs transaction directly
+ * @param {number} tableId - The table ID
+ * @param {number} finalStack - Final stack amount to return
+ * @returns {Promise<object>} Transaction result
+ */
+export const leaveTableSession = async (tableId, finalStack) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    throw new Error('Contract not deployed for this network');
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    console.log(`[tronInteract] leaveTableSession: tableId=${tableId}, finalStack=${finalStack}`);
+    
+    const tx = await contract.leaveTableSession(tableId, finalStack).send({
+      feeLimit: 100_000_000,
+      shouldPollResponse: true
+    });
+    
+    console.log(`[tronInteract] leaveTableSession success:`, tx);
+    return { success: true, tx };
+  } catch (error) {
+    console.error('[tronInteract] leaveTableSession error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Regular leave table (for non-session mode)
+ * @param {number} tableId - The table ID
+ * @returns {Promise<object>} Transaction result
+ */
+export const leaveTable = async (tableId) => {
+  const contractAddress = getContractAddress();
+  if (!contractAddress) {
+    throw new Error('Contract not deployed for this network');
+  }
+
+  const contract = await getContract(contractAddress);
+
+  try {
+    console.log(`[tronInteract] leaveTable: tableId=${tableId}`);
+    
+    const tx = await contract.leaveTable(tableId).send({
+      feeLimit: 100_000_000,
+      shouldPollResponse: true
+    });
+    
+    console.log(`[tronInteract] leaveTable success:`, tx);
+    return { success: true, tx };
+  } catch (error) {
+    console.error('[tronInteract] leaveTable error:', error);
+    throw error;
+  }
+};
+
+/**
  * Get game session info
  */
 export const getGameSession = async (tableId) => {
@@ -743,6 +842,9 @@ export default {
   getPlayerBalance,
   depositTrx,
   withdrawTrx,
+  joinTable,
+  leaveTable,
+  leaveTableSession,
   tryUnlockLockedBalance,
   getGameSession,
   formatAddress,

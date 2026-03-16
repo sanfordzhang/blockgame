@@ -770,3 +770,142 @@ test('Complete Game Flow', async ({ page }) => {
 5. **关键代码位置**：
    - 前端：`ConnectWallet.js`, `Play.js`, `GameState.js`
    - 后端：`server/socket/index.js`, `server/pokergame/Table.js`
+
+6. **游戏规则**:
+服务器本地跟踪的玩家余额
+从 Game Balance 同步而来
+用于快速响应游戏操作（避免每次都查区块链）
+四者关系总结
+概念	存储位置	用途
+Wallet Balance	TronLink 钱包	用户原始资金
+Game Balance	区块链合约	游戏内资金池
+Bankroll	游戏服务器内存	服务器端跟踪的可用余额
+Stack	牌桌	当前手牌中的筹码
+资金流转示例
+code
+1. 用户有 1000 TRX 在 TronLink 钱包
+walletBalance = 1000 TRX
+gameBalance = 0
+bankroll = 0
+stack = 0
+2. 存款 500 TRX 到游戏合约
+walletBalance = 500 TRX (减少)
+gameBalance = 500 TRX (增加)
+bankroll = 500 TRX (同步)
+stack = 0
+3. 加入牌桌，买入 100 TRX
+bankroll = 400 TRX (减少)
+stack = 100 TRX (增加)
+locked = 100 TRX (gameBalance 的 locked 部分)
+4. 游戏结束，赢了 50 TRX
+stack = 150 TRX
+5. 离开牌桌
+bankroll = 550 TRX (stack 返回)
+stack = 0
+locked = 0
+6. 提现 300 TRX
+gameBalance = 250 TRX (减少)
+walletBalance = 800 TRX (增加)
+
+关键区别
+对比项	Bankroll	Game Balance
+存储位置	服务器内存	区块链合约
+安全性	服务器重启可能丢失	链上永久存储
+响应速度	快（本地操作）	慢（需要区块链确认）
+数据来源	从合约同步	链上真实数据
+用途	服务器端游戏逻辑验证	前端展示、提现操作
+
+规则调整如下:
+a.gameBalance = bankroll， gameBalance定义就是合约balance字段
+b.合约gameBalance 减了locked后，同步bankroll，不要用bankroll减locked
+c.前端、后端gameBalance，bankroll都不减locked，等合约扣减后同步
+d.游戏过程中扣减stack，locked不变
+e.游戏结束后将剩余stack加回gamebalance，然后同步bankroll
+f. 游戏没退出，stack为0，可以从balance补充， stack = 0 → 允许 rebuy（从 balance 补充）→ balance 不足时才退出
+j.settleGame采用会话模式，本局结算（不改变 locked，只更新桌上的 stack），玩家离开桌子（最终结算）
+k.乐观模式有些复杂，暂时先不实现，毕竟只是退出游戏后需要更新，游戏过程中只更新stack
+
+---
+
+## 6. Session 模式实现 (2024-03-16)
+
+### 6.1 核心规则
+
+已实现的 Session 模式规则：
+
+| 规则 | 描述 | 实现位置 |
+|------|------|----------|
+| a | `gameBalance = bankroll = 合约balance字段` | GameFlowIntegration.js |
+| b | 合约直接同步 bankroll，不要再减去 locked | GameFlowIntegration.js |
+| c | 前端/后端不要在本地减去 locked，等待合约同步 | GameFlowIntegration.js, socket/index.js |
+| d | 游戏中：只有 stack 变化，locked 不变 | handleGameEnd() |
+| e | 离开时：stack 返回到 balance，然后同步 bankroll | handleLeaveTable() |
+| f | stack=0 时允许从 balance rebuy；balance 不足则退出 | CS_REBUY handler |
+| j | Session模式：settleGame 只更新 stack，最终结算在 leaveTable | handleGameEnd(), settleGameSession() |
+| k | 跳过乐观更新，以后需要时再实现 | N/A |
+
+### 6.2 资金流转流程
+
+```
+1. 加入牌桌 (joinTable)
+   balance -= buyInAmount
+   locked += buyInAmount
+   stack = buyInAmount
+
+2. 游戏过程 (Session Mode)
+   - 只有 stack 变化（输赢）
+   - locked 保持不变
+   
+3. Rebuy (stack=0 时)
+   balance -= rebuyAmount
+   locked += rebuyAmount
+   stack += rebuyAmount
+
+4. 离开牌桌 (leaveTableSession)
+   locked = 0
+   balance += stack (最终剩余筹码)
+```
+
+### 6.3 合约新增函数
+
+```solidity
+// Session 模式离开牌桌 - 带最终 stack 结算
+function leaveTableSession(uint256 tableId, uint256 finalStack)
+
+// Rebuy - 从 balance 补充筹码
+function rebuy(uint256 tableId, uint256 rebuyAmount)
+
+// Session 模式结算 - 只更新 stack，不改变 locked
+function settleGameSession(
+    uint256 tableId,
+    address[] calldata playersToUpdate,
+    int256[] calldata stackDeltas,
+    bytes32 resultHash
+)
+```
+
+### 6.4 关键代码位置
+
+- **GameFlowIntegration.js**: 
+  - `handleJoinTable()`: 规则 a, b 实现
+  - `handleLeaveTable()`: 规则 e, j 实现（Session 模式）
+  - `validateBalanceForSitDown()`: 规则 a, c 实现
+
+- **socket/index.js**:
+  - `CS_REBUY handler`: 规则 f 实现
+  - `handleGameEnd()`: 规则 d, j 实现
+  - `CS_FETCH_LOBBY_INFO handler`: 规则 a 实现
+
+- **BridgeGameV1.sol**:
+  - `leaveTableSession()`: Session 模式离开
+  - `rebuy()`: Rebuy 功能
+  - `settleGameSession()`: Session 模式结算
+
+### 6.5 变量语义对照
+
+| 变量 | 合约字段 | 含义 | Session 模式行为 |
+|------|----------|------|------------------|
+| balance | `Player.balance` | 可用余额 | joinTable/rebuy 时减少 |
+| locked | `Player.lockedAmount` | 锁定金额 | joinTable 时增加，leaveTable 时清零 |
+| stack | 游戏引擎管理 | 桌上筹码 | 游戏过程中变化，leaveTable 时返回 balance |
+| bankroll | 后端缓存 | = balance | 用于快速验证，从合约同步 |
