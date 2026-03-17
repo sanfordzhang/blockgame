@@ -265,23 +265,27 @@ const Landing = () => {
       console.log('Depositing', amount, 'SUN');
       const tx = await depositTrx(amount);
       console.log('Deposit tx:', tx);
-      
-      // Optimistic update - add amount to balance immediately
+
+      // Optimistic update - add amount to contract balance immediately
       setContractBalance(prev => prev + amount);
       setWalletBalance(prev => Math.max(0, prev - amount));
-      
-      // Refresh actual balance in background after a short delay
-      setTimeout(async () => {
+
+      // Poll until contract balance increases (max 30s, every 2s)
+      const prevContractBalance = contractBalance;
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
         try {
           const balance = await getPlayerBalance(walletAddress);
           setContractBalance(balance.balance);
           setLockedBalance(balance.locked || 0);
           const trxBalance = await getTrxBalance(walletAddress);
           setWalletBalance(trxBalance);
-        } catch (e) {
-          console.error('Balance refresh error:', e);
-        }
-      }, 5000);  // Check actual balance after 5 seconds
+          if (balance.balance > prevContractBalance || attempts >= 15) return;
+        } catch (e) { console.error('Balance poll error:', e); }
+        setTimeout(poll, 2000);
+      };
+      setTimeout(poll, 1000);
       
     } catch (err) {
       console.error('Deposit error:', err);
@@ -313,22 +317,25 @@ const Landing = () => {
       const tx = await withdrawTrx(amount);
       console.log('Withdraw tx:', tx);
 
-      // Optimistic update
+      // Optimistic update - clear contract balance immediately
       setContractBalance(0);
-      setWalletBalance(prev => prev + amount);
 
-      // Refresh actual balance in background
-      setTimeout(async () => {
+      // Poll until contract balance decreases (same logic as deposit)
+      const prevContractBalance = contractBalance;
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
         try {
           const balance = await getPlayerBalance(walletAddress);
           setContractBalance(balance.balance);
           setLockedBalance(balance.locked || 0);
           const trxBalance = await getTrxBalance(walletAddress);
           setWalletBalance(trxBalance);
-        } catch (e) {
-          console.error('Balance refresh error:', e);
-        }
-      }, 5000);
+          if (balance.balance < prevContractBalance || attempts >= 15) return;
+        } catch (e) { console.error('Balance poll error:', e); }
+        setTimeout(poll, 2000);
+      };
+      setTimeout(poll, 1000);
 
     } catch (err) {
       console.error('Withdraw error:', err);

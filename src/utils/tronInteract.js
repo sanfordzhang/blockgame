@@ -698,7 +698,7 @@ export const withdrawTrx = async (amount) => {
   try {
     const tx = await contract.withdraw(amount).send({
       feeLimit: 100_000_000,
-      shouldPollResponse: true
+      shouldPollResponse: false  // Don't wait for confirmation, poll balance instead
     });
     return tx;
   } catch (error) {
