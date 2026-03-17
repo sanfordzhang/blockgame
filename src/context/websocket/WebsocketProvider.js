@@ -96,6 +96,7 @@ const WebSocketProvider = ({ children }) => {
 
     socket.on('reconnect', (attemptNumber) => {
       console.log('Socket reconnected after', attemptNumber, 'attempts')
+      setSocket(socket)
     })
 
     socket.on('reconnect_error', (error) => {

@@ -264,12 +264,12 @@ const init = (socket, io) => {
         }
         
         console.log('[Socket] Sitting down at seat:', emptySeatId);
-        
+
+        // Update balance cache BEFORE sitDown so validation passes
+        gameFlowIntegration.updatePlayerBalanceCache(player.id, -cappedBuyIn, cappedBuyIn);
+
         // Sit down with the buy-in amount
         await sitDown(tableId, emptySeatId, cappedBuyIn);
-        
-        // Update balance cache
-        gameFlowIntegration.updatePlayerBalanceCache(player.id, -cappedBuyIn, cappedBuyIn);
         
         // Sync balance from contract
         const freshBalance = await contractService.getPlayerInfo(player.id);

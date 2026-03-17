@@ -193,29 +193,34 @@ const GameState = ({ children }) => {
     const tableId = currentTableRef?.current?.id
     const currentSeatId = seatIdRef.current
     const stack = currentTableRef?.current?.seats?.[currentSeatId]?.stack || 0
-    
+
     console.log('[GameState] leaveTable:', { tableId, stack, seatId: currentSeatId })
-    
+
     if (!tableId) {
       console.log('[GameState] No table to leave')
       navigate('/')
       return
     }
-    
-    try {
-      // Use server proxy mode - server will call leaveTableFor on behalf of player
-      // Do NOT call standUp() first - it removes the seat and stack becomes 0
-      if (socket && socket.connected) {
-        socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, {
-          tableId
-        })
+
+    if (socket && socket.connected) {
+      // Wait for SC_TABLE_LEFT before navigating so socket stays alive during blockchain leave
+      socket.once(SC_TABLE_LEFT, () => {
+        console.log('[GameState] SC_TABLE_LEFT received, navigating home')
+        navigate('/')
+      })
+      // Timeout fallback in case server never responds
+      setTimeout(() => {
+        navigate('/')
+      }, 10000)
+      try {
+        socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, { tableId })
+      } catch (error) {
+        console.error('[GameState] leaveTable error:', error)
+        navigate('/')
       }
-    } catch (error) {
-      console.error('[GameState] leaveTable error:', error)
-      // Continue with navigation even on error
+    } else {
+      navigate('/')
     }
-    
-    navigate('/')
   }
 
   const sitDown = (tableId, seatId, amount) => {

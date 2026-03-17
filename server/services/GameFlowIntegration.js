@@ -525,6 +525,19 @@ class GameFlowIntegration {
         console.log(`[GameFlowIntegration] Is at table: ${isPlayerAtTable}`);
 
         try {
+            // Check cache first - if it was just optimistically updated (pendingSync), use it
+            const pendingCache = this.playerBalances.get(playerAddress);
+            if (pendingCache && pendingCache.pendingSync && (Date.now() - pendingCache.lastSync) < 30000) {
+                console.log(`[GameFlowIntegration] Using optimistic cache (pendingSync): balance=${pendingCache.balance/1e6} TRX, locked=${pendingCache.lockedAmount/1e6} TRX`);
+                // After joinTableFor, funds are locked in contract - use locked amount for validation
+                const availableBalance = pendingCache.lockedAmount || pendingCache.balance;
+                if (availableBalance >= requiredAmount) {
+                    console.log(`[GameFlowIntegration] ✅ VALIDATION PASSED (cache): ${availableBalance/1e6} TRX >= ${requiredAmount/1e6} TRX`);
+                    console.log(`[GameFlowIntegration] ========== BALANCE VALIDATION END ==========`);
+                    return { valid: true, available: availableBalance, required: requiredAmount, balance: pendingCache.balance, locked: pendingCache.lockedAmount, source: 'cache' };
+                }
+            }
+
             // First, try to get fresh balance from contract (in case user deposited)
             // This ensures we have the most up-to-date balance
             let playerInfo;
@@ -1209,8 +1222,9 @@ class GameFlowIntegration {
             ...cached,
             balance: cached.balance + balanceDelta,
             lockedAmount: (cached.lockedAmount || 0) + lockedDelta,
-            devMode: devMode || cached.devMode || false,  // Once in devMode, stay in devMode
-            lastSync: Date.now()
+            devMode: devMode || cached.devMode || false,
+            lastSync: Date.now(),
+            pendingSync: true
         });
     }
 
