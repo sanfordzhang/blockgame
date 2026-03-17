@@ -351,6 +351,23 @@ class ContractService {
             });
 
             console.log(`[ContractService] leaveTableFor txId:`, txId);
+
+            // Query rake info from transaction
+            try {
+                const txInfo = await this.tronWeb.trx.getTransactionInfo(txId);
+                const internalTxs = txInfo.internal_transactions || [];
+
+                if (internalTxs.length > 0) {
+                    const rakeTransfer = internalTxs[0];
+                    const rakeAmount = rakeTransfer.callValueInfo?.[0]?.callValue || 0;
+                    if (rakeAmount > 0) {
+                        console.log(`[ContractService] 💰 Rake collected: ${rakeAmount / 1e6} TRX`);
+                    }
+                }
+            } catch (e) {
+                // Ignore rake query errors
+            }
+
             return { success: true, tx: txId };
         } catch (error) {
             console.error('[ContractService] Error leaveTableFor:', error.message);
