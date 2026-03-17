@@ -57,14 +57,20 @@ const DepositWithdraw = ({ onClose }) => {
       const sunAmount = parseTrx(amount);
       const tx = await depositTrx(sunAmount);
       
-      setTxStatus({ 
-        status: 'success', 
+      setTxStatus({
+        status: 'success',
         message: 'Deposit successful!',
         txId: tx.txid || tx
       });
-      
-      // Refresh balances
+
+      // Refresh balances immediately
       await refreshBalances();
+
+      // Refresh again after 3 seconds to ensure blockchain confirmation
+      setTimeout(() => {
+        refreshBalances();
+      }, 3000);
+
       setAmount('');
       
     } catch (err) {
@@ -100,14 +106,20 @@ const DepositWithdraw = ({ onClose }) => {
       const sunAmount = parseTrx(amount);
       const tx = await withdrawTrx(sunAmount);
       
-      setTxStatus({ 
-        status: 'success', 
+      setTxStatus({
+        status: 'success',
         message: 'Withdrawal successful!',
         txId: tx.txid || tx
       });
-      
-      // Refresh balances
+
+      // Refresh balances immediately
       await refreshBalances();
+
+      // Refresh again after 3 seconds to ensure blockchain confirmation
+      setTimeout(() => {
+        refreshBalances();
+      }, 3000);
+
       setAmount('');
       
     } catch (err) {

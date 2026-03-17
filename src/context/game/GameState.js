@@ -37,6 +37,7 @@ const GameState = ({ children }) => {
   const [seatId, setSeatId] = useState(null)
   const [turn, setTurn] = useState(false)
   const [turnTimeOutHandle, setHandle] = useState(null)
+  const [isLeaving, setIsLeaving] = useState(false)
 
   const currentTableRef = React.useRef(currentTable)
   const seatIdRef = React.useRef(seatId)
@@ -203,19 +204,23 @@ const GameState = ({ children }) => {
     }
 
     if (socket && socket.connected) {
+      setIsLeaving(true)
       // Wait for SC_TABLE_LEFT before navigating so socket stays alive during blockchain leave
       socket.once(SC_TABLE_LEFT, () => {
         console.log('[GameState] SC_TABLE_LEFT received, navigating home')
+        setIsLeaving(false)
         navigate('/')
       })
       // Timeout fallback in case server never responds
       setTimeout(() => {
+        setIsLeaving(false)
         navigate('/')
       }, 10000)
       try {
         socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, { tableId })
       } catch (error) {
         console.error('[GameState] leaveTable error:', error)
+        setIsLeaving(false)
         navigate('/')
       }
     } else {
@@ -276,6 +281,7 @@ const GameState = ({ children }) => {
         messages,
         currentTable,
         seatId,
+        isLeaving,
         joinTable,
         leaveTable,
         sitDown,

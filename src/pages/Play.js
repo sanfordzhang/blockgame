@@ -42,6 +42,7 @@ const Play = () => {
     messages,
     currentTable,
     seatId,
+    isLeaving,
     joinTable,
     leaveTable,
     sitDown,
@@ -106,8 +107,8 @@ const Play = () => {
               scale="0.65"
               style={{ zIndex: '50' }}
             >
-              <Button small secondary onClick={leaveTable}>
-                Leave
+              <Button small secondary onClick={leaveTable} disabled={isLeaving}>
+                {isLeaving ? 'Leaving...' : 'Leave'}
               </Button>
             </PositionedUISlot>
           </>
