@@ -88,3 +88,62 @@ npm test
 - **后端**: Express, Socket.io 4
 - **扑克逻辑**: pokersolver（手牌评估）
 - **区块链**: ethers.js（钱包连接）
+
+## 调试自测方法
+### 配置
+通过以下方法先启动chrome调试版本,连接这个chrome实例调试
+osascript -e 'quit app "Google Chrome"' 2>/dev/null; sleep 1
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+--remote-debugging-port=9222 \
+--user-data-dir="/tmp/chrome-debug" \
+"http://192.168.10.46:3000/" &
+
+### 通过puppeteer 模拟点击测试验证
+const puppeteer = require('puppeteer');
+     (async () => {
+         const browser = await puppeteer.launch({headless: false});
+         const page = await browser.newPage();
+         const logs = [];
+
+### 让我使用原生 Node.js 模块通过 CDP 操作浏览器：
+⏺ Write(cdp-deposit.js)
+⎿  Wrote 64 lines to cdp-deposit.js
+const http = require('http');
+const WebSocket = require('ws');
+ async function triggerDeposit() {                            
+     console.log('🔌 Connecting to Chrome CDP...');                                                                                                    
+                                                              
+     // Get page info
+     const pages = await new Promise((resolve, reject) => {
+         http.get('http://localhost:9222/json', (res) => {
+             let data = '';
+ … +54 lines (ctrl+o to expand)
+⏺ 运行 CDP 脚本：
+⏺ Bash(node cdp-deposit.js)
+⎿  🔌 Connecting to Chrome CDP...
+✅ Found page: http://192.168.10.46:3000/
+💰 Filling deposit amount...
+… +3 lines (ctrl+o to expand)
+⏺ 完美！充值操作已触发。现在让我检查服务器日志看是否捕获到充值事件：
+⏺ Searched for 1 pattern (ctrl+o to expand)
+⏺ 充值按钮已成功触发！现在需要在TronLink 钱包中确认交易。让我持续监控服务器日志：
+⏺ Bash(echo "👀 Monitoring for deposit event (30 seconds)..." && for i in {1..10}; do sleep 3; tail -5 /tmp/server.log | grep -E "(DEPOSIT EVENT|Polled
+[1-9])" && brea…)
+⎿  👀 Monitoring for deposit event (30 seconds)...
+✅ Monitoring complete
+⎿  (timeout 35s)
+⏺ 让我检查最新的服务器状态和日志：
+⏺ Read 1 file (ctrl+o to expand)
+⏺ 我发现了关键信息！日志显示：
+[ContractService] Joined table 1 with 100000000 SUN
+这说明合约调用成功了，但 EventListener 没有捕获到 Deposit 事件。问题在于 tronWeb.getEventResult() 的使用方式。
+让我创建一个测试脚本验证事件获取：
+⏺ Write(test-event-fetch.js)
+
+### 还可以尝试使用playwright测试验证
+ash(node -e "
+const { chromium } = require('playwright')…)
+⎿  Opening editor...
+Adding photos via auto-layout...
+Checking page thumbnails...
+… +4 lines (ctrl+o to expand)

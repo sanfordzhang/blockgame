@@ -1,8 +1,9 @@
 {
   "network": "nile",
-  "address": "41984eae8509337d0aceec81d5815481ddba21b6c3",
-  "deployTx": "20dbad16177cfb58eb60dd87a4e673196d095502294186798d34cb53ddc1d0ec",
+  "address": "41a1b62fb6b123a0efd9195537f91e4a07c0f5def4",
+  "deployTx": "7156b2d9668d5d5ee867011f9e2d5c8633cba97228ba543f264f6f95d186f426",
   "initialRakeRate": 250,
-  "owner": "TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv",
-  "deployedAt": "2026-03-16T14:05:15.691Z"
+  "deployer": "TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA",
+  "rakeRecipient": "TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA",
+  "deployedAt": "2026-03-17T14:21:02.026Z"
 }

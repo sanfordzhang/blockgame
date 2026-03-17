@@ -46,17 +46,19 @@ class ContractService {
      */
     loadAbi() {
         try {
-            const buildPath = path.join(
-                __dirname, 
-                '../../build/contracts/BridgeGameV1.json'
-            );
-            
-            if (fs.existsSync(buildPath)) {
-                const artifact = JSON.parse(fs.readFileSync(buildPath, 'utf8'));
+            // Try V2 first, fallback to V1
+            const buildPathV2 = path.join(__dirname, '../../build/contracts/BridgeGameV2.json');
+            const buildPathV1 = path.join(__dirname, '../../build/contracts/BridgeGameV1.json');
+
+            if (fs.existsSync(buildPathV2)) {
+                const artifact = JSON.parse(fs.readFileSync(buildPathV2, 'utf8'));
                 this.abi = artifact.abi;
-                console.log('[ContractService] ABI loaded from build artifacts');
+                console.log('[ContractService] ABI loaded from BridgeGameV2 build artifacts');
+            } else if (fs.existsSync(buildPathV1)) {
+                const artifact = JSON.parse(fs.readFileSync(buildPathV1, 'utf8'));
+                this.abi = artifact.abi;
+                console.log('[ContractService] ABI loaded from BridgeGameV1 build artifacts');
             } else {
-                // Use embedded ABI for development
                 this.abi = this.getDefaultAbi();
                 console.log('[ContractService] Using default ABI');
             }
@@ -156,14 +158,13 @@ class ContractService {
      */
     async getPlayerInfo(address) {
         this.ensureContract();
-        
+
         try {
             const info = await this.contract.getPlayerInfo(address).call();
             return {
                 balance: this.toNumber(info.balance),
                 lockedAmount: this.toNumber(info.lockedAmount),
-                isRegistered: info.isRegistered,
-                registeredAt: this.toNumber(info.registeredAt)
+                isRegistered: info.isRegistered
             };
         } catch (error) {
             console.error('[ContractService] Error getting player info:', error.message);
@@ -716,259 +717,37 @@ class ContractService {
     }
 
     /**
-     * Default ABI for development
+     * Default ABI for development (BridgeGameV2 - simplified)
      */
     getDefaultAbi() {
-        // Return complete ABI for all functions used by the game
         return [
-            // Player registration
-            {
-                "inputs": [],
-                "name": "registerPlayer",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "deposit",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "amount", "type": "uint256"}],
-                "name": "withdraw",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            // Player info
-            {
-                "inputs": [{"name": "", "type": "address"}],
-                "name": "players",
-                "outputs": [
-                    {"name": "balance", "type": "uint256"},
-                    {"name": "lockedAmount", "type": "uint256"},
-                    {"name": "isRegistered", "type": "bool"},
-                    {"name": "registeredAt", "type": "uint256"}
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "", "type": "address"}],
-                "name": "getPlayerInfo",
-                "outputs": [
-                    {"name": "balance", "type": "uint256"},
-                    {"name": "lockedAmount", "type": "uint256"},
-                    {"name": "isRegistered", "type": "bool"},
-                    {"name": "registeredAt", "type": "uint256"}
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            // Table operations
-            {
-                "inputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "buyInAmount", "type": "uint256"}
-                ],
-                "name": "joinTable",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "tableId", "type": "uint256"}],
-                "name": "leaveTable",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "finalStack", "type": "uint256"}
-                ],
-                "name": "leaveTableSession",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            // Game session info
-            {
-                "inputs": [{"name": "tableId", "type": "uint256"}],
-                "name": "getGameSession",
-                "outputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "players_", "type": "address[]"},
-                    {"name": "buyInAmounts_", "type": "uint256[]"},
-                    {"name": "totalPot", "type": "uint256"},
-                    {"name": "state", "type": "uint8"},
-                    {"name": "rakeRateUsed", "type": "uint256"}
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            // Delegate (Server Proxy) functions
-            {
-                "inputs": [{"name": "delegate", "type": "address"}],
-                "name": "setDelegate",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "revokeDelegate",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {"name": "player", "type": "address"},
-                    {"name": "delegate", "type": "address"}
-                ],
-                "name": "isAuthorizedDelegate",
-                "outputs": [{"name": "", "type": "bool"}],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "player", "type": "address"}],
-                "name": "getPlayerDelegate",
-                "outputs": [{"name": "", "type": "address"}],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "", "type": "address"}],
-                "name": "playerDelegates",
-                "outputs": [{"name": "", "type": "address"}],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            // Server proxy functions
-            {
-                "inputs": [
-                    {"name": "player", "type": "address"},
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "buyInAmount", "type": "uint256"}
-                ],
-                "name": "joinTableFor",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {"name": "player", "type": "address"},
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "finalStack", "type": "uint256"}
-                ],
-                "name": "leaveTableFor",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            // Settlement
-            {
-                "inputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "playersToUpdate", "type": "address[]"},
-                    {"name": "stackDeltas", "type": "int256[]"},
-                    {"name": "resultHash", "type": "bytes32"}
-                ],
-                "name": "settleGameSession",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "winners", "type": "address[]"},
-                    {"name": "amounts", "type": "uint256[]"},
-                    {"name": "resultHash", "type": "bytes32"}
-                ],
-                "name": "settleGame",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            // Rebuy
-            {
-                "inputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "rebuyAmount", "type": "uint256"}
-                ],
-                "name": "rebuy",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            // Admin functions
-            {
-                "inputs": [
-                    {"name": "tableId", "type": "uint256"},
-                    {"name": "owner", "type": "address"}
-                ],
-                "name": "setTableOwner",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "tableId", "type": "uint256"}],
-                "name": "tableOwners",
-                "outputs": [{"name": "", "type": "address"}],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "player", "type": "address"}],
-                "name": "forceUnlockPlayer",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [{"name": "tableId", "type": "uint256"}],
-                "name": "resetGameSession",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            // Events
-            {
-                "anonymous": false,
-                "inputs": [
-                    {"indexed": true, "name": "player", "type": "address"},
-                    {"indexed": false, "name": "timestamp", "type": "uint256"}
-                ],
-                "name": "PlayerRegistered",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {"indexed": true, "name": "player", "type": "address"},
-                    {"indexed": false, "name": "amount", "type": "uint256"}
-                ],
-                "name": "Deposited",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {"indexed": true, "name": "player", "type": "address"},
-                    {"indexed": false, "name": "amount", "type": "uint256"}
-                ],
-                "name": "Withdrawn",
-                "type": "event"
-            }
+            {"inputs":[],"name":"registerPlayer","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"deposit","outputs":[],"stateMutability":"payable","type":"function"},
+            {"inputs":[{"name":"amount","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"","type":"address"}],"name":"players","outputs":[{"name":"balance","type":"uint256"},{"name":"lockedAmount","type":"uint256"},{"name":"isRegistered","type":"bool"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"name":"player","type":"address"}],"name":"getPlayerInfo","outputs":[{"name":"balance","type":"uint256"},{"name":"lockedAmount","type":"uint256"},{"name":"isRegistered","type":"bool"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"name":"delegate","type":"address"}],"name":"setDelegate","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"revokeDelegate","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"player","type":"address"},{"name":"delegate","type":"address"}],"name":"isAuthorizedDelegate","outputs":[{"name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"name":"player","type":"address"}],"name":"getPlayerDelegate","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"name":"","type":"address"}],"name":"playerDelegates","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"name":"playerAddr","type":"address"},{"name":"tableId","type":"uint256"},{"name":"buyInAmount","type":"uint256"}],"name":"joinTableFor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"playerAddr","type":"address"},{"name":"tableId","type":"uint256"},{"name":"finalStack","type":"uint256"}],"name":"leaveTableFor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"tableId","type":"uint256"},{"name":"finalStack","type":"uint256"}],"name":"leaveTableSession","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"tableId","type":"uint256"},{"name":"tableOwner","type":"address"}],"name":"setTableOwner","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"tableId","type":"uint256"}],"name":"tableOwners","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"name":"playerAddress","type":"address"}],"name":"forceUnlockPlayer","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"name":"newRate","type":"uint256"}],"name":"setRakeRate","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"pause","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"unpause","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"}],"name":"PlayerRegistered","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"Deposited","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"Withdrawn","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":true,"name":"tableId","type":"uint256"},{"indexed":false,"name":"buyIn","type":"uint256"},{"indexed":true,"name":"delegate","type":"address"}],"name":"JoinedTableFor","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":true,"name":"tableId","type":"uint256"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":true,"name":"delegate","type":"address"}],"name":"LeftTableFor","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":true,"name":"tableId","type":"uint256"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"LeftTable","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":true,"name":"delegate","type":"address"}],"name":"DelegateSet","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"ForceUnlocked","type":"event"}
         ];
     }
 }

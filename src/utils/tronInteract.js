@@ -3,160 +3,22 @@
  * Handles wallet connection and basic TRON operations
  */
 
-// Contract ABI in JSON format (TronWeb requires JSON ABI)
+// Contract ABI in JSON format (TronWeb requires JSON ABI) - BridgeGameV2
 const CONTRACT_ABI = [
-  {
-    "inputs": [],
-    "name": "registerPlayer",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "deposit",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "amount", "type": "uint256"}],
-    "name": "withdraw",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "tableId", "type": "uint256"},
-      {"name": "buyInAmount", "type": "uint256"}
-    ],
-    "name": "joinTable",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "tableId", "type": "uint256"}],
-    "name": "leaveTable",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "tableId", "type": "uint256"},
-      {"name": "finalStack", "type": "uint256"}
-    ],
-    "name": "leaveTableSession",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "", "type": "address"}],
-    "name": "players",
-    "outputs": [
-      {"name": "balance", "type": "uint256"},
-      {"name": "lockedAmount", "type": "uint256"},
-      {"name": "isRegistered", "type": "bool"},
-      {"name": "registeredAt", "type": "uint256"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "", "type": "address"}],
-    "name": "getPlayerInfo",
-    "outputs": [
-      {"name": "balance", "type": "uint256"},
-      {"name": "lockedAmount", "type": "uint256"},
-      {"name": "isRegistered", "type": "bool"},
-      {"name": "registeredAt", "type": "uint256"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "name": "player", "type": "address"},
-      {"indexed": false, "name": "timestamp", "type": "uint256"}
-    ],
-    "name": "PlayerRegistered",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "name": "player", "type": "address"},
-      {"indexed": false, "name": "amount", "type": "uint256"}
-    ],
-    "name": "Deposited",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "name": "player", "type": "address"},
-      {"indexed": false, "name": "amount", "type": "uint256"}
-    ],
-    "name": "Withdrawn",
-    "type": "event"
-  },
-  {
-    "inputs": [{"name": "tableId", "type": "uint256"}],
-    "name": "getGameSession",
-    "outputs": [
-      {"name": "tableId", "type": "uint256"},
-      {"name": "players_", "type": "address[]"},
-      {"name": "buyInAmounts_", "type": "uint256[]"},
-      {"name": "totalPot", "type": "uint256"},
-      {"name": "state", "type": "uint8"},
-      {"name": "rakeRateUsed", "type": "uint256"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  // Delegate (Server Proxy) functions
-  {
-    "inputs": [{"name": "delegate", "type": "address"}],
-    "name": "setDelegate",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "revokeDelegate",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "player", "type": "address"},
-      {"name": "delegate", "type": "address"}
-    ],
-    "name": "isAuthorizedDelegate",
-    "outputs": [{"name": "", "type": "bool"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "player", "type": "address"}],
-    "name": "getPlayerDelegate",
-    "outputs": [{"name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "", "type": "address"}],
-    "name": "playerDelegates",
-    "outputs": [{"name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
+  {"inputs":[],"name":"registerPlayer","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"deposit","outputs":[],"stateMutability":"payable","type":"function"},
+  {"inputs":[{"name":"amount","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"","type":"address"}],"name":"players","outputs":[{"name":"balance","type":"uint256"},{"name":"lockedAmount","type":"uint256"},{"name":"isRegistered","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"player","type":"address"}],"name":"getPlayerInfo","outputs":[{"name":"balance","type":"uint256"},{"name":"lockedAmount","type":"uint256"},{"name":"isRegistered","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"tableId","type":"uint256"},{"name":"finalStack","type":"uint256"}],"name":"leaveTableSession","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"delegate","type":"address"}],"name":"setDelegate","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"revokeDelegate","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"player","type":"address"},{"name":"delegate","type":"address"}],"name":"isAuthorizedDelegate","outputs":[{"name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"player","type":"address"}],"name":"getPlayerDelegate","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"","type":"address"}],"name":"playerDelegates","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"}],"name":"PlayerRegistered","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"Deposited","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"player","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"Withdrawn","type":"event"}
 ];
 
 // Network configurations
@@ -179,7 +41,7 @@ const NETWORKS = {
     chainId: '0xcd8690dc', // 3448148188
     name: 'Nile Testnet',
     fullHost: 'https://nile.trongrid.io',
-    contractAddress: getEnvVar('REACT_APP_TESTNET_CONTRACT_ADDRESS', 'TPrXy7qsoY3rEutSPmEF14sJjjijxpHGpv')
+    contractAddress: getEnvVar('REACT_APP_TESTNET_CONTRACT_ADDRESS', 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c')
   }
 };
 

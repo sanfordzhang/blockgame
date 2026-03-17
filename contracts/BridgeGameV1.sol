@@ -461,7 +461,7 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
         require(playerIndex != type(uint256).max, "Player not in this table");
         
         uint256 buyInAmount = session.buyInAmounts[playerIndex];
-        
+
         // Remove player from arrays
         if (playerIndex < session.players.length - 1) {
             session.players[playerIndex] = session.players[session.players.length - 1];
@@ -470,14 +470,32 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
         session.players.pop();
         session.buyInAmounts.pop();
         session.totalPot -= buyInAmount;
-        
-        // Session mode settlement: return finalStack to balance, clear locked
-        uint256 lockedAmount = player.lockedAmount;
+
+        // Calculate rake on profit
+        uint256 rake = 0;
+        uint256 netPayout = finalStack;
+
+        if (finalStack > buyInAmount) {
+            // Player has profit, calculate rake
+            uint256 profit = finalStack - buyInAmount;
+            rake = (profit * session.rakeRateUsed) / 10000;
+            netPayout = finalStack - rake;
+
+            // Accumulate rake
+            accumulatedRake += rake;
+            totalRakeCollected += rake;
+        }
+
+        // Session mode settlement: return netPayout to balance, clear locked
         player.lockedAmount = 0;
-        player.balance += finalStack;
-        
-        emit LeftTable(playerAddr, tableId, finalStack);
-        emit LeftTableFor(playerAddr, tableId, finalStack, msg.sender);
+        player.balance += netPayout;
+
+        emit LeftTable(playerAddr, tableId, netPayout);
+        emit LeftTableFor(playerAddr, tableId, netPayout, msg.sender);
+
+        if (rake > 0) {
+            emit GameSettled(session.gameId, new address[](0), new uint256[](0), rake);
+        }
     }
 
     /**
