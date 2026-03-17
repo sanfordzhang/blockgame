@@ -184,13 +184,15 @@ class EventListener {
     }
 
     onWithdrawn(event) {
-        const { player, amount } = event.result;
-        console.log(`[EventListener] Withdrawal: ${player} withdrew ${amount} SUN`);
-        
+        const player = event.result.player || event.result[0];
+        const amount = event.result.amount || event.result[1];
+        const amountNum = typeof amount === 'object' && amount.toNumber ? amount.toNumber() : parseInt(amount);
+        console.log(`[EventListener] Withdrawal: ${player} withdrew ${amountNum} SUN`);
+
         if (global.io) {
             global.io.to(player).emit('balance:updated', {
                 type: 'withdraw',
-                amount: amount.toNumber()
+                amount: amountNum
             });
         }
     }

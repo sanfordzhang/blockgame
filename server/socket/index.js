@@ -1240,33 +1240,13 @@ const init = (socket, io) => {
     }
 
     console.log('[Socket] ========== BLOCKCHAIN SETTLEMENT (Session Mode) ==========');
-    console.log('[Socket] BLOCKCHAIN_ENABLED:', config.BLOCKCHAIN_ENABLED);
+    console.log('[Socket] Session mode: Stack updated locally, final settlement on leaveTable');
     console.log('[Socket] Player stacks for settlement:', playerStacks);
-    console.log('[Socket] Settlement data:', JSON.stringify(settlementData, null, 2));
 
-    try {
-      // Rule j: Use session mode settlement
-      // Call settleGameSession with stack deltas
-      if (playerStacks.length > 0) {
-        const result = await gameFlowIntegration.handleGameSettlementSession(settlementData, playerStacks);
-        console.log('[Socket] ✅ Game settled on blockchain (session mode):', result.txId);
-      } else {
-        console.log('[Socket] No stack changes to settle');
-      }
-
-    } catch (error) {
-      console.error('[Socket] ❌ Game settlement error:', error.message);
-      console.error('[Socket] ❌ Error stack:', error.stack);
-
-      // Task 15.6: Notify players about settlement failure
-      for (const player of table.players) {
-        gameFlowIntegration.notifyPlayer(player.socketId, SC_BLOCKCHAIN_SETTLEMENT, {
-          status: 'failed',
-          message: error.message,
-          tableId: table.id
-        });
-      }
-    }
+    // TEMPORARY FIX: Skip on-chain settlement per hand to avoid REVERT errors
+    // Stack is already updated locally in game logic
+    // Final settlement will happen when player leaves table (leaveTableFor)
+    console.log('[Socket] ⚠️ Skipping on-chain settlement per hand (will settle on leaveTable)');
     console.log('[Socket] ============================================');
   }
 

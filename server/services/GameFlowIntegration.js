@@ -746,12 +746,29 @@ class GameFlowIntegration {
             const stackDeltas = [];
 
             // Calculate stack delta for each player
+            // Only include players with non-zero delta to save gas and avoid contract revert
             for (const playerStack of playerStacks) {
-                playersToUpdate.push(playerStack.address);
                 // Delta = stackAfter - stackBefore (positive = win, negative = lose)
                 const delta = playerStack.stackAfter - playerStack.stackBefore;
-                stackDeltas.push(delta);
                 console.log(`[GameFlowIntegration] Player ${playerStack.address}: stack ${playerStack.stackBefore} -> ${playerStack.stackAfter}, delta=${delta}`);
+
+                // Skip players with no stack change
+                if (delta === 0) {
+                    console.log(`[GameFlowIntegration] Skipping player ${playerStack.address} (delta=0)`);
+                    continue;
+                }
+
+                playersToUpdate.push(playerStack.address);
+                stackDeltas.push(delta);
+            }
+
+            console.log(`[GameFlowIntegration] Session settlement: ${playersToUpdate.length} players with stack changes`);
+            console.log(`[GameFlowIntegration] Stack deltas:`, stackDeltas);
+
+            // If no players have stack changes, skip contract call
+            if (playersToUpdate.length === 0) {
+                console.log(`[GameFlowIntegration] No stack changes to settle, skipping contract call`);
+                return { txId: null, mode: 'session', skipped: true };
             }
 
             // Generate result hash for verification
@@ -760,9 +777,6 @@ class GameFlowIntegration {
                 .createHash('sha256')
                 .update(JSON.stringify({ playersToUpdate, stackDeltas, tableId: gameResult.tableId }))
                 .digest('hex');
-
-            console.log(`[GameFlowIntegration] Session settlement: ${playersToUpdate.length} players`);
-            console.log(`[GameFlowIntegration] Stack deltas:`, stackDeltas);
 
             // Call contract settleGameSession
             const result = await contractService.settleGameSession(

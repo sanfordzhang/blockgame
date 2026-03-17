@@ -384,7 +384,14 @@ class ContractService {
      */
     async settleGameSession(tableId, playersToUpdate, stackDeltas, resultHash) {
         this.ensureContract();
-        
+
+        console.log('[ContractService] settleGameSession params:', {
+            tableId,
+            playersToUpdate,
+            stackDeltas,
+            resultHash
+        });
+
         try {
             const tx = await this.contract.settleGameSession(
                 tableId,
@@ -395,7 +402,7 @@ class ContractService {
                 feeLimit: 500_000_000,
                 shouldPollResponse: true
             });
-            
+
             console.log(`[ContractService] Session game settled for table ${tableId}`);
             return tx;
         } catch (error) {
