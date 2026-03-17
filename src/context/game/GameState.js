@@ -4,9 +4,8 @@ import {
   CS_CALL,
   CS_CHECK,
   CS_FOLD,
-  CS_JOIN_TABLE,
   CS_JOIN_TABLE_BLOCKCHAIN,
-  CS_LEAVE_TABLE,
+  CS_LEAVE_TABLE_BLOCKCHAIN,
   CS_RAISE,
   CS_REBUY,
   CS_SIT_DOWN,
@@ -17,27 +16,16 @@ import {
   SC_BALANCE_SYNCED,
   SC_BLOCKCHAIN_ERROR,
   SC_BLOCKCHAIN_TX_STATUS,
-  CS_CONTRACT_JOIN_SUCCESS,
-  CS_CONTRACT_JOIN_FAILED,
   CS_CONTRACT_LEAVE_SUCCESS,
   CS_CONTRACT_LEAVE_FAILED,
-  // Delegate events
-  CS_SET_DELEGATE,
   SC_DELEGATE_SET,
   SC_DELEGATE_ERROR,
-  CS_CHECK_DELEGATE,
   SC_DELEGATE_STATUS,
 } from '../../pokergame/actions'
 import socketContext from '../websocket/socketContext'
 import GameContext from './gameContext'
 import globalContext from '../global/globalContext'
-import { 
-  joinTable as contractJoinTable, 
-  leaveTableSession as contractLeaveTableSession,
-  setDelegate as contractSetDelegate,
-  isAuthorizedDelegate,
-  getPlayerDelegate
-} from '../../utils/tronInteract'
+import { leaveTableSession as contractLeaveTableSession } from '../../utils/tronInteract'
 
 const GameState = ({ children }) => {
   const { socket } = useContext(socketContext)
@@ -157,10 +145,24 @@ const GameState = ({ children }) => {
           addMessage(`⚠️ 需要授权服务器: ${data.serverAddress}`)
         }
       })
-      
+
+      // Delegate not authorized - player must sign leaveTableSession directly
+      socket.on('SC_REQUEST_PLAYER_LEAVE', async ({ tableId, stack }) => {
+        console.log('[GameState] SC_REQUEST_PLAYER_LEAVE:', { tableId, stack })
+        try {
+          const result = await contractLeaveTableSession(tableId, stack)
+          console.log('[GameState] Player-signed leaveTableSession success:', result)
+          socket.emit(CS_CONTRACT_LEAVE_SUCCESS, { tableId, stack, txId: result.tx })
+        } catch (error) {
+          console.error('[GameState] Player-signed leaveTableSession failed:', error)
+          socket.emit(CS_CONTRACT_LEAVE_FAILED, { tableId, stack, error: error.message })
+        }
+      })
+
       return () => {
         window.removeEventListener('unload', handleUnload)
         window.removeEventListener('close', handleUnload)
+        socket.off('SC_REQUEST_PLAYER_LEAVE')
         try {
           if (socket && socket.connected) {
             leaveTable()
@@ -201,10 +203,8 @@ const GameState = ({ children }) => {
     }
     
     try {
-      // Stand up from table first (local)
-      standUp()
-      
       // Use server proxy mode - server will call leaveTableFor on behalf of player
+      // Do NOT call standUp() first - it removes the seat and stack becomes 0
       if (socket && socket.connected) {
         socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, {
           tableId

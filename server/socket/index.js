@@ -416,33 +416,36 @@ const init = (socket, io) => {
           // Use server proxy leave (leaveTableFor)
           console.log('[Socket] Calling leaveTableFor via server...');
           const result = await contractService.leaveTableFor(player.id, tableId, stack);
-          console.log('[Socket] leaveTableFor result:', result);
+          console.log('[Socket] leaveTableFor txId:', result.tx);
+
+          // Optimistically update local cache: locked=0, balance += stack
+          gameFlowIntegration.updatePlayerBalanceCache(player.id, stack, -stack);
+
+          // Notify player with optimistic balance (EventListener will sync real value later)
+          const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(player.id);
+          socket.emit(SC_BALANCE_SYNCED, {
+            balance: cachedBalance?.balance || player.bankroll,
+            locked: 0,
+            available: cachedBalance?.balance || player.bankroll,
+            reason: 'leave_table'
+          });
+
+          table.removePlayer(socket.id);
+          socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+          socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+
+          let message = `${player.name} left the table.`;
+          broadcastToTable(table, message);
+
+          if (table.activePlayers().length === 1) {
+            clearForOnePlayer(table);
+          }
         } else {
-          // Fallback: try direct leave (player-signed)
-          console.log('[Socket] Delegate not authorized, skipping blockchain leave');
-        }
-        
-        // Sync balance from contract
-        const freshBalance = await contractService.getPlayerInfo(player.id);
-        player.bankroll = freshBalance.balance;
-        
-        // Notify player about balance update
-        socket.emit(SC_BALANCE_SYNCED, {
-          balance: freshBalance.balance,
-          locked: freshBalance.lockedAmount,
-          available: freshBalance.balance,
-          reason: 'leave_table'
-        });
-        
-        table.removePlayer(socket.id);
-        socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
-        socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
-        
-        let message = `${player.name} left the table.`;
-        broadcastToTable(table, message);
-        
-        if (table.activePlayers().length === 1) {
-          clearForOnePlayer(table);
+          // Delegate not authorized - ask frontend to sign leaveTableSession directly
+          console.log('[Socket] Delegate not authorized, requesting player-signed leave');
+          socket.emit('SC_REQUEST_PLAYER_LEAVE', { tableId, stack });
+          // Do NOT remove player from table yet - wait for CS_CONTRACT_LEAVE_SUCCESS
+          return;
         }
         
       } catch (error) {

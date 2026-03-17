@@ -125,8 +125,15 @@ class EventListener {
             case 'JoinedTable':
                 this.onJoinedTable(event);
                 break;
+            case 'JoinedTableFor':
+                this.onJoinedTableFor(event);
+                break;
             case 'LeftTable':
                 this.onLeftTable(event);
+                break;
+            case 'LeftTableFor':
+                this.onLeftTableFor(event);
+                break;
                 break;
             case 'GameStarted':
                 this.onGameStarted(event);
@@ -193,9 +200,53 @@ class EventListener {
         console.log(`[EventListener] ${player} joined table ${tableId} with ${buyIn} SUN`);
     }
 
+    onJoinedTableFor(event) {
+        const player = event.result.player || event.result[0];
+        const tableId = event.result.tableId || event.result[1];
+        console.log(`[EventListener] JoinedTableFor: ${player} joined table ${tableId}`);
+
+        // Sync balance from contract after join confirmed on-chain
+        if (global.gameFlowIntegration && player) {
+            const tronPlayer = this.tronService.hexToAddress(player);
+            global.gameFlowIntegration.syncPlayerBalance(tronPlayer).then(balance => {
+                console.log(`[EventListener] Balance synced after JoinedTableFor: locked=${balance.lockedAmount/1e6} TRX`);
+                if (global.io) {
+                    global.io.emit('SC_BALANCE_SYNCED', {
+                        balance: balance.balance,
+                        locked: balance.lockedAmount,
+                        available: balance.balance,
+                        reason: 'join_confirmed'
+                    });
+                }
+            }).catch(e => console.warn('[EventListener] Failed to sync after JoinedTableFor:', e.message));
+        }
+    }
+
     onLeftTable(event) {
         const { player, tableId, amount } = event.result;
         console.log(`[EventListener] ${player} left table ${tableId}, refunded ${amount} SUN`);
+    }
+
+    onLeftTableFor(event) {
+        const player = event.result.player || event.result[0];
+        const tableId = event.result.tableId || event.result[1];
+        console.log(`[EventListener] LeftTableFor: ${player} left table ${tableId}`);
+
+        // Sync real balance from contract after leave confirmed on-chain
+        if (global.gameFlowIntegration && player) {
+            const tronPlayer = this.tronService.hexToAddress(player);
+            global.gameFlowIntegration.syncPlayerBalance(tronPlayer).then(balance => {
+                console.log(`[EventListener] Balance synced after LeftTableFor: locked=${balance.lockedAmount/1e6} TRX`);
+                if (global.io) {
+                    global.io.emit('SC_BALANCE_SYNCED', {
+                        balance: balance.balance,
+                        locked: balance.lockedAmount,
+                        available: balance.balance,
+                        reason: 'leave_confirmed'
+                    });
+                }
+            }).catch(e => console.warn('[EventListener] Failed to sync after LeftTableFor:', e.message));
+        }
     }
 
     onGameStarted(event) {

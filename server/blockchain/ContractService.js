@@ -220,15 +220,14 @@ class ContractService {
      */
     async leaveTableSession(tableId, finalStack) {
         this.ensureContract();
-        
+
         try {
-            const tx = await this.contract.leaveTableSession(tableId, finalStack).send({
+            const txId = await this.contract.leaveTableSession(tableId, finalStack).send({
                 feeLimit: 100_000_000,
-                shouldPollResponse: true
             });
-            
-            console.log(`[ContractService] Session leave table ${tableId} with final stack ${finalStack}`);
-            return tx;
+
+            console.log(`[ContractService] leaveTableSession txId:`, txId);
+            return { success: true, tx: txId };
         } catch (error) {
             console.error('[ContractService] Error session leaving table:', error.message);
             throw error;
@@ -317,17 +316,16 @@ class ContractService {
      */
     async joinTableFor(playerAddress, tableId, buyInAmount) {
         this.ensureContract();
-        
+
         try {
             console.log(`[ContractService] joinTableFor: player=${playerAddress}, tableId=${tableId}, buyIn=${buyInAmount}`);
-            
-            const tx = await this.contract.joinTableFor(playerAddress, tableId, buyInAmount).send({
+
+            const txId = await this.contract.joinTableFor(playerAddress, tableId, buyInAmount).send({
                 feeLimit: 100_000_000,
-                shouldPollResponse: true
             });
-            
-            console.log(`[ContractService] joinTableFor success:`, tx);
-            return { success: true, tx };
+
+            console.log(`[ContractService] joinTableFor txId:`, txId);
+            return { success: true, tx: txId };
         } catch (error) {
             console.error('[ContractService] Error joinTableFor:', error.message);
             throw error;
@@ -343,17 +341,16 @@ class ContractService {
      */
     async leaveTableFor(playerAddress, tableId, finalStack) {
         this.ensureContract();
-        
+
         try {
             console.log(`[ContractService] leaveTableFor: player=${playerAddress}, tableId=${tableId}, finalStack=${finalStack}`);
-            
-            const tx = await this.contract.leaveTableFor(playerAddress, tableId, finalStack).send({
+
+            const txId = await this.contract.leaveTableFor(playerAddress, tableId, finalStack).send({
                 feeLimit: 100_000_000,
-                shouldPollResponse: true
             });
-            
-            console.log(`[ContractService] leaveTableFor success:`, tx);
-            return { success: true, tx };
+
+            console.log(`[ContractService] leaveTableFor txId:`, txId);
+            return { success: true, tx: txId };
         } catch (error) {
             console.error('[ContractService] Error leaveTableFor:', error.message);
             throw error;

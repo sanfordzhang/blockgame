@@ -110,6 +110,10 @@ const io = socketio(server, {
 
 io.on("connect", (socket) => gameSocket.init(socket, io));
 
+// Expose globals for EventListener to use
+global.io = io;
+global.gameFlowIntegration = gameFlowIntegration;
+
 // Error handling - close server
 
 process.on("unhandledRejection", (err) => {
