@@ -92,6 +92,33 @@ async function initializeBlockchainServices() {
 // Initialize blockchain services
 initializeBlockchainServices();
 
+// Server wallet balance monitor
+const WARN_THRESHOLD = 50 * 1e6;  // 50 TRX warning
+const CRITICAL_THRESHOLD = 10 * 1e6; // 10 TRX critical
+
+async function checkServerWalletBalance() {
+    if (!config.BLOCKCHAIN_ENABLED) return;
+    try {
+        const serverAddress = TronService.getSignerAddress();
+        const balance = await TronService.getTrxBalance(serverAddress);
+        const balanceTRX = (balance / 1e6).toFixed(2);
+
+        if (balance < CRITICAL_THRESHOLD) {
+            console.error(`[Server] 🚨 CRITICAL: Server wallet balance critically low: ${balanceTRX} TRX! Game operations will FAIL!`);
+        } else if (balance < WARN_THRESHOLD) {
+            console.warn(`[Server] ⚠️  WARNING: Server wallet balance low: ${balanceTRX} TRX. Please top up soon.`);
+        } else {
+            console.log(`[Server] 💰 Server wallet balance: ${balanceTRX} TRX`);
+        }
+    } catch (e) {
+        console.error('[Server] Failed to check server wallet balance:', e.message);
+    }
+}
+
+// Check balance on startup and every 6 hours
+setTimeout(checkServerWalletBalance, 5000);
+setInterval(checkServerWalletBalance, 6 * 60 * 60 * 1000);
+
 // Start server and listen for connections
 const server = app.listen(config.PORT, () => {
     console.log(

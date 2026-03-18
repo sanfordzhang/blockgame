@@ -23,12 +23,16 @@ contract BridgeGameV3 {
     mapping(address => address) public playerDelegates;
     mapping(address => mapping(address => bool)) public isDelegateAuthorized;
     mapping(uint256 => mapping(address => uint256)) public playerBuyIn;
+    mapping(uint256 => mapping(address => bool)) public playerAtTable;
 
+    uint256 public accumulatedRake;
     address public rakeRecipient;
 
     // Minimal events
     event Deposited(address indexed player, uint256 amount);
     event Withdrawn(address indexed player, uint256 amount);
+    event JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn);
+    event LeftTableFor(address indexed player, uint256 indexed tableId, uint256 amount);
     event RakeCollected(uint256 indexed tableId, address indexed player, uint256 rakeAmount);
 
     modifier onlyOwner() {
@@ -75,15 +79,20 @@ contract BridgeGameV3 {
         require(isDelegateAuthorized[playerAddr][msg.sender], "Not authorized");
         Player storage p = players[playerAddr];
         require(p.balance >= buyInAmount, "Insufficient balance");
+        require(!playerAtTable[tableId][playerAddr], "Already at table");
 
         p.balance -= buyInAmount;
         p.lockedAmount += buyInAmount;
         playerBuyIn[tableId][playerAddr] = buyInAmount;
+        playerAtTable[tableId][playerAddr] = true;
+
+        emit JoinedTableFor(playerAddr, tableId, buyInAmount);
     }
 
     function leaveTableFor(address playerAddr, uint256 tableId, uint256 finalStack) external whenNotPaused {
         require(isDelegateAuthorized[playerAddr][msg.sender], "Not authorized");
         Player storage p = players[playerAddr];
+        require(playerAtTable[tableId][playerAddr], "Not at table");
 
         uint256 buyIn = playerBuyIn[tableId][playerAddr];
         uint256 rake = 0;
@@ -97,16 +106,31 @@ contract BridgeGameV3 {
         p.lockedAmount = 0;
         p.balance += netStack;
         playerBuyIn[tableId][playerAddr] = 0;
+        playerAtTable[tableId][playerAddr] = false;
 
         if (rake > 0) {
-            payable(rakeRecipient).transfer(rake);
-            emit RakeCollected(tableId, playerAddr, rake);
+            (bool ok,) = payable(rakeRecipient).call{value: rake}("");
+            if (ok) {
+                emit RakeCollected(tableId, playerAddr, rake);
+            } else {
+                accumulatedRake += rake;
+            }
         }
+
+        emit LeftTableFor(playerAddr, tableId, netStack);
     }
 
     function setRakeRate(uint256 newRate) external onlyOwner {
         require(newRate <= 1000, "Max 10%");
         rakeRate = newRate;
+    }
+
+    function withdrawRake(address payable to) external onlyOwner {
+        uint256 amount = accumulatedRake;
+        require(amount > 0, "No rake");
+        accumulatedRake = 0;
+        (bool ok,) = to.call{value: amount}("");
+        require(ok, "Transfer failed");
     }
 
     function pause() external onlyOwner { paused = true; }
