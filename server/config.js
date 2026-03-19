@@ -11,7 +11,8 @@ const config = {
   BLOCKCHAIN_ENABLED: process.env.BLOCKCHAIN_ENABLED === 'true' || false,
   TRON_NETWORK: process.env.TRON_NETWORK || 'testnet',
   // Use network-specific contract address
-  CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS || process.env.TESTNET_CONTRACT_ADDRESS || '',
+  CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS ||
+    (process.env.TRON_NETWORK === 'mainnet' ? process.env.MAINNET_CONTRACT_ADDRESS : process.env.TESTNET_CONTRACT_ADDRESS) || '',
   TRON_GRID_API_KEY: process.env.TRON_GRID_API_KEY || '',
   
   // Server wallet address (for delegate authorization)

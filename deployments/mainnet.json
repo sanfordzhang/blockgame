@@ -1,0 +1,9 @@
+{
+  "network": "mainnet",
+  "address": "4151438a862f04378be6a04eacc7e76e06ad5e1748",
+  "deployTx": "14557840f71cd8ea6292b353fc64bcb57052fbae26a7d70efbd3f7833b320ce5",
+  "initialRakeRate": 250,
+  "deployer": "TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv",
+  "rakeRecipient": "TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv",
+  "deployedAt": "2026-03-19T08:57:32.637Z"
+}

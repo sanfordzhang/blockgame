@@ -54,7 +54,7 @@ class TronService {
             },
             mainnet: {
                 fullHost: process.env.MAINNET_FULL_HOST || 'https://api.trongrid.io',
-                privateKey: process.env.MAINNET_PRIVATE_KEY,
+                privateKey: process.env.MAINNET_SERVER_PRIVATE_KEY || process.env.MAINNET_PRIVATE_KEY,
                 apiKey: process.env.TRONGRID_API_KEY,
                 contractAddress: process.env.MAINNET_CONTRACT_ADDRESS
             },

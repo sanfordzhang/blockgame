@@ -494,7 +494,7 @@ contract BridgeGameV1 is ReentrancyGuard, Pausable, Ownable {
         emit LeftTableFor(playerAddr, tableId, netPayout, msg.sender);
 
         if (rake > 0) {
-            emit GameSettled(session.gameId, new address[](0), new uint256[](0), rake);
+            emit GameSettled(session.tableId, new address[](0), new uint256[](0), rake);
         }
     }
 
