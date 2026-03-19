@@ -35,7 +35,7 @@ const NETWORKS = {
     chainId: '0x2b6653dc', // 728126428
     name: 'Mainnet',
     fullHost: 'https://api.trongrid.io',
-    contractAddress: getEnvVar('REACT_APP_MAINNET_CONTRACT_ADDRESS', '')
+    contractAddress: getEnvVar('REACT_APP_MAINNET_CONTRACT_ADDRESS', 'THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd')
   },
   testnet: {
     chainId: '0xcd8690dc', // 3448148188
@@ -45,8 +45,8 @@ const NETWORKS = {
   }
 };
 
-// Default network (testnet for development)
-let currentNetwork = 'testnet';
+// Default network
+let currentNetwork = 'mainnet';
 
 /**
  * Check if TronLink is installed

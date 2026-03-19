@@ -45,7 +45,7 @@ export const TronProvider = ({ children }) => {
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   
   // Game mode state
-  const [gameMode, setGameMode] = useState('fun'); // 'fun' or 'real'
+  const [gameMode, setGameMode] = useState('real'); // 'fun' or 'real'
   
   // Install status
   const [isInstalled, setIsInstalled] = useState(false);
