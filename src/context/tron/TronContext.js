@@ -3,7 +3,7 @@
  * Provides wallet connection state and methods throughout the app
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   isTronLinkInstalled,
   connectTronLink,
@@ -40,9 +40,24 @@ export const TronProvider = ({ children }) => {
   const [chainId, setChainId] = useState(null);
   
   // Balance state
-  const [trxWalletBalance, setTrxWalletBalance] = useState(0);
+  const [trxWalletBalance, setTrxWalletBalanceRaw] = useState(0);
   const [contractBalance, setContractBalance] = useState({ balance: 0, locked: 0 });
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const skipWalletBalanceRefreshUntil = useRef(0);
+
+  // Wrapper: skip update if optimistic hold is active
+  const setTrxWalletBalance = useCallback((val) => {
+    if (Date.now() < skipWalletBalanceRefreshUntil.current) {
+      console.log('[TronContext] Skipping wallet balance update (optimistic hold active)');
+      return;
+    }
+    setTrxWalletBalanceRaw(val);
+  }, []);
+
+  // Force update regardless of hold (used by deposit optimistic update itself)
+  const setTrxWalletBalanceForce = useCallback((val) => {
+    setTrxWalletBalanceRaw(val);
+  }, []);
   
   // Game mode state
   const [gameMode, setGameMode] = useState(
@@ -181,17 +196,22 @@ export const TronProvider = ({ children }) => {
    */
   const refreshBalances = useCallback(async () => {
     if (!address) return;
-    
+
     setIsLoadingBalance(true);
-    
+
     try {
-      // Get wallet TRX balance
-      const walletBalance = await getTrxBalance(address);
-      setTrxWalletBalance(walletBalance);
-      
-      // Get contract balance
+      // Get contract balance always
       const contractBal = await getPlayerBalance(address);
       setContractBalance(contractBal);
+
+      // Skip wallet balance refresh if we have a pending optimistic update
+      if (Date.now() < skipWalletBalanceRefreshUntil.current) {
+        console.log('[TronContext] Skipping wallet balance refresh (optimistic update pending)');
+        return;
+      }
+
+      const walletBalance = await getTrxBalance(address);
+      setTrxWalletBalance(walletBalance);
     } catch (err) {
       console.error('[TronContext] Error refreshing balances:', err);
     } finally {
@@ -253,6 +273,8 @@ export const TronProvider = ({ children }) => {
     
     // Balance state
     trxWalletBalance,
+    setTrxWalletBalance,
+    setTrxWalletBalanceForce,
     trxWalletBalanceFormatted: formatTrx(trxWalletBalance),
     contractBalance,
     availableBalance: contractBalance.balance - contractBalance.locked,
@@ -263,6 +285,9 @@ export const TronProvider = ({ children }) => {
     connect,
     disconnect,
     refreshBalances,
+    holdWalletBalanceRefresh: (ms = 15000) => {
+      skipWalletBalanceRefreshUntil.current = Date.now() + ms;
+    },
     switchGameMode,
     switchNetwork,
     clearError

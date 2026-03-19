@@ -8,6 +8,7 @@ import GlobalStyles from '../styles/Global'
 import { BrowserRouter } from 'react-router-dom'
 import WebSocketProvider from './websocket/WebsocketProvider'
 import GameState from './game/GameState'
+import { TronProvider } from './tron/TronContext'
 
 const Providers = ({ children }) => (
   <BrowserRouter>
@@ -16,9 +17,11 @@ const Providers = ({ children }) => (
         <ModalProvider>
           <WebSocketProvider>
             <GameState>
-              <Normalize />
-              <GlobalStyles />
-              {children}
+              <TronProvider>
+                <Normalize />
+                <GlobalStyles />
+                {children}
+              </TronProvider>
             </GameState>
           </WebSocketProvider>
         </ModalProvider>

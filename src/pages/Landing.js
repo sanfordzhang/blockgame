@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Container from '../components/layout/Container';
 import CenteredBlock from '../components/layout/CenteredBlock';
@@ -54,7 +54,26 @@ const Landing = () => {
   const [tronLinkInstalled, setTronLinkInstalled] = useState(true);
   const [contractBalance, setContractBalance] = useState(0);
   const [lockedBalance, setLockedBalance] = useState(0);
-  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletBalance, setWalletBalanceRaw] = useState(0);
+  const holdUntilRef = useRef(0); // optimistic hold: skip wallet balance updates until this timestamp
+
+  // Wrapper: skip if optimistic hold is active
+  const setWalletBalance = useCallback((val) => {
+    if (Date.now() < holdUntilRef.current) {
+      console.log('[Landing] Skipping wallet balance update (optimistic hold active)');
+      return;
+    }
+    setWalletBalanceRaw(val);
+  }, []);
+
+  // Force update regardless of hold
+  const setWalletBalanceForce = useCallback((val) => {
+    setWalletBalanceRaw(val);
+  }, []);
+
+  const holdWalletBalance = useCallback((ms = 20000) => {
+    holdUntilRef.current = Date.now() + ms;
+  }, []);
   const [depositing, setDepositing] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
@@ -268,11 +287,12 @@ const Landing = () => {
       const tx = await depositTrx(amount);
       console.log('Deposit tx:', tx);
 
-      // Optimistic update - add amount to contract balance immediately
+      // Optimistic update: immediately reflect deposit in both balances, hold 60s
+      holdWalletBalance(60000);
       setContractBalance(prev => prev + amount);
-      setWalletBalance(prev => Math.max(0, prev - amount));
+      setWalletBalanceForce(prev => Math.max(0, prev - amount));
 
-      // Poll until contract balance increases (max 30s, every 2s)
+      // Poll contract balance until confirmed (UI already shows correct value)
       const prevContractBalance = contractBalance;
       let attempts = 0;
       const poll = async () => {
@@ -281,13 +301,11 @@ const Landing = () => {
           const balance = await getPlayerBalance(walletAddress);
           setContractBalance(balance.balance);
           setLockedBalance(balance.locked || 0);
-          const trxBalance = await getTrxBalance(walletAddress);
-          setWalletBalance(trxBalance);
           if (balance.balance > prevContractBalance || attempts >= 15) return;
         } catch (e) { console.error('Balance poll error:', e); }
-        setTimeout(poll, 2000);
+        setTimeout(poll, 3000);
       };
-      setTimeout(poll, 1000);
+      setTimeout(poll, 3000);
       
     } catch (err) {
       console.error('Deposit error:', err);
@@ -319,10 +337,12 @@ const Landing = () => {
       const tx = await withdrawTrx(amount);
       console.log('Withdraw tx:', tx);
 
-      // Optimistic update - clear contract balance immediately
+      // Optimistic update: immediately reflect withdrawal in both balances, hold 60s
+      holdWalletBalance(60000);
       setContractBalance(0);
+      setWalletBalanceForce(prev => prev + amount);
 
-      // Poll until contract balance decreases (same logic as deposit)
+      // Poll contract balance until confirmed (UI already shows correct value)
       const prevContractBalance = contractBalance;
       let attempts = 0;
       const poll = async () => {
@@ -331,13 +351,11 @@ const Landing = () => {
           const balance = await getPlayerBalance(walletAddress);
           setContractBalance(balance.balance);
           setLockedBalance(balance.locked || 0);
-          const trxBalance = await getTrxBalance(walletAddress);
-          setWalletBalance(trxBalance);
           if (balance.balance < prevContractBalance || attempts >= 15) return;
         } catch (e) { console.error('Balance poll error:', e); }
-        setTimeout(poll, 2000);
+        setTimeout(poll, 3000);
       };
-      setTimeout(poll, 1000);
+      setTimeout(poll, 3000);
 
     } catch (err) {
       console.error('Withdraw error:', err);
