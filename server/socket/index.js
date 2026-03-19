@@ -48,6 +48,8 @@ const {
   SC_DELEGATE_ERROR,
   CS_CHECK_DELEGATE,
   SC_DELEGATE_STATUS,
+  CS_REVOKE_DELEGATE,
+  SC_DELEGATE_REVOKED,
 } = require('../pokergame/actions');
 const config = require('../config');
 const gameFlowIntegration = require('../services/GameFlowIntegration');
@@ -58,6 +60,7 @@ const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
 };
 const players = {};
+const delegateCache = {}; // { [walletAddress]: { isAuthorized, serverAddress, ts } }
 
 function getCurrentPlayers() {
   return Object.values(players).map((player) => ({
@@ -488,42 +491,37 @@ const init = (socket, io) => {
    * @param {object} data - Optional data with walletAddress (for Landing page before full registration)
    */
   socket.on(CS_CHECK_DELEGATE, async (data) => {
-    // Get walletAddress from data or from registered players
     const walletAddress = data?.walletAddress || players[socket.id]?.id;
-    
+
     if (!walletAddress) {
+      socket.emit(SC_DELEGATE_STATUS, { isAuthorized: false, error: 'No wallet address provided' });
+      return;
+    }
+
+    const serverAddress = tronService.getSignerAddress();
+    const cached = delegateCache[walletAddress];
+    const CACHE_TTL = 60 * 1000; // 1 minute
+
+    // Return cache if fresh
+    if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
       socket.emit(SC_DELEGATE_STATUS, {
-        isAuthorized: false,
-        error: 'No wallet address provided'
+        isAuthorized: cached.isAuthorized,
+        serverAddress,
+        playerAddress: walletAddress
       });
       return;
     }
 
     try {
-      const serverAddress = tronService.getSignerAddress();
       const isAuthorized = await contractService.isAuthorizedDelegate(walletAddress, serverAddress);
-      const currentDelegate = await contractService.getPlayerDelegate(walletAddress);
-      
-      console.log('[Socket] CS_CHECK_DELEGATE:', {
-        player: walletAddress,
-        server: serverAddress,
-        isAuthorized,
-        currentDelegate
-      });
-      
-      socket.emit(SC_DELEGATE_STATUS, {
-        isAuthorized,
-        serverAddress,
-        currentDelegate,
-        playerAddress: walletAddress
-      });
+      delegateCache[walletAddress] = { isAuthorized, ts: Date.now() };
+
+      console.log('[Socket] CS_CHECK_DELEGATE:', { player: walletAddress, isAuthorized });
+
+      socket.emit(SC_DELEGATE_STATUS, { isAuthorized, serverAddress, playerAddress: walletAddress });
     } catch (error) {
       console.error('[Socket] Error checking delegate:', error.message);
-      socket.emit(SC_DELEGATE_STATUS, {
-        isAuthorized: false,
-        error: error.message,
-        serverAddress: tronService.getSignerAddress() // Still send server address for reference
-      });
+      socket.emit(SC_DELEGATE_STATUS, { isAuthorized: false, error: error.message, serverAddress });
     }
   });
   
@@ -542,30 +540,58 @@ const init = (socket, io) => {
       return;
     }
     
-    try {
-      // Verify the delegate is set correctly
-      const currentDelegate = await contractService.getPlayerDelegate(player.id);
-      
-      if (currentDelegate && currentDelegate.toLowerCase() === delegateAddress.toLowerCase()) {
-        socket.emit(SC_DELEGATE_SET, {
-          success: true,
-          delegateAddress,
-          txId
-        });
-        console.log('[Socket] ✅ Delegate successfully set for player:', player.id);
-      } else {
-        socket.emit(SC_DELEGATE_ERROR, {
-          message: 'Delegate verification failed',
-          expected: delegateAddress,
-          actual: currentDelegate
-        });
+    // Update cache immediately
+    delegateCache[player.id] = { isAuthorized: true, ts: Date.now() };
+
+    // Optimistically confirm to frontend immediately (tx is already broadcast)
+    socket.emit(SC_DELEGATE_SET, {
+      success: true,
+      delegateAddress,
+      txId
+    });
+    console.log('[Socket] ✅ Delegate set confirmed for player:', player.id);
+
+    // Verify on-chain in background with retries (don't block the response)
+    const verify = async () => {
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 6000));
+        try {
+          const currentDelegate = await contractService.getPlayerDelegate(player.id);
+          if (currentDelegate && currentDelegate.toLowerCase() === delegateAddress.toLowerCase()) {
+            console.log('[Socket] ✅ Delegate on-chain verified for player:', player.id);
+            return;
+          }
+        } catch (e) { /* ignore, keep retrying */ }
       }
-    } catch (error) {
-      console.error('[Socket] Error verifying delegate:', error.message);
+      console.warn('[Socket] ⚠️ Delegate on-chain verification timed out for player:', player.id);
+    };
+    verify();
+  });
+
+  /**
+   * Handle revokeDelegate from frontend (player signed the transaction)
+   */
+  socket.on(CS_REVOKE_DELEGATE, async ({ walletAddress }) => {
+    const player = players[socket.id];
+    
+    console.log('[Socket] CS_REVOKE_DELEGATE:', { walletAddress, player: player?.id });
+    
+    if (!player) {
       socket.emit(SC_DELEGATE_ERROR, {
-        message: error.message
+        message: 'Player not found'
       });
+      return;
     }
+    
+    // Update cache immediately
+    delegateCache[player.id] = { isAuthorized: false, ts: Date.now() };
+
+    // Confirm to frontend
+    socket.emit(SC_DELEGATE_REVOKED, {
+      success: true,
+      playerAddress: player.id
+    });
+    console.log('[Socket] ✅ Delegate revoked for player:', player.id);
   });
 
   // ============ Player-Signed Contract Events ============

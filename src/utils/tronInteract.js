@@ -766,7 +766,7 @@ export const setDelegate = async (delegateAddress) => {
     
     const tx = await contract.setDelegate(delegateAddress).send({
       feeLimit: 100_000_000,
-      shouldPollResponse: true
+      shouldPollResponse: false
     });
     
     console.log(`[tronInteract] setDelegate success:`, tx);
@@ -794,7 +794,7 @@ export const revokeDelegate = async () => {
     
     const tx = await contract.revokeDelegate().send({
       feeLimit: 100_000_000,
-      shouldPollResponse: true
+      shouldPollResponse: false
     });
     
     console.log('[tronInteract] revokeDelegate success:', tx);

@@ -31,6 +31,7 @@ import {
   tryUnlockLockedBalance,
   getGameSession,
   setDelegate,
+  revokeDelegate,
   isAuthorizedDelegate,
   getPlayerDelegate
 } from '../utils/tronInteract';
@@ -63,6 +64,7 @@ const Landing = () => {
   // Delegate (Server Proxy) state
   const [delegateAuthorized, setDelegateAuthorized] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   const [serverAddress, setServerAddress] = useState(null);
 
   // Calculate balances
@@ -481,13 +483,6 @@ const Landing = () => {
         
         // Optimistically update state
         setDelegateAuthorized(true);
-        
-        // Refresh the status from server
-        setTimeout(() => {
-          if (socket && socket.connected) {
-            socket.emit(CS_CHECK_DELEGATE, { walletAddress });
-          }
-        }, 2000);
       }
     } catch (err) {
       console.error('[Landing] Authorization error:', err);
@@ -501,6 +496,39 @@ const Landing = () => {
       }
     } finally {
       setAuthorizing(false);
+    }
+  };
+
+  // Handle revoke delegate authorization
+  const handleRevokeDelegate = async () => {
+    setRevoking(true);
+    setError(null);
+
+    try {
+      console.log('[Landing] Revoking delegate authorization...');
+      const result = await revokeDelegate();
+      console.log('[Landing] revokeDelegate result:', result);
+      
+      if (result.success) {
+        // Notify server about the revocation
+        if (socket && socket.connected) {
+          socket.emit('CS_REVOKE_DELEGATE', { walletAddress });
+        }
+        
+        // Update state
+        setDelegateAuthorized(false);
+      }
+    } catch (err) {
+      console.error('[Landing] Revoke error:', err);
+      const errMsg = err.message || '';
+      if (errMsg.includes('No delegate')) {
+        setError('没有授权可取消');
+        setDelegateAuthorized(false);
+      } else {
+        setError(errMsg || '取消授权失败，请重试');
+      }
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -724,6 +752,20 @@ const Landing = () => {
                         }}
                       >
                         {authorizing ? '授权中...' : '授权服务器 (一次签名)'}
+                      </Button>
+                    )}
+                    {delegateAuthorized && (
+                      <Button
+                        onClick={handleRevokeDelegate}
+                        disabled={revoking}
+                        style={{ 
+                          width: '100%', 
+                          background: '#dc3545', 
+                          borderColor: '#dc3545',
+                          marginTop: '0.5rem'
+                        }}
+                      >
+                        {revoking ? '取消中...' : '取消服务器授权'}
                       </Button>
                     )}
                   </DelegateSection>
