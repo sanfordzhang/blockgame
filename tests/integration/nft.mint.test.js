@@ -60,6 +60,11 @@ describe('NFT铸造集成测试', function() {
      * 简化版扑克牌型评估
      */
     evaluatePokerHand(cards) {
+      // Handle empty cards
+      if (!cards || cards.length < 5) {
+        return { name: 'High Card', description: '牌数不足', rank: 1 };
+      }
+      
       const parsed = cards.map(parseCard);
       
       // 按花色分组

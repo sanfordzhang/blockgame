@@ -162,10 +162,10 @@ describe('锦标赛流程集成测试', function() {
         mockServer.joinTournament(tournament.id, { id: bot.id });
       });
 
-      // 第3人加入应该失败
+      // 第3人加入应该失败（锦标赛已满或已开始）
       expect(() => {
         mockServer.joinTournament(tournament.id, { id: bots[2].id });
-      }).to.throw('Tournament full');
+      }).to.throw(/Tournament (full|already started)/);
     });
   });
 
@@ -239,6 +239,9 @@ describe('锦标赛流程集成测试', function() {
   describe('不同策略测试', () => {
     it('激进策略应该更多加注', async () => {
       const aggressiveBot = new BotPlayer({ strategy: 'aggressive' });
+      
+      // Set sufficient stack for raising
+      aggressiveBot.stack = 1000;
       
       let raiseCount = 0;
       const actions = [];

@@ -50,11 +50,49 @@ const {
   SC_DELEGATE_STATUS,
   CS_REVOKE_DELEGATE,
   SC_DELEGATE_REVOKED,
+  // Tournament System events
+  CS_TOURNAMENT_LIST,
+  SC_TOURNAMENT_LIST,
+  CS_TOURNAMENT_JOIN,
+  SC_TOURNAMENT_JOINED,
+  SC_TOURNAMENT_JOIN_ERROR,
+  CS_TOURNAMENT_CANCEL,
+  SC_TOURNAMENT_CANCELLED,
+  // NFT Achievement events
+  CS_NFT_CHECK_ACHIEVEMENT,
+  SC_NFT_ACHIEVEMENT_EARNED,
+  SC_NFT_ACHIEVEMENT_NONE,
+  CS_NFT_PREPARE_MINT,
+  SC_NFT_MINT_READY,
+  SC_NFT_MINT_ERROR,
+  CS_NFT_COLLECTION,
+  SC_NFT_COLLECTION,
+  // CHIP Token events
+  CS_CHIP_BALANCE,
+  SC_CHIP_BALANCE,
+  // Staking events
+  CS_STAKE_INFO,
+  SC_STAKE_INFO,
+  CS_STAKE_CREATE,
+  SC_STAKE_CREATED,
+  SC_STAKE_ERROR,
+  CS_STAKE_UNSTAKE,
+  SC_STAKE_UNSTAKED,
+  CS_STAKE_CLAIM_REWARD,
+  SC_STAKE_REWARD_CLAIMED,
+  // DAO Governance events
+  CS_DAO_PROPOSALS,
+  SC_DAO_PROPOSALS,
+  CS_DAO_CREATE_PROPOSAL,
+  SC_DAO_PROPOSAL_CREATED,
+  CS_DAO_VOTE,
+  SC_DAO_VOTED,
 } = require('../pokergame/actions');
 const config = require('../config');
 const gameFlowIntegration = require('../services/GameFlowIntegration');
 const contractService = require('../blockchain/ContractService');
 const tronService = require('../blockchain/TronService');
+const { initTournamentHandlers } = require('./tournamentHandler');
 
 const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
@@ -88,6 +126,9 @@ const init = (socket, io) => {
   gameFlowIntegration.setNotificationCallback(socket.id, (event, data) => {
     socket.emit(event, data);
   });
+
+  // Initialize tournament, NFT, CHIP, staking, and DAO handlers
+  initTournamentHandlers(socket, io);
 
   socket.on(CS_LOBBY_CONNECT, ({gameId, address, userInfo }) => {
     socket.join(gameId)

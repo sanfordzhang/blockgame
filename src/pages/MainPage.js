@@ -141,28 +141,28 @@ const MainPage = ({ history }) => {
             JOIN TABLE
           </Heading>
         </MainMenuCard>
-        <MainMenuCard onClick={() => navigate('/play')}>
-          <img src={queen2Img} alt="Quick Game" />
+        <MainMenuCard onClick={() => navigate('/tournament')}>
+          <img src={queen2Img} alt="Tournament" />
           <Heading as="h3" headingClass="h5" textCentered>
-            QUICK GAME
+            TOURNAMENT
           </Heading>
         </MainMenuCard>
-        <MainMenuCard
-          onClick={() => {
-            openModal(
-              () => (
-                <Text textAlign="center">
-                  Modal Text
-                </Text>
-              ),
-              "heading",
-              "button",
-            );
-          }}
-        >
-          <img src={jackImg} alt="Shop" />
+        <MainMenuCard onClick={() => navigate('/nft')}>
+          <img src={jackImg} alt="NFT Gallery" />
           <Heading as="h3" headingClass="h5" textCentered>
-            SHOP
+            NFT GALLERY
+          </Heading>
+        </MainMenuCard>
+        <MainMenuCard onClick={() => navigate('/wallet')}>
+          <img src={queenImg} alt="CHIP Wallet" />
+          <Heading as="h3" headingClass="h5" textCentered>
+            CHIP WALLET
+          </Heading>
+        </MainMenuCard>
+        <MainMenuCard onClick={() => navigate('/dao')}>
+          <img src={kingImg} alt="DAO" />
+          <Heading as="h3" headingClass="h5" textCentered>
+            GOVERNANCE
           </Heading>
         </MainMenuCard>
         <MainMenuCard onClick={() => navigate('/game-rules')}>

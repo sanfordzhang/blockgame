@@ -3,6 +3,12 @@ import { Routes, Route } from 'react-router-dom';
 import Play from '../../pages/Play';
 import NotFoundPage from '../../pages/NotFoundPage';
 import Landing from '../../pages/Landing';
+import Tournament from '../../pages/Tournament';
+import TournamentWaitingRoom from '../../pages/TournamentWaitingRoom';
+import TournamentTable from '../../pages/TournamentTable';
+import NFTGallery from '../../pages/NFTGallery';
+import CHIPWallet from '../../pages/CHIPWallet';
+import DAO from '../../pages/DAO';
 
 // Admin Components
 import {
@@ -21,6 +27,12 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/play" element={<Play />} />
+      <Route path="/tournament" element={<Tournament />} />
+      <Route path="/tournament/:tournamentId/waiting" element={<TournamentWaitingRoom />} />
+      <Route path="/tournament/:tournamentId/play" element={<TournamentTable />} />
+      <Route path="/nft" element={<NFTGallery />} />
+      <Route path="/wallet" element={<CHIPWallet />} />
+      <Route path="/dao" element={<DAO />} />
       
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLogin />} />
