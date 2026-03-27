@@ -16,6 +16,9 @@ brew services start mongodb-community && ENV_FILE=.env.testnet node server/serve
 # 启动前端（端口3001）
 REACT_APP_NETWORK=testnet REACT_APP_SERVER_PORT=7778 PORT=3001 npm run start:client
 
+# 重新启动MongoDB
+brew services restart mongodb-community
+
 # 同时启动前后端
 npm start
 

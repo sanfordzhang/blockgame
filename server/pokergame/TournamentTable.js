@@ -10,7 +10,7 @@
 const Table = require('./Table');
 
 class TournamentTable extends Table {
-    constructor(tournamentId, maxPlayers, initialChips) {
+    constructor(tournamentId, maxPlayers, initialChips, blindConfig = null) {
         super(tournamentId, `Tournament-${tournamentId}`, initialChips * 100, maxPlayers);
         
         this.tournamentId = tournamentId;
@@ -26,11 +26,30 @@ class TournamentTable extends Table {
         this.timeBankMax = 60000;   // 60 seconds max time bank
         this.playerTimeBanks = {};  // Track time bank per player
         
+        // Blind structure (default: increase every 10 hands, 2x multiplier)
+        this.blindConfig = blindConfig || {
+            initialSmallBlind: this.minBet,
+            increaseEveryHands: 10,
+            multiplier: 2,
+            maxBlindLevel: 10
+        };
+        this.currentBlindLevel = 1;
+        this.handsPlayed = 0;
+        this.baseMinBet = this.minBet;
+        
+        // Time limit (default: 30 minutes = 1800000ms)
+        this.timeLimit = 30 * 60 * 1000; // 30 minutes
+        this.startTime = null;
+        this.timeLimitReached = false;
+        this.timeLimitTimer = null;
+        
         // Callbacks
         this.onElimination = null;
         this.onTournamentEnd = null;
+        this.onNextHand = null; // Callback to start next hand
         
         console.log(`[TournamentTable] Created tournament ${tournamentId} with ${maxPlayers} players, ${initialChips} starting chips`);
+        console.log(`[TournamentTable] Blind config: level=${this.currentBlindLevel}, smallBlind=${this.minBet}, increase every ${this.blindConfig.increaseEveryHands} hands`);
     }
     
     /**
@@ -50,18 +69,170 @@ class TournamentTable extends Table {
     }
     
     /**
-     * Override endHand to detect eliminations
+     * Override endHand to detect eliminations and start next hand
      */
     endHand() {
         // Call parent endHand
         super.endHand();
         
+        // Increment hands played
+        this.handsPlayed++;
+        console.log(`[TournamentTable] Hand ${this.handsPlayed} ended`);
+        
         // Check for eliminated players
         this.checkEliminatedPlayers();
         
         // Check if tournament is over
-        if (this.getRemainingPlayers().length === 1) {
+        const remaining = this.getRemainingPlayers();
+        console.log(`[TournamentTable] Remaining players: ${remaining.length}`);
+        
+        if (remaining.length === 1) {
             this.endTournament();
+            return;
+        }
+        
+        // Check time limit
+        if (this.isTimeLimitReached()) {
+            console.log(`[TournamentTable] Time limit reached, ending tournament`);
+            this.endTournamentByTimeLimit();
+            return;
+        }
+        
+        // Increase blinds if needed
+        this.checkBlindIncrease();
+        
+        // Auto-start next hand after delay (3 seconds)
+        if (this.isTournamentActive && remaining.length > 1) {
+            console.log(`[TournamentTable] Scheduling next hand in 3 seconds...`);
+            setTimeout(() => {
+                this.startNextHand();
+            }, 3000);
+        }
+    }
+    
+    /**
+     * Start the tournament timer
+     */
+    startTournamentTimer() {
+        this.startTime = Date.now();
+        console.log(`[TournamentTable] Tournament timer started at ${new Date(this.startTime).toISOString()}`);
+        
+        // Set timeout for time limit
+        this.timeLimitTimer = setTimeout(() => {
+            if (this.isTournamentActive) {
+                console.log(`[TournamentTable] Time limit reached (${this.timeLimit / 60000} minutes)`);
+                this.timeLimitReached = true;
+                // Will be handled in endHand
+            }
+        }, this.timeLimit);
+    }
+    
+    /**
+     * Check if time limit is reached
+     */
+    isTimeLimitReached() {
+        if (!this.startTime) return false;
+        const elapsed = Date.now() - this.startTime;
+        return elapsed >= this.timeLimit;
+    }
+    
+    /**
+     * Get remaining time in ms
+     */
+    getRemainingTime() {
+        if (!this.startTime) return this.timeLimit;
+        const elapsed = Date.now() - this.startTime;
+        return Math.max(0, this.timeLimit - elapsed);
+    }
+    
+    /**
+     * End tournament by time limit
+     */
+    endTournamentByTimeLimit() {
+        this.isTournamentActive = false;
+        
+        // Rank by stack size
+        const remaining = this.getRemainingPlayers()
+            .sort((a, b) => b.stack - a.stack);
+        
+        const rankings = remaining.map(p => p.player.address);
+        
+        // Add eliminated players (they rank lower)
+        const eliminatedSorted = [...this.eliminatedPlayers]
+            .sort((a, b) => a.finalPosition - b.finalPosition)
+            .map(e => e.player.address);
+        
+        rankings.push(...eliminatedSorted);
+        
+        console.log(`[TournamentTable] Tournament ended by time limit`);
+        console.log(`[TournamentTable] Rankings by stack: ${rankings.join(', ')}`);
+        
+        if (this.onTournamentEnd) {
+            this.onTournamentEnd({
+                tournamentId: this.tournamentId,
+                rankings,
+                totalHands: this.handsPlayed,
+                endedAt: new Date(),
+                reason: 'time_limit'
+            });
+        }
+    }
+    
+    /**
+     * Check and increase blinds
+     */
+    checkBlindIncrease() {
+        const handsPerLevel = this.blindConfig.increaseEveryHands;
+        const newLevel = Math.floor(this.handsPlayed / handsPerLevel) + 1;
+        
+        if (newLevel > this.currentBlindLevel && newLevel <= this.blindConfig.maxBlindLevel) {
+            this.currentBlindLevel = newLevel;
+            const multiplier = Math.pow(this.blindConfig.multiplier, newLevel - 1);
+            this.minBet = this.baseMinBet * multiplier;
+            
+            console.log(`[TournamentTable] Blind level increased to ${newLevel}`);
+            console.log(`[TournamentTable] New blinds: small=${this.minBet}, big=${this.minBet * 2}`);
+        }
+    }
+    
+    /**
+     * Start next hand
+     */
+    startNextHand() {
+        if (!this.isTournamentActive) {
+            console.log(`[TournamentTable] Tournament not active, not starting next hand`);
+            return;
+        }
+        
+        const remaining = this.getRemainingPlayers();
+        if (remaining.length <= 1) {
+            console.log(`[TournamentTable] Not enough players, not starting next hand`);
+            return;
+        }
+        
+        // Check time limit again
+        if (this.isTimeLimitReached()) {
+            console.log(`[TournamentTable] Time limit reached, ending tournament instead`);
+            this.endTournamentByTimeLimit();
+            return;
+        }
+        
+        console.log(`[TournamentTable] Starting hand ${this.handsPlayed + 1}`);
+        
+        // Clear win messages from previous hand
+        this.clearWinMessages();
+        
+        // Start new hand
+        this.startHand();
+        
+        // Notify callback
+        if (this.onNextHand) {
+            this.onNextHand({
+                handNumber: this.handsPlayed + 1,
+                blindLevel: this.currentBlindLevel,
+                smallBlind: this.minBet,
+                bigBlind: this.minBet * 2
+            });
         }
     }
     
@@ -245,6 +416,19 @@ class TournamentTable extends Table {
     }
     
     /**
+     * Find player by wallet address (fallback when socketId is not set)
+     */
+    findPlayerByAddress(address) {
+        for (const seatId of Object.keys(this.seats)) {
+            const seat = this.seats[seatId];
+            if (seat && seat.player.id === address) {
+                return seat;
+            }
+        }
+        return null;
+    }
+    
+    /**
      * Get tournament state for client
      */
     getTournamentState() {
@@ -260,8 +444,14 @@ class TournamentTable extends Table {
                 small: this.minBet,
                 big: this.minBet * 2
             },
+            blindLevel: this.currentBlindLevel,
+            handsPlayed: this.handsPlayed,
+            nextBlindIncrease: this.blindConfig.increaseEveryHands - (this.handsPlayed % this.blindConfig.increaseEveryHands),
             initialChips: this.initialChips,
-            timeBanks: this.playerTimeBanks
+            timeBanks: this.playerTimeBanks,
+            timeLimit: this.timeLimit,
+            remainingTime: this.getRemainingTime(),
+            startTime: this.startTime
         };
     }
     

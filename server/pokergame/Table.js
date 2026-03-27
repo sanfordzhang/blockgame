@@ -530,6 +530,7 @@ class Table {
 
     if (seat) {
       seat.fold();
+      this.changeTurn(seat.id);
 
       return {
         seatId: seat.id,
@@ -556,6 +557,8 @@ class Table {
         this.pot += addedToPot;
       }
 
+      this.changeTurn(seat.id);
+
       return {
         seatId: seat.id,
         message: `${seat.player.name} calls $${addedToPot.toFixed(2)}`,
@@ -568,6 +571,7 @@ class Table {
     let seat = this.findPlayerBySocketId(socketId);
     if (seat) {
       seat.check();
+      this.changeTurn(seat.id);
 
       return {
         seatId: seat.id,
@@ -595,6 +599,8 @@ class Table {
         ? this.callAmount + (seat.bet - this.callAmount) * 2
         : seat.bet * 2;
       this.callAmount = amount;
+
+      this.changeTurn(seat.id);
 
       return {
         seatId: seat.id,

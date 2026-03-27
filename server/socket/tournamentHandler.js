@@ -47,6 +47,7 @@ const DAOService = require('../services/DAOService');
 // Track tournament rooms and player mappings (Task 12.5)
 const tournamentRooms = new Map(); // tournamentId -> Set of socketIds
 const playerTournamentMap = new Map(); // socketId -> tournamentId
+const socketWalletMap = new Map(); // socketId -> walletAddress (新增：存储socket到钱包地址的映射)
 
 /**
  * Initialize tournament and related event handlers
@@ -246,6 +247,11 @@ function initTournamentHandlers(socket, io) {
      */
     socket.on('CS_TOURNAMENT_ROOM_JOIN', async ({ tournamentId, walletAddress }) => {
         try {
+            console.log(`[TournamentHandler] CS_TOURNAMENT_ROOM_JOIN: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
+            
+            // 存储socket到钱包地址的映射
+            socketWalletMap.set(socket.id, walletAddress);
+            
             // Join the socket.io room
             socket.join(`tournament:${tournamentId}`);
             
@@ -256,16 +262,43 @@ function initTournamentHandlers(socket, io) {
             tournamentRooms.get(tournamentId).add(socket.id);
             playerTournamentMap.set(socket.id, tournamentId);
             
-            console.log(`[TournamentHandler] Player ${walletAddress} joined room for tournament ${tournamentId}`);
-            
             // Get current tournament state
             const tournament = await TournamentService.getTournament(tournamentId);
+            
+            console.log(`[TournamentHandler] Tournament status: ${tournament?.status}, players: ${tournament?.players?.length}`);
+            
+            // Update player's socketId in tournament if they're already joined
+            if (tournament && tournament.players) {
+                const playerIndex = tournament.players.findIndex(p => p.address === walletAddress);
+                if (playerIndex !== -1) {
+                    tournament.players[playerIndex].socketId = socket.id;
+                    await tournament.save();
+                    console.log(`[TournamentHandler] Updated socketId for player ${walletAddress?.substring(0, 10)}...`);
+                }
+            }
+            
+            // 更新 active table 中的 socketId
+            const table = TournamentService.activeTables?.get(tournamentId);
+            if (table) {
+                for (let i = 1; i <= table.maxPlayers; i++) {
+                    const seat = table.seats[i];
+                    if (seat && seat.player && seat.player.id === walletAddress) {
+                        seat.player.socketId = socket.id;
+                        console.log(`[TournamentHandler] Updated socketId in table for seat ${i}: ${socket.id}`);
+                    }
+                }
+            }
+            
+            // Check if player is already in this tournament
+            const existingPlayer = tournament?.players?.find(p => p.address === walletAddress);
+            const isInProgress = tournament && tournament.status === 'IN_PROGRESS';
             
             socket.emit('SC_TOURNAMENT_ROOM_JOINED', {
                 tournamentId,
                 success: true,
                 tournament: tournament,
-                playerCount: tournamentRooms.get(tournamentId).size
+                playerCount: tournamentRooms.get(tournamentId).size,
+                isReconnecting: isInProgress && existingPlayer
             });
             
             // Notify other players in the room
@@ -275,12 +308,13 @@ function initTournamentHandlers(socket, io) {
                 playerCount: tournamentRooms.get(tournamentId).size
             });
             
-            // If tournament is in progress, send current game state
-            if (tournament && tournament.status === 'IN_PROGRESS') {
-                const table = TournamentService.activeTables?.get(tournamentId);
+            // If tournament is in progress and player is already joined, send game state (reconnect)
+            if (isInProgress && existingPlayer) {
                 if (table) {
-                    console.log(`[TournamentHandler] Sending current game state to ${walletAddress}`);
+                    console.log(`[TournamentHandler] Sending game state to reconnecting player ${walletAddress?.substring(0, 10)}...`);
                     TournamentService.broadcastTableState?.(tournamentId, table);
+                } else {
+                    console.warn(`[TournamentHandler] No active table found for tournament ${tournamentId}`);
                 }
             }
             
@@ -375,12 +409,19 @@ function initTournamentHandlers(socket, io) {
     // Handle disconnect - clean up tournament rooms
     socket.on('disconnect', () => {
         const tournamentId = playerTournamentMap.get(socket.id);
+        const walletAddress = socketWalletMap.get(socket.id);
+        
+        // 清理映射
+        socketWalletMap.delete(socket.id);
+        
         if (tournamentId) {
             leaveTournamentRoom(socket, tournamentId);
             
             // Handle player disconnect in active game
             TournamentService.handleDisconnect?.(socket.id);
         }
+        
+        console.log(`[TournamentHandler] Socket disconnected: ${socket.id}, wallet: ${walletAddress?.substring(0, 10)}...`);
     });
 }
 
@@ -413,10 +454,65 @@ function leaveTournamentRoom(socket, tournamentId) {
  */
 function handleTournamentGameAction(socket, io, tournamentId, actionType, amount = 0) {
     try {
-        const result = TournamentService.handleGameAction(tournamentId, socket.id, {
+        // 获取钱包地址
+        const walletAddress = socketWalletMap.get(socket.id);
+        console.log(`[TournamentHandler] handleTournamentGameAction: tournamentId=${tournamentId}, socketId=${socket.id}, wallet=${walletAddress?.substring(0, 10)}..., action=${actionType}, amount=${amount}`);
+        
+        // Get the table and find the player
+        const table = TournamentService.activeTables?.get(tournamentId);
+        if (!table) {
+            console.error(`[TournamentHandler] No active table for tournament ${tournamentId}`);
+            throw new Error('Tournament not active');
+        }
+        
+        // Debug: show all seats and their socketIds
+        console.log(`[TournamentHandler] Table seats:`);
+        for (let i = 1; i <= table.maxPlayers; i++) {
+            const seat = table.seats[i];
+            if (seat && seat.player) {
+                console.log(`  Seat ${i}: player=${seat.player.id?.substring(0, 10)}..., socketId=${seat.player.socketId}, turn=${seat.turn}, stack=${seat.stack}`);
+            }
+        }
+        
+        // Find player by wallet address (优先) or socket ID
+        let playerSeat = null;
+        let playerSocketId = socket.id;
+        
+        for (let i = 1; i <= table.maxPlayers; i++) {
+            const seat = table.seats[i];
+            if (seat && seat.player) {
+                // 优先通过钱包地址匹配
+                if (walletAddress && seat.player.id === walletAddress) {
+                    playerSeat = seat;
+                    // 确保socketId是最新的
+                    seat.player.socketId = socket.id;
+                    playerSocketId = socket.id;
+                    console.log(`[TournamentHandler] Found player by wallet address at seat ${i}`);
+                    break;
+                }
+                // 备用：通过socketId匹配
+                if (seat.player.socketId === socket.id) {
+                    playerSeat = seat;
+                    console.log(`[TournamentHandler] Found player by socketId match at seat ${i}`);
+                    break;
+                }
+            }
+        }
+        
+        if (!playerSeat) {
+            console.error(`[TournamentHandler] Player not found for socket ${socket.id}, wallet ${walletAddress}`);
+            // Try to find by socketId in the room
+            const roomSockets = io.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+            console.log(`[TournamentHandler] Room sockets: ${roomSockets ? Array.from(roomSockets) : 'none'}`);
+            throw new Error('Player not found in tournament');
+        }
+        
+        const result = TournamentService.handleGameAction(tournamentId, playerSocketId, {
             type: actionType,
             amount
-        });
+        }, walletAddress);  // 传递钱包地址
+        
+        console.log(`[TournamentHandler] Action result:`, result);
         
         if (result && result.message) {
             // Broadcast action message
@@ -427,10 +523,83 @@ function handleTournamentGameAction(socket, io, tournamentId, actionType, amount
             });
         }
         
-        // Broadcast updated table state (Task 12.6)
-        const table = TournamentService.activeTables?.get(tournamentId);
+        // Broadcast updated table state (includes handOver state for next hand)
         if (table) {
-            TournamentService.broadcastTableState?.(tournamentId, table);
+            const gameState = {
+                tournamentId,
+                isTournament: true,
+                pot: table.pot,
+                board: table.board,
+                turn: table.turn,
+                button: table.button,
+                smallBlind: table.smallBlind,
+                bigBlind: table.bigBlind,
+                initialChips: table.initialChips,
+                handOver: table.handOver,
+                winMessages: table.winMessages,
+                wentToShowdown: table.wentToShowdown,
+                // Tournament specific info
+                blindLevel: table.currentBlindLevel,
+                handsPlayed: table.handsPlayed,
+                currentBlinds: {
+                    small: table.minBet,
+                    big: table.minBet * 2
+                },
+                remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
+                isTournamentActive: table.isTournamentActive,
+                eliminatedPlayers: table.eliminatedPlayers || [],
+                remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
+                seats: {}
+            };
+            
+            // Build seats with personalized cards
+            for (let i = 1; i <= table.maxPlayers; i++) {
+                const seat = table.seats[i];
+                if (seat && seat.player) {
+                    gameState.seats[i] = {
+                        player: { 
+                            id: seat.player.id, 
+                            name: seat.player.name,
+                            socketId: seat.player.socketId
+                        },
+                        stack: seat.stack,
+                        bet: seat.bet,
+                        folded: seat.folded,
+                        checked: seat.checked,
+                        lastAction: seat.lastAction,
+                        turn: seat.turn,
+                        sittingOut: seat.sittingOut
+                    };
+                }
+            }
+            
+            // Send personalized state to each player (show their cards)
+            const roomSockets = io.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+            if (roomSockets) {
+                for (const socketId of roomSockets) {
+                    const personalState = JSON.parse(JSON.stringify(gameState));
+                    const playerWallet = socketWalletMap.get(socketId);
+                    
+                    // Add cards for each seat
+                    for (let i = 1; i <= table.maxPlayers; i++) {
+                        const seat = table.seats[i];
+                        if (seat && seat.player && seat.hand) {
+                            if (seat.player.id === playerWallet) {
+                                // Show own cards
+                                personalState.seats[i].hand = seat.hand;
+                            } else if (!seat.folded && table.wentToShowdown) {
+                                // Show cards at showdown
+                                personalState.seats[i].hand = seat.hand;
+                            } else {
+                                // Hide opponent cards
+                                personalState.seats[i].hand = null;
+                            }
+                        }
+                    }
+                    
+                    io.to(socketId).emit('tournament_game_state', personalState);
+                }
+            }
         }
         
     } catch (error) {

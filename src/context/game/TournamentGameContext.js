@@ -15,7 +15,7 @@ const convertToTableFormat = (state, tournamentId, playerAddress) => {
   let smallBlind = 0;
   let bigBlind = 1;
   let callAmount = 0;
-  let minBet = state.bigBlind || 500000;
+  let minBet = state.currentBlinds?.small || state.bigBlind || 500000;
   let minRaise = minBet * 2;
 
   // Convert seats array to object format
@@ -34,6 +34,7 @@ const convertToTableFormat = (state, tournamentId, playerAddress) => {
           folded: seat.folded || false,
           turn: state.turn === seatNum,
           lastAction: seat.lastAction || null,
+          sittingOut: seat.sittingOut || false,
         };
 
         // Track call amount
@@ -67,6 +68,14 @@ const convertToTableFormat = (state, tournamentId, playerAddress) => {
     handOver: state.handOver || false,
     wentToShowdown: state.wentToShowdown || false,
     winMessages: state.winMessages || [],
+    // Tournament specific fields
+    blindLevel: state.blindLevel || 1,
+    handsPlayed: state.handsPlayed || 0,
+    currentBlinds: state.currentBlinds || { small: minBet, big: minBet * 2 },
+    remainingTime: state.remainingTime || null,
+    isTournamentActive: state.isTournamentActive !== false,
+    remainingPlayers: state.remainingPlayers || [],
+    eliminatedPlayers: state.eliminatedPlayers || [],
   };
 };
 
@@ -88,6 +97,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   const [seatId, setSeatId] = useState(null);
   const [isLeaving, setIsLeaving] = useState(false);
   const [tournament, setTournament] = useState(null);
+  const [tournamentEnded, setTournamentEnded] = useState(false);
+  const [finalRankings, setFinalRankings] = useState([]);
 
   const currentTableRef = useRef(currentTable);
   const seatIdRef = useRef(seatId);
@@ -103,12 +114,19 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
 
   // Socket event handlers
   useEffect(() => {
-    if (!socket.connected) {
+    // 确保连接建立后再发送事件
+    const joinRoom = () => {
+      console.log('[TournamentGameContext] Joining tournament room:', tournamentId, 'wallet:', walletAddress?.substring(0, 10));
+      socket.emit('CS_TOURNAMENT_ROOM_JOIN', { tournamentId, walletAddress });
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      // 等待连接建立
+      socket.once('connect', joinRoom);
       socket.connect();
     }
-
-    // Join tournament room
-    socket.emit('CS_TOURNAMENT_ROOM_JOIN', { tournamentId, walletAddress });
 
     // Room joined
     socket.on('SC_TOURNAMENT_ROOM_JOINED', (data) => {
@@ -161,12 +179,36 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       addMessage('Tournament started!');
     });
 
+    // Blind level increased
+    socket.on('tournament_blind_update', (data) => {
+      console.log('[TournamentGameContext] Blind update:', data);
+      addMessage(`Blinds increased to ${data.smallBlind / 1000000}M / ${data.bigBlind / 1000000}M (Level ${data.blindLevel})`);
+    });
+
+    // Tournament ended
+    socket.on('SC_TOURNAMENT_ENDED', (data) => {
+      console.log('[TournamentGameContext] Tournament ended:', data);
+      setTournamentEnded(true);
+      setFinalRankings(data.rankings || []);
+      const reason = data.reason === 'time_limit' ? 'Time limit reached!' : 'Tournament finished!';
+      addMessage(reason);
+      
+      // Show winner
+      if (data.rankings && data.rankings.length > 0) {
+        const winner = data.rankings[0];
+        addMessage(`Winner: ${winner.substring(0, 8)}...${winner.substring(winner.length - 4)}`);
+      }
+    });
+
     // Cleanup
     return () => {
+      socket.off('connect', joinRoom);
       socket.off('SC_TOURNAMENT_ROOM_JOINED');
       socket.off('SC_TOURNAMENT_ROOM_ERROR');
       socket.off('tournament_game_state');
       socket.off('SC_TOURNAMENT_STARTED');
+      socket.off('tournament_blind_update');
+      socket.off('SC_TOURNAMENT_ENDED');
       socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -240,6 +282,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
         // Additional tournament-specific state
         tournament,
         walletAddress,
+        tournamentEnded,
+        finalRankings,
       }}
     >
       {children}
