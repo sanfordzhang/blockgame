@@ -115,8 +115,26 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   // Socket event handlers
   useEffect(() => {
     // 确保连接建立后再发送事件
-    const joinRoom = () => {
+    const joinRoom = async () => {
       console.log('[TournamentGameContext] Joining tournament room:', tournamentId, 'wallet:', walletAddress?.substring(0, 10));
+      
+      // First, join the tournament via API (this adds player to the tournament)
+      try {
+        const response = await fetch(`http://127.0.0.1:7778/api/tournament/${tournamentId}/join`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-wallet-address': walletAddress
+          },
+          body: JSON.stringify({ walletAddress })
+        });
+        const data = await response.json();
+        console.log('[TournamentGameContext] Join API response:', data);
+      } catch (err) {
+        console.error('[TournamentGameContext] Join API error:', err);
+      }
+      
+      // Then join the socket room
       socket.emit('CS_TOURNAMENT_ROOM_JOIN', { tournamentId, walletAddress });
     };
 
@@ -147,11 +165,20 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
         turn: state.turn,
         pot: state.pot,
         boardLength: state.board?.length,
-        seatsCount: state.seats ? Object.keys(state.seats).length : 0
+        seatsCount: state.seats ? Object.keys(state.seats).length : 0,
+        seatsTurnInfo: state.seats ? Object.entries(state.seats).map(([id, s]) => ({ seatId: id, turn: s.turn, player: s.player?.id?.substring(0, 10) })) : []
       });
       
       // Convert tournament state to table format compatible with Play.js components
       const table = convertToTableFormat(state, tournamentId, walletAddress);
+      
+      // Debug: log the converted table
+      console.log('[TournamentGameContext] Converted table:', {
+        turn: table?.turn,
+        mySeatId: Object.entries(table?.seats || {}).find(([id, s]) => s?.player?.id === walletAddress)?.[0],
+        mySeatTurn: Object.entries(table?.seats || {}).find(([id, s]) => s?.player?.id === walletAddress)?.[1]?.turn
+      });
+      
       setCurrentTable(table);
       
       // Find my seat
@@ -161,7 +188,7 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
           if (seat?.player?.id === walletAddress) {
             foundSeatId = parseInt(id);
             setSeatId(foundSeatId);
-            console.log('[TournamentGameContext] Found my seat:', foundSeatId, 'turn:', state.turn === foundSeatId);
+            console.log('[TournamentGameContext] Found my seat:', foundSeatId, 'myTurn:', seat.turn, 'globalTurn:', state.turn);
             break;
           }
         }

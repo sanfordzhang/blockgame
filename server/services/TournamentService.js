@@ -897,6 +897,7 @@ module.exports = {
                 table.onNextHand = (data) => {
                     console.log(`[TournamentService] Test mode: Next hand starting`, data);
                     if (testModeSocketIO) {
+                        // Broadcast blind update
                         testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_blind_update', {
                             tournamentId,
                             blindLevel: data.blindLevel,
@@ -904,8 +905,116 @@ module.exports = {
                             bigBlind: data.bigBlind,
                             handNumber: data.handNumber
                         });
+                        
+                        // Broadcast full game state after a short delay to ensure hand is ready
+                        setTimeout(() => {
+                            console.log(`[TournamentService] Test mode: Broadcasting game state after next hand start`);
+                            broadcastGameState(tournamentId, table);
+                        }, 500);
                     }
                 };
+                
+                // Helper function to broadcast game state
+                function broadcastGameState(tournamentId, table) {
+                    if (!testModeSocketIO || !table) return;
+                    
+                    const gameState = {
+                        tournamentId,
+                        isTournament: true,
+                        pot: table.pot,
+                        board: table.board,
+                        turn: table.turn,
+                        button: table.button,
+                        smallBlind: table.smallBlind,
+                        bigBlind: table.bigBlind,
+                        initialChips: table.initialChips,
+                        handOver: table.handOver,
+                        winMessages: table.winMessages,
+                        wentToShowdown: table.wentToShowdown,
+                        callAmount: table.callAmount,
+                        minBet: table.minBet,
+                        // Tournament specific info
+                        blindLevel: table.currentBlindLevel,
+                        handsPlayed: table.handsPlayed,
+                        currentBlinds: {
+                            small: table.minBet,
+                            big: table.minBet * 2
+                        },
+                        remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
+                        isTournamentActive: table.isTournamentActive,
+                        eliminatedPlayers: table.eliminatedPlayers || [],
+                        remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
+                        seats: {}
+                    };
+                    
+                    // Build seats
+                    for (let i = 1; i <= table.maxPlayers; i++) {
+                        const seat = table.seats[i];
+                        if (seat && seat.player) {
+                            gameState.seats[i] = {
+                                player: { 
+                                    id: seat.player.id, 
+                                    name: seat.player.name,
+                                    socketId: seat.player.socketId
+                                },
+                                stack: seat.stack,
+                                bet: seat.bet,
+                                folded: seat.folded,
+                                checked: seat.checked,
+                                lastAction: seat.lastAction,
+                                turn: seat.turn,
+                                sittingOut: seat.sittingOut
+                            };
+                        }
+                    }
+                    
+                    // Send personalized state to each player (show their cards)
+                    // Get all sockets in the tournament room
+                    const roomSockets = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+                    console.log(`[TournamentService] broadcastGameState: roomSockets count = ${roomSockets ? roomSockets.size : 0}`);
+                    
+                    // 需要从外部传入 socketWalletMap 或者在这里直接查找
+                    // 由于我们无法直接访问 socketWalletMap，我们需要修改策略：
+                    // 遍历所有座位，为每个玩家发送个性化的游戏状态
+                    
+                    if (roomSockets && roomSockets.size > 0) {
+                        for (const sockId of roomSockets) {
+                            const personalState = JSON.parse(JSON.stringify(gameState));
+                            
+                            // 获取 socket 实例来获取钱包地址
+                            const sock = testModeSocketIO.sockets.sockets.get(sockId);
+                            // 尝试多种方式获取钱包地址
+                            const playerWallet = sock?.handshake?.query?.address || 
+                                                sock?.walletAddress ||
+                                                sock?.request?.query?.address;
+                            
+                            console.log(`[TournamentService] Sending to socket ${sockId}, wallet=${playerWallet?.substring(0, 10)}, turn=${gameState.turn}`);
+                            
+                            // Add cards for each seat
+                            for (let i = 1; i <= table.maxPlayers; i++) {
+                                const seat = table.seats[i];
+                                if (seat && seat.player && seat.hand) {
+                                    if (seat.player.id === playerWallet) {
+                                        // Show own cards
+                                        personalState.seats[i].hand = seat.hand;
+                                    } else if (!seat.folded && table.wentToShowdown) {
+                                        // Show cards at showdown
+                                        personalState.seats[i].hand = seat.hand;
+                                    } else {
+                                        // Hide opponent cards
+                                        personalState.seats[i].hand = null;
+                                    }
+                                }
+                            }
+                            
+                            testModeSocketIO.to(sockId).emit('tournament_game_state', personalState);
+                        }
+                    } else {
+                        // Fallback: broadcast to room without personalization
+                        console.log(`[TournamentService] No room sockets, broadcasting to room`);
+                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+                    }
+                }
                 
                 // Sit all players
                 for (let i = 0; i < tournament.players.length; i++) {
@@ -1160,8 +1269,25 @@ module.exports = {
                 pot: table.pot,
                 board: table.board,
                 turn: table.turn,
+                button: table.button,
+                smallBlind: table.smallBlind,
+                bigBlind: table.bigBlind,
+                callAmount: table.callAmount,
+                minBet: table.minBet,
                 handOver: table.handOver,
                 winMessages: table.winMessages,
+                wentToShowdown: table.wentToShowdown,
+                // Tournament specific
+                blindLevel: table.currentBlindLevel,
+                handsPlayed: table.handsPlayed,
+                currentBlinds: {
+                    small: table.minBet,
+                    big: table.minBet * 2
+                },
+                remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
+                isTournamentActive: table.isTournamentActive,
+                eliminatedPlayers: table.eliminatedPlayers || [],
+                remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
                 seats: {}
             };
             
@@ -1169,16 +1295,49 @@ module.exports = {
                 const seat = table.seats[i];
                 if (seat && seat.player) {
                     gameState.seats[i] = {
-                        player: { id: seat.player.id, name: seat.player.name },
+                        player: { 
+                            id: seat.player.id, 
+                            name: seat.player.name,
+                            socketId: seat.player.socketId
+                        },
                         stack: seat.stack,
                         bet: seat.bet,
                         folded: seat.folded,
-                        lastAction: seat.lastAction
+                        checked: seat.checked,
+                        lastAction: seat.lastAction,
+                        turn: seat.turn,
+                        sittingOut: seat.sittingOut
                     };
                 }
             }
             
-            testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+            // Send personalized state (show player's own cards)
+            const roomSockets = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+            if (roomSockets) {
+                for (const sockId of roomSockets) {
+                    const personalState = JSON.parse(JSON.stringify(gameState));
+                    const socket = testModeSocketIO.sockets.sockets.get(sockId);
+                    const playerWallet = socket?.handshake?.query?.address || socket?.walletAddress;
+                    
+                    // Add cards for each seat
+                    for (let i = 1; i <= table.maxPlayers; i++) {
+                        const seat = table.seats[i];
+                        if (seat && seat.player && seat.hand) {
+                            if (seat.player.id === playerWallet) {
+                                personalState.seats[i].hand = seat.hand;
+                            } else if (!seat.folded && table.wentToShowdown) {
+                                personalState.seats[i].hand = seat.hand;
+                            } else {
+                                personalState.seats[i].hand = null;
+                            }
+                        }
+                    }
+                    
+                    testModeSocketIO.to(sockId).emit('tournament_game_state', personalState);
+                }
+            } else {
+                testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+            }
         }
         
         return result;
@@ -1199,12 +1358,18 @@ module.exports = {
         // Test mode
         if (!testModeSocketIO || !table) return;
         
+        console.log(`[TournamentService] broadcastTableState: turn=${table.turn}, handOver=${table.handOver}`);
+        
         const gameState = {
             tournamentId,
             isTournament: true,
             pot: table.pot,
             board: table.board,
             turn: table.turn,
+            button: table.button,
+            smallBlind: table.smallBlind,
+            bigBlind: table.bigBlind,
+            callAmount: table.callAmount,
             initialChips: table.initialChips,
             handOver: table.handOver,
             winMessages: table.winMessages,
@@ -1232,10 +1397,12 @@ module.exports = {
                     lastAction: seat.lastAction,
                     turn: seat.turn
                 };
+                console.log(`[TournamentService] Seat ${i}: player=${seat.player.id?.substring(0, 10)}, turn=${seat.turn}, stack=${seat.stack}`);
             }
         }
         
         testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+        console.log(`[TournamentService] Sent game state to room tournament:${tournamentId}`);
     },
     // Internal: Handle tournament end
     _handleTournamentEnd: async (tournamentId, data) => {

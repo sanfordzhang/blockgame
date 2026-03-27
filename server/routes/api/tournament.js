@@ -87,14 +87,18 @@ router.post('/:tournamentId/join', optionalAuth, async (req, res) => {
         const { tournamentId } = req.params;
         // Use authenticated user's wallet address or provided address (test mode)
         const walletAddress = req.user?.walletAddress || req.body.walletAddress || req.headers['x-wallet-address'];
+        const socketId = req.body.socketId || null;
         
         if (!walletAddress) {
             return res.status(401).json({ success: false, error: 'Authentication required. Please connect your wallet.' });
         }
         
-        const result = await TournamentService.joinTournament(tournamentId, walletAddress);
+        console.log(`[Tournament API] Join request: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
+        
+        const result = await TournamentService.joinTournament(tournamentId, walletAddress, socketId);
         res.json({ success: true, ...result });
     } catch (error) {
+        console.error(`[Tournament API] Join error:`, error.message);
         res.status(400).json({ success: false, error: error.message });
     }
 });

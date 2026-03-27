@@ -252,6 +252,9 @@ function initTournamentHandlers(socket, io) {
             // 存储socket到钱包地址的映射
             socketWalletMap.set(socket.id, walletAddress);
             
+            // 也存储到 socket 对象上，以便后续广播时可以获取
+            socket.walletAddress = walletAddress;
+            
             // Join the socket.io room
             socket.join(`tournament:${tournamentId}`);
             
