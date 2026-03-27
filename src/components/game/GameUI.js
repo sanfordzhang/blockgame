@@ -20,21 +20,21 @@ export const GameUI = ({
 
   return (
     <UIWrapper>
-      <Row style={{ width: '100%', margin: 0 }}>
-        {/* Action buttons row - always full width on small screens */}
+      <Row style={{ width: '100%', margin: 0, justifyContent: 'center' }}>
+        {/* All action buttons in one row */}
         <Col xs={12} style={{ padding: '0.25rem' }}>
-          <Row style={{ margin: 0 }}>
-            <Col xs={4} style={{ padding: '0.25rem' }}>
+          <Row style={{ margin: 0, justifyContent: 'center' }}>
+            <Col xs="auto" style={{ padding: '0.25rem', flex: '0 0 auto' }}>
               <Button
                 small
                 secondary
                 onClick={fold}
-                style={{ minHeight: '100%', width: '100%' }}
+                style={{ minHeight: '2.5rem', minWidth: '70px', padding: '0.5rem 0.75rem' }}
               >
                 Fold
               </Button>
             </Col>
-            <Col xs={4} style={{ padding: '0.25rem' }}>
+            <Col xs="auto" style={{ padding: '0.25rem', flex: '0 0 auto' }}>
               <Button
                 small
                 secondary
@@ -43,12 +43,12 @@ export const GameUI = ({
                   currentTable.callAmount > 0
                 }
                 onClick={check}
-                style={{ minHeight: '100%', width: '100%' }}
+                style={{ minHeight: '2.5rem', minWidth: '70px', padding: '0.5rem 0.75rem' }}
               >
                 Check
               </Button>
             </Col>
-            <Col xs={4} style={{ padding: '0.25rem' }}>
+            <Col xs="auto" style={{ padding: '0.25rem', flex: '0 0 auto' }}>
               <Button
                 small
                 disabled={
@@ -56,26 +56,21 @@ export const GameUI = ({
                   currentTable.seats[seatId].bet >= currentTable.callAmount
                 }
                 onClick={call}
-                style={{ width: '100%' }}
+                style={{ minHeight: '2.5rem', minWidth: '70px', padding: '0.5rem 0.75rem' }}
               >
                 Call
               </Button>
             </Col>
-          </Row>
-        </Col>
-        {/* Raise row - separate row to avoid overlap */}
-        <Col xs={12} style={{ padding: '0.25rem' }}>
-          <Row style={{ margin: 0, alignItems: 'stretch' }}>
-            <Col xs={12} sm={4} md={3} style={{ padding: '0.25rem', display: 'flex' }}>
+            <Col xs="auto" style={{ padding: '0.25rem', flex: '0 0 auto' }}>
               <Button
                 small
                 onClick={() => raise(bet + currentTable.seats[seatId].bet)}
-                style={{ minHeight: '100%', width: '100%', flex: 1 }}
+                style={{ minHeight: '2.5rem', minWidth: '70px', padding: '0.5rem 0.75rem' }}
               >
                 Raise
               </Button>
             </Col>
-            <Col xs={12} sm={8} md={9} style={{ padding: '0.25rem', display: 'flex' }}>
+            <Col xs="auto" style={{ padding: '0.25rem', flex: '0 1 auto', minWidth: '120px', maxWidth: '220px' }}>
               <div
                 style={{
                   display: 'flex',
@@ -97,8 +92,8 @@ export const GameUI = ({
     0% calc(100% - 5px),
     0% 5px
   )`,
-                  flex: 1,
                   minHeight: '2.5rem',
+                  width: '100%',
                 }}
               >
                 <BetSlider

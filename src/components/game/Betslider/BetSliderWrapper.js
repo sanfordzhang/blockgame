@@ -13,4 +13,5 @@ export const BetSliderWrapper = styled.div({
   padding: '0 0.25rem',
   flexWrap: 'nowrap',
   overflow: 'hidden',
+  maxWidth: '200px',
 });

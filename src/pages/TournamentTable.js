@@ -85,10 +85,11 @@ const TournamentTableGame = ({ tournamentId }) => {
 
   // Tournament ended - show final results
   if (tournamentEnded) {
-    const walletAddress = globalCtx?.walletAddress;
-    const myRank = finalRankings.find(r => 
-      r.address === walletAddress || r === walletAddress
-    );
+    const walletAddress = globalCtx?.walletAddress?.toLowerCase();
+    const myRank = finalRankings.find(r => {
+      const addr = (r.address || r)?.toLowerCase();
+      return addr === walletAddress;
+    });
     const myPosition = myRank ? finalRankings.indexOf(myRank) + 1 : finalRankings.length;
     const isWinner = myPosition === 1;
     
@@ -103,7 +104,7 @@ const TournamentTableGame = ({ tournamentId }) => {
           <Heading as="h3" textCentered marginBottom="1rem" color="#fff">Final Rankings</Heading>
           {finalRankings.map((ranking, index) => {
             const address = ranking.address || ranking;
-            const isMe = address === walletAddress;
+            const isMe = address?.toLowerCase() === walletAddress;
             const position = index + 1;
             return (
               <div
@@ -123,7 +124,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                 <span style={{ fontSize: '1rem', fontWeight: '500' }}>
                   {position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `#${position}`}
                   {' '}
-                  {isMe ? 'You' : `${address.substring(0, 10)}...`}
+                  {isMe ? 'You' : `${address?.substring(0, 10)}...`}
                 </span>
                 {ranking.prizeAmount && (
                   <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1rem' }}>
