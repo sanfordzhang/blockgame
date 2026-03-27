@@ -2,6 +2,9 @@ import styled from 'styled-components';
 
 export const BetSliderInput = styled.input`
   display: block;
+  flex: 1;
+  min-width: 60px;
+  max-width: 100%;
   background-color: transparent;
   -webkit-appearance: none;
 

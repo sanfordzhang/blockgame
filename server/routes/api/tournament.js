@@ -18,6 +18,32 @@ router.get('/list', async (req, res) => {
 });
 
 /**
+ * @route GET /api/tournament/waiting
+ * @desc Get all waiting tournaments
+ */
+router.get('/waiting', async (req, res) => {
+    try {
+        const tournaments = await TournamentService.getWaitingTournaments();
+        res.json({ success: true, tournaments });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route GET /api/tournament/active
+ * @desc Get all active tournaments (WAITING or IN_PROGRESS)
+ */
+router.get('/active', async (req, res) => {
+    try {
+        const tournaments = await TournamentService.getActiveTournaments();
+        res.json({ success: true, tournaments });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * @route GET /api/tournament/configs/list
  * @desc Get available tournament configurations
  */
@@ -68,10 +94,9 @@ router.get('/:tournamentId', async (req, res) => {
  */
 router.post('/create', optionalAuth, async (req, res) => {
     try {
-        const { configId, startTime, walletAddress } = req.body;
-        // Use authenticated user's wallet address or provided address (test mode)
+        const { configId, walletAddress } = req.body;
         const creatorAddress = req.user?.walletAddress || walletAddress || 'test-mode';
-        const tournament = await TournamentService.createTournament({ configId, startTime, creatorAddress });
+        const tournament = await TournamentService.createTournament({ configId, creatorAddress });
         res.json({ success: true, tournament });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });

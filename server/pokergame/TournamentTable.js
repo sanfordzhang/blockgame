@@ -85,8 +85,12 @@ class TournamentTable extends Table {
         // Check if tournament is over
         const remaining = this.getRemainingPlayers();
         console.log(`[TournamentTable] Remaining players: ${remaining.length}`);
-        
+        if (remaining.length > 0) {
+            console.log(`[TournamentTable] Remaining player stacks:`, remaining.map(r => `${r.player.address?.substring(0,8)}=${r.stack}`).join(', '));
+        }
+
         if (remaining.length === 1) {
+            console.log(`[TournamentTable] Only 1 player remaining, ending tournament...`);
             this.endTournament();
             return;
         }
@@ -241,31 +245,34 @@ class TournamentTable extends Table {
      */
     checkEliminatedPlayers() {
         const eliminated = [];
-        
+
         for (const seatId of Object.keys(this.seats)) {
             const seat = this.seats[seatId];
-            
+
             if (seat && seat.stack === 0 && !this.isPlayerEliminated(seat.player.socketId)) {
+                // Calculate position BEFORE adding to eliminated list
+                const remainingCount = this.getRemainingPlayers().length;
+
                 // Player is eliminated
                 const eliminationData = {
                     seatId: parseInt(seatId),
                     player: seat.player,
-                    finalPosition: this.getRemainingPlayers().length,
+                    finalPosition: remainingCount, // This is their finishing position
                     eliminatedAt: new Date()
                 };
-                
+
                 eliminated.push(eliminationData);
                 this.eliminatedPlayers.push(eliminationData);
-                
+
                 console.log(`[TournamentTable] Player ${seat.player.address} eliminated at position ${eliminationData.finalPosition}`);
-                
+
                 // Callback
                 if (this.onElimination) {
                     this.onElimination(eliminationData);
                 }
             }
         }
-        
+
         return eliminated;
     }
     
@@ -320,20 +327,27 @@ class TournamentTable extends Table {
      */
     endTournament() {
         this.isTournamentActive = false;
-        
+
         const rankings = this.getFinalRankings();
-        
+
+        console.log(`[TournamentTable] ========== TOURNAMENT ENDED ==========`);
         console.log(`[TournamentTable] Tournament ${this.tournamentId} ended`);
         console.log(`[TournamentTable] Rankings: ${rankings.join(', ')}`);
-        
+        console.log(`[TournamentTable] Total hands played: ${this.history.length}`);
+        console.log(`[TournamentTable] onTournamentEnd callback exists: ${!!this.onTournamentEnd}`);
+
         // Callback
         if (this.onTournamentEnd) {
+            console.log(`[TournamentTable] Calling onTournamentEnd callback...`);
             this.onTournamentEnd({
                 tournamentId: this.tournamentId,
                 rankings,
                 totalHands: this.history.length,
                 endedAt: new Date()
             });
+            console.log(`[TournamentTable] onTournamentEnd callback completed`);
+        } else {
+            console.error(`[TournamentTable] ERROR: onTournamentEnd callback is not set!`);
         }
     }
     

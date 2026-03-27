@@ -142,6 +142,29 @@ const CreateButton = styled.button`
   }
 `;
 
+const RankingModal = styled.div`
+  max-width: 400px;
+  width: 100%;
+`;
+
+const RankingItem = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  background: ${props => props.isMe ? 'linear-gradient(135deg, #2a5a2a 0%, #1a4a1a 100%)' : 'rgba(70, 130, 180, 0.4)'};
+  border-radius: 8px;
+  border: ${props => props.isMe ? '2px solid #5c5' : '1px solid rgba(70, 130, 180, 0.6)'};
+  color: #fff;
+  font-weight: 500;
+`;
+
+const Medal = styled.span`
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
+`;
+
 const ErrorBanner = styled.div`
   background: rgba(220, 53, 69, 0.1);
   border: 1px solid rgba(220, 53, 69, 0.3);
@@ -334,6 +357,66 @@ const Tournament = () => {
     return `${afterRake.toFixed(0)} TRX`;
   };
 
+  // View tournament rankings (for completed tournaments)
+  const handleViewRankings = async (tournament) => {
+    try {
+      const response = await fetch(getApiUrl(`/api/tournament/${tournament.tournamentId}`));
+      const data = await response.json();
+      
+      if (!data.success) {
+        setError('获取排名失败: ' + data.error);
+        return;
+      }
+      
+      const rankings = data.tournament?.rankings || [];
+      const players = data.tournament?.players || [];
+      
+      openModal(
+        () => (
+          <RankingModal>
+            <Heading as="h3" textCentered marginBottom="1rem">
+              Tournament #{tournament.tournamentId} Results
+            </Heading>
+            {rankings.length === 0 ? (
+              <Text textCentered color="textSecondary">No rankings available</Text>
+            ) : (
+              rankings.map((ranking, index) => {
+                const address = ranking.address || ranking;
+                const isMe = address === walletAddress || address === address;
+                const position = index + 1;
+                const playerInfo = players.find(p => 
+                  p.address === address || p.address?.toLowerCase() === address?.toLowerCase()
+                );
+                
+                return (
+                  <RankingItem key={index} isMe={address === walletAddress}>
+                    <span>
+                      <Medal>
+                        {position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `#${position}`}
+                      </Medal>
+                      {address === walletAddress ? 'You' : `${address.substring(0, 10)}...`}
+                    </span>
+                    {playerInfo?.prizeAmount > 0 && (
+                      <span style={{ color: '#ffd700' }}>
+                        ${(playerInfo.prizeAmount / 1e6).toLocaleString()} TRX
+                      </span>
+                    )}
+                  </RankingItem>
+                );
+              })
+            )}
+          </RankingModal>
+        ),
+        'Final Rankings',
+        'Close',
+        () => {}
+      );
+    } catch (error) {
+      console.error('Failed to fetch rankings:', error);
+      setError('获取排名失败: ' + error.message);
+    }
+  };
+
   return (
     <Container
       fullHeight
@@ -394,7 +477,13 @@ const Tournament = () => {
           {tournaments.map((tournament) => (
             <TournamentCard
               key={tournament.tournamentId}
-              onClick={() => tournament.status === 'WAITING' && handleJoinTournament(tournament.tournamentId, tournament.buyIn)}
+              onClick={() => {
+                if (tournament.status === 'WAITING') {
+                  handleJoinTournament(tournament.tournamentId, tournament.buyIn);
+                } else if (tournament.status === 'COMPLETED') {
+                  handleViewRankings(tournament);
+                }
+              }}
               data-testid={`tournament-card-${tournament.tournamentId}`}
             >
               <Container flexDirection="row" justifyContent="space-between" alignItems="center">
@@ -405,7 +494,7 @@ const Tournament = () => {
               <Container flexDirection="row" justifyContent="space-between" marginTop="1rem">
                 <div>
                   <Text size="0.8rem" color="textSecondary">Buy-in</Text>
-                  <BuyInAmount>{tournament.buyIn} TRX</BuyInAmount>
+                  <BuyInAmount>{tournament.buyIn / 1e6} TRX</BuyInAmount>
                 </div>
                 <div>
                   <Text size="0.8rem" color="textSecondary">Prize Pool</Text>
@@ -425,6 +514,15 @@ const Tournament = () => {
                   {tournament.config?.startMode === 'INSTANT' ? ' Starts when full' : ` Starts at ${new Date(tournament.startTime).toLocaleString()}`}
                 </Text>
               </Container>
+              
+              {/* Show hint for completed tournaments */}
+              {tournament.status === 'COMPLETED' && (
+                <Container marginTop="0.5rem">
+                  <Text size="0.75rem" color="textSecondary" style={{ fontStyle: 'italic' }}>
+                    📊 Click to view final rankings
+                  </Text>
+                </Container>
+              )}
             </TournamentCard>
           ))}
         </TournamentGrid>

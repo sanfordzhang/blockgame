@@ -244,23 +244,44 @@ class TournamentService {
      * @param {string} socketId - Socket ID
      */
     async joinTournament(tournamentId, playerAddress, socketId) {
-        const tournament = await Tournament.findOne({ tournamentId });
-        
+        const normalizedAddress = playerAddress.toLowerCase();
+
+        // Use atomic update to prevent race condition
+        const tournament = await Tournament.findOneAndUpdate(
+            {
+                tournamentId,
+                status: 'WAITING',
+                'players.address': { $ne: normalizedAddress }
+            },
+            {
+                $push: {
+                    players: {
+                        address: normalizedAddress,
+                        socketId,
+                        joinedAt: new Date(),
+                        finalPosition: null,
+                        prizeAmount: null,
+                        claimed: false
+                    }
+                }
+            },
+            { new: true }
+        );
+
         if (!tournament) {
-            throw new Error('Tournament not found');
+            const existing = await Tournament.findOne({ tournamentId });
+            if (!existing) {
+                throw new Error('Tournament not found');
+            }
+            if (existing.status !== 'WAITING') {
+                throw new Error('Tournament not accepting players');
+            }
+            const alreadyJoined = existing.players.some(p => p.address === normalizedAddress);
+            if (alreadyJoined) {
+                throw new Error('Already joined');
+            }
+            return existing;
         }
-        
-        if (tournament.status !== 'WAITING') {
-            throw new Error('Tournament not accepting players');
-        }
-        
-        // Add player to database record
-        const added = tournament.addPlayer(playerAddress, socketId);
-        if (!added) {
-            throw new Error('Already joined');
-        }
-        
-        await tournament.save();
         
         // Broadcast update
         this.broadcastUpdate(tournamentId, {
@@ -759,7 +780,10 @@ module.exports = {
         // Fallback to direct Tournament model query if service not initialized
         if (!tournamentServiceInstance) {
             const Tournament = require('../models/Tournament');
-            return Tournament.find(filter).sort({ createdAt: -1 });
+            const query = {};
+            if (filter.status) query.status = filter.status;
+            if (filter.type) query.type = filter.type;
+            return Tournament.find(query).sort({ createdAt: -1 });
         }
         return tournamentServiceInstance.getTournaments(filter);
     },
@@ -825,42 +849,58 @@ module.exports = {
         return tournamentServiceInstance.createTournament(data.configId, data.creatorAddress);
     },
     joinTournament: async (tournamentId, walletAddress, socketId) => {
-        // Test mode fallback - direct DB operation
+        // Test mode fallback - use atomic operation
         if (!tournamentServiceInstance) {
             const TournamentModel = require('../models/Tournament');
-            const tournament = await TournamentModel.findOne({ tournamentId });
-            
+            const normalizedAddress = walletAddress.toLowerCase();
+
+            // Use atomic update to prevent race condition
+            const tournament = await TournamentModel.findOneAndUpdate(
+                {
+                    tournamentId,
+                    status: 'WAITING',
+                    'players.address': { $ne: normalizedAddress }
+                },
+                {
+                    $push: {
+                        players: {
+                            address: normalizedAddress,
+                            socketId,
+                            joinedAt: new Date(),
+                            finalPosition: null,
+                            prizeAmount: null,
+                            claimed: false
+                        }
+                    }
+                },
+                { new: true }
+            );
+
             if (!tournament) {
-                throw new Error('Tournament not found');
+                const existing = await TournamentModel.findOne({ tournamentId });
+                if (!existing) {
+                    throw new Error('Tournament not found');
+                }
+                if (existing.status !== 'WAITING') {
+                    throw new Error('Tournament not accepting players');
+                }
+                // Check if player is already in the list
+                const alreadyJoined = existing.players.some(p => p.address === normalizedAddress);
+                if (alreadyJoined) {
+                    throw new Error('Already joined');
+                }
+                // If we get here, it means concurrent request won, return success anyway
+                return { success: true, tournament: existing };
             }
-            
-            if (tournament.status !== 'WAITING') {
-                throw new Error('Tournament not accepting players');
-            }
-            
-            // Check if already joined
-            const existingPlayer = tournament.players?.find(p => p.address === walletAddress);
-            if (existingPlayer) {
-                return { success: true, message: 'Already joined', tournament };
-            }
-            
-            // Add player
-            if (!tournament.players) tournament.players = [];
-            tournament.players.push({
-                address: walletAddress,
-                socketId,
-                joinedAt: new Date()
-            });
-            
+
             // Update prize pool
-            tournament.prizePool = (tournament.prizePool || 0) + tournament.buyIn;
-            
+            tournament.prizePool = tournament.players.length * tournament.buyIn;
             await tournament.save();
+
             console.log(`[TournamentService] Test mode: Player ${walletAddress} joined tournament ${tournamentId}`);
-            
-            // Check if tournament is full and should auto-start
+            console.log(`[TournamentService] Test mode: Player count ${tournament.players.length}/${tournament.playerCount}`);
+
             const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
-            console.log(`[TournamentService] Test mode: Player count ${tournament.players.length}/${requiredPlayerCount}`);
             
             if (tournament.players.length >= requiredPlayerCount) {
                 console.log(`[TournamentService] Test mode: Tournament ${tournamentId} is full, auto-starting...`);

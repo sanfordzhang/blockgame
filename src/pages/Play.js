@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Container from '../components/layout/Container'
 import Button from '../components/buttons/Button'
@@ -6,16 +6,16 @@ import gameContext from '../context/game/gameContext'
 import socketContext from '../context/websocket/socketContext'
 import globalContext from '../context/global/globalContext'
 import PokerTable from '../components/game/PokerTable'
-import { RotateDevicePrompt } from '../components/game/RotateDevicePrompt'
-import { PositionedUISlot } from '../components/game/PositionedUISlot'
-import { PokerTableWrapper } from '../components/game/PokerTableWrapper'
-import { Seat } from '../components/game/Seat/Seat'
-import { InfoPill } from '../components/game/InfoPill'
-import { GameUI } from '../components/game/GameUI'
-import { GameStateInfo } from '../components/game/GameStateInfo'
-import BrandingImage from '../components/game/BrandingImage'
-import PokerCard from '../components/game/PokerCard'
-import background from '../assets/img/background.png'
+import { RotateDevicePrompt } from '../components/game/RotateDevicePrompt';
+import { PositionedUISlot } from '../components/game/PositionedUISlot';
+import { PokerTableWrapper } from '../components/game/PokerTableWrapper';
+import { Seat } from '../components/game/Seat/Seat';
+import { InfoPill } from '../components/game/InfoPill';
+import { GameUI } from '../components/game/GameUI';
+import { GameStateInfo } from '../components/game/GameStateInfo';
+import BrandingImage from '../components/game/BrandingImage';
+import PokerCard from '../components/game/PokerCard';
+import background from '../assets/img/background.png';
 import Swal from 'sweetalert2'
 import './Play.scss';
 
@@ -52,10 +52,12 @@ const Play = () => {
     call,
     raise,
   } = useContext(gameContext)
-   
 
   const [bet, setBet] = useState(0)
-
+  
+  // Track previous turn state to only reset bet when turn changes
+  const prevTurnRef = useRef(null);
+  const prevHandRef = useRef(null);
 
   useEffect(() => {
     console.log(socket, walletAddress)
@@ -72,14 +74,35 @@ const Play = () => {
     // eslint-disable-next-line
   }, [socket, walletAddress])
 
+  // Update bet amount only when turn starts or hand changes
   useEffect(() => {
-    currentTable &&
-      (currentTable.callAmount > currentTable.minBet
-        ? setBet(currentTable.callAmount)
-        : currentTable.pot > 0
-        ? setBet(currentTable.minRaise)
-        : setBet(currentTable.minBet))
-  }, [currentTable])
+    if (currentTable && currentTable.seats && currentTable.seats[seatId]) {
+      const currentTurn = currentTable.seats[seatId].turn;
+      const currentHand = currentTable.handId;
+      const playerStack = currentTable.seats[seatId].stack || 0;
+      
+      // Only reset bet when:
+      // 1. Turn transitions to true (it becomes player's turn)
+      // 2. Hand ID changes (new hand started)
+      const turnChanged = currentTurn && prevTurnRef.current === false;
+      const handChanged = currentHand !== prevHandRef.current;
+      const firstTime = prevTurnRef.current === null;
+      
+      if (firstTime || turnChanged || handChanged) {
+        // For raise, use minRaise (minimum raise amount)
+        // minRaise is the total bet amount for a minimum raise
+        const minRaise = currentTable.minRaise || currentTable.minBet;
+        const maxBet = playerStack;
+        
+        // Set bet to minRaise, but ensure it's within valid range
+        const newBet = Math.min(minRaise, maxBet);
+        setBet(Math.max(newBet, 0));
+      }
+      
+      prevTurnRef.current = currentTurn;
+      prevHandRef.current = currentHand;
+    }
+  }, [currentTable, seatId])
 
   useEffect(() => {
   }, [currentTable, seatId])

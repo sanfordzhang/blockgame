@@ -147,3 +147,12 @@ const { chromium } = require('playwright')…)
 Adding photos via auto-layout...
 Checking page thumbnails...
 … +4 lines (ctrl+o to expand)
+
+## 测试用例guide
+1.测试用例需要全面，端对端测试，各个界面按钮事件需要触发，进入游戏，模拟fold，call，raise等操作，根据前端、后台、浏览器日志确定是否有错误，确定所有测试用例通过
+2.玩家1连接浏览器后，测试用例模拟点击按钮操作，截图看游戏状态和日志，如果一直不动，需要分析解决，直到锦标赛整个游戏过程完成
+3.玩家2模拟点击操作，保证游戏可继续
+4.完善相关测试用例，自动完成所有流程操作，而不仅仅是通过接口测试验证。
+
+PLAYER1.address = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
+PLAYER2.address = 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4';

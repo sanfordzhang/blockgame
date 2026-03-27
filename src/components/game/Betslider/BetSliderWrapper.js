@@ -9,4 +9,8 @@ export const BetSliderWrapper = styled.div({
   opacity: '0.85',
   borderRadius: '2rem',
   width: '100%',
+  gap: '0.5rem',
+  padding: '0 0.25rem',
+  flexWrap: 'nowrap',
+  overflow: 'hidden',
 });

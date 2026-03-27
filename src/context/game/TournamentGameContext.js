@@ -214,17 +214,23 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
 
     // Tournament ended
     socket.on('SC_TOURNAMENT_ENDED', (data) => {
+      console.log('[TournamentGameContext] ========== SC_TOURNAMENT_ENDED received ==========');
       console.log('[TournamentGameContext] Tournament ended:', data);
+      console.log('[TournamentGameContext] Rankings:', data.rankings);
+      console.log('[TournamentGameContext] Setting tournamentEnded to true');
+
       setTournamentEnded(true);
       setFinalRankings(data.rankings || []);
       const reason = data.reason === 'time_limit' ? 'Time limit reached!' : 'Tournament finished!';
       addMessage(reason);
-      
+
       // Show winner
       if (data.rankings && data.rankings.length > 0) {
         const winner = data.rankings[0];
         addMessage(`Winner: ${winner.substring(0, 8)}...${winner.substring(winner.length - 4)}`);
       }
+
+      console.log('[TournamentGameContext] Tournament end handling complete');
     });
 
     // Cleanup

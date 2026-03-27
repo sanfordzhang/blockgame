@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useMemo } from 'react';
+import React, { useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Container from '../components/layout/Container';
 import Button from '../components/buttons/Button';
@@ -37,22 +37,45 @@ const TournamentTableGame = ({ tournamentId }) => {
     call,
     raise,
     tournament,
+    tournamentEnded,
+    finalRankings,
   } = useContext(TournamentGameContext);
 
   const [bet, setBet] = useState(0);
+  
+  // Track previous turn state to only reset bet when turn changes
+  const prevTurnRef = useRef(null);
+  const prevHandRef = useRef(null);
 
-  // Update bet amount based on current table state
+  // Update bet amount only when turn starts or hand changes
   useEffect(() => {
-    if (currentTable) {
-      if (currentTable.callAmount > currentTable.minBet) {
-        setBet(currentTable.callAmount);
-      } else if (currentTable.pot > 0) {
-        setBet(currentTable.minRaise);
-      } else {
-        setBet(currentTable.minBet);
+    if (currentTable && currentTable.seats && currentTable.seats[seatId]) {
+      const currentTurn = currentTable.seats[seatId].turn;
+      const currentHand = currentTable.handId;
+      const playerStack = currentTable.seats[seatId].stack || 0;
+      
+      // Only reset bet when:
+      // 1. Turn transitions to true (it becomes player's turn)
+      // 2. Hand ID changes (new hand started)
+      const turnChanged = currentTurn && prevTurnRef.current === false;
+      const handChanged = currentHand !== prevHandRef.current;
+      const firstTime = prevTurnRef.current === null;
+      
+      if (firstTime || turnChanged || handChanged) {
+        // For raise, use minRaise (minimum raise amount)
+        // minRaise is the total bet amount for a minimum raise
+        const minRaise = currentTable.minRaise || currentTable.minBet;
+        const maxBet = playerStack;
+        
+        // Set bet to minRaise, but ensure it's within valid range
+        const newBet = Math.min(minRaise, maxBet);
+        setBet(Math.max(newBet, 0));
       }
+      
+      prevTurnRef.current = currentTurn;
+      prevHandRef.current = currentHand;
     }
-  }, [currentTable]);
+  }, [currentTable, seatId]);
 
   // Handle leave
   const handleLeave = () => {
@@ -60,35 +83,126 @@ const TournamentTableGame = ({ tournamentId }) => {
     navigate('/tournament');
   };
 
+  // Tournament ended - show final results
+  if (tournamentEnded) {
+    const walletAddress = globalCtx?.walletAddress;
+    const myRank = finalRankings.find(r => 
+      r.address === walletAddress || r === walletAddress
+    );
+    const myPosition = myRank ? finalRankings.indexOf(myRank) + 1 : finalRankings.length;
+    const isWinner = myPosition === 1;
+    
+    return (
+      <Container fullHeight flexDirection="column" padding="6rem 2rem 2rem 2rem">
+        <Heading as="h2" textCentered color={isWinner ? '#ffd700' : '#fff'}>
+          {isWinner ? '🎉 Tournament Champion! 🎉' : 'Tournament Ended'}
+        </Heading>
+        <Text textCentered marginTop="1rem" color="#fff">Tournament #{tournamentId}</Text>
+
+        <div style={{ marginTop: '2rem', width: '100%', maxWidth: '500px', margin: '2rem auto 0' }}>
+          <Heading as="h3" textCentered marginBottom="1rem" color="#fff">Final Rankings</Heading>
+          {finalRankings.map((ranking, index) => {
+            const address = ranking.address || ranking;
+            const isMe = address === walletAddress;
+            const position = index + 1;
+            return (
+              <div
+                key={index}
+                style={{
+                  padding: '0.75rem 1rem',
+                  margin: '0.5rem 0',
+                  background: isMe ? 'linear-gradient(135deg, #2a5a2a 0%, #1a4a1a 100%)' : 'rgba(70, 130, 180, 0.4)',
+                  borderRadius: '8px',
+                  border: isMe ? '2px solid #5c5' : '1px solid rgba(70, 130, 180, 0.6)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  color: '#fff'
+                }}
+              >
+                <span style={{ fontSize: '1rem', fontWeight: '500' }}>
+                  {position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `#${position}`}
+                  {' '}
+                  {isMe ? 'You' : `${address.substring(0, 10)}...`}
+                </span>
+                {ranking.prizeAmount && (
+                  <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1rem' }}>
+                    {(ranking.prizeAmount / 1e6).toLocaleString()} TRX
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {myPosition > 1 && (
+          <Text textCentered marginTop="1.5rem" color="#ccc">
+            You finished #{myPosition}
+          </Text>
+        )}
+
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <Button primary onClick={() => navigate('/tournament')}>
+            Back to Tournaments
+          </Button>
+        </div>
+      </Container>
+    );
+  }
+
   // Waiting room state
   if (tournament && tournament.status === 'WAITING') {
     const players = tournament.players || [];
     const playerCount = tournament.playerCount || 2;
     const walletAddress = globalCtx?.walletAddress;
-    
+
     return (
       <Container fullHeight flexDirection="column" padding="6rem 2rem 2rem 2rem">
-        <Heading as="h2" textCentered>Waiting for Players</Heading>
-        <Text textCentered marginTop="1rem">Tournament #{tournamentId}</Text>
-        <Text textCentered marginTop="0.5rem">{players.length} / {playerCount} players</Text>
-        
-        <div style={{ marginTop: '2rem' }}>
+        <Heading as="h2" textCentered color="#fff">Waiting for Players</Heading>
+        <Text textCentered marginTop="1rem" color="#fff">Tournament #{tournamentId}</Text>
+        <Text textCentered marginTop="0.5rem" color="#fff">{players.length} / {playerCount} players</Text>
+
+        <div style={{ marginTop: '2rem', maxWidth: '500px', margin: '2rem auto 0' }}>
           {players.map((p, i) => (
-            <div key={i} style={{ padding: '0.5rem', margin: '0.5rem', background: '#2a2a2a', borderRadius: '8px' }}>
+            <div
+              key={i}
+              style={{
+                padding: '0.75rem 1rem',
+                margin: '0.5rem 0',
+                background: p.address === walletAddress ? 'linear-gradient(135deg, #2a5a2a 0%, #1a4a1a 100%)' : 'rgba(70, 130, 180, 0.3)',
+                borderRadius: '8px',
+                border: p.address === walletAddress ? '2px solid #5c5' : '1px solid rgba(70, 130, 180, 0.5)',
+                color: '#fff',
+                fontWeight: '500',
+                fontSize: '1rem'
+              }}
+            >
               {p.address === walletAddress ? '✓ You' : `Player ${i+1}`}: {p.address?.substring(0, 10)}...
             </div>
           ))}
           {Array.from({ length: playerCount - players.length }).map((_, i) => (
-            <div key={`empty-${i}`} style={{ padding: '0.5rem', margin: '0.5rem', background: '#1a1a1a', borderRadius: '8px', color: '#666' }}>
+            <div
+              key={`empty-${i}`}
+              style={{
+                padding: '0.75rem 1rem',
+                margin: '0.5rem 0',
+                background: 'rgba(100, 100, 100, 0.2)',
+                borderRadius: '8px',
+                border: '1px dashed rgba(150, 150, 150, 0.4)',
+                color: '#999',
+                fontWeight: '400',
+                fontSize: '1rem'
+              }}
+            >
               Waiting for player...
             </div>
           ))}
         </div>
-        
-        <Text textCentered marginTop="2rem" color="#ffd700">
+
+        <Text textCentered marginTop="2rem" color="#ffd700" style={{ fontSize: '1.1rem' }}>
           Game will start automatically when all players join
         </Text>
-        
+
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
           <Button secondary onClick={handleLeave}>Leave Tournament</Button>
         </div>

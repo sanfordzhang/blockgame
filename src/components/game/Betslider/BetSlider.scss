@@ -26,4 +26,41 @@
     background-color: #0c1917;
     border: 1px solid transparent;
     border-radius: 5px;
+    padding: 0.25rem 0.4rem;
+    min-width: 70px;
+    max-width: 110px;
+    text-align: right;
+    white-space: nowrap;
+    font-family: monospace;
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+
+  @media screen and (min-width: 1200px) {
+    .bet-slider-value {
+      min-width: 85px;
+      max-width: 130px;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    .bet-slider-value {
+      min-width: 65px;
+      max-width: 95px;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.35rem;
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    .bet-slider-value {
+      min-width: 55px;
+      max-width: 75px;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.25rem;
+    }
   }
