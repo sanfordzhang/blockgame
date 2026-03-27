@@ -16,6 +16,11 @@ class TournamentTable extends Table {
         this.tournamentId = tournamentId;
         this.initialChips = initialChips;
         
+        // Override minBet for tournament (based on initial chips, not limit)
+        // Default: 1/40 of initial chips = small blind
+        this.minBet = Math.floor(initialChips / 40);
+        this.baseMinBet = this.minBet;
+        
         // Tournament-specific properties
         this.eliminatedPlayers = [];
         this.finalRankings = [];
@@ -35,7 +40,6 @@ class TournamentTable extends Table {
         };
         this.currentBlindLevel = 1;
         this.handsPlayed = 0;
-        this.baseMinBet = this.minBet;
         
         // Time limit (default: 30 minutes = 1800000ms)
         this.timeLimit = 30 * 60 * 1000; // 30 minutes
@@ -53,19 +57,29 @@ class TournamentTable extends Table {
     }
     
     /**
-     * Override sitPlayer to set fixed initial chips
+     * Override sitPlayer to set fixed initial chips (bypass parent's buy-in validation)
      */
     sitPlayer(player, seatId, amount) {
         // Use initial chips instead of provided amount
         const tournamentChips = this.initialChips;
         
-        // Call parent
-        super.sitPlayer(player, seatId, tournamentChips);
+        // Directly create seat without parent's minBuyIn validation
+        if (this.seats[seatId]) {
+            return;
+        }
+        
+        const Seat = require('./Seat');
+        this.seats[seatId] = new Seat(seatId, player, tournamentChips, tournamentChips);
+
+        const firstPlayer =
+            Object.values(this.seats).filter((seat) => seat != null).length === 1;
+
+        this.button = firstPlayer ? seatId : this.button;
         
         // Initialize time bank
-        this.playerTimeBanks[player.socketId] = this.timeBankMax;
+        this.playerTimeBanks[player.socketId || player.address] = this.timeBankMax;
         
-        console.log(`[TournamentTable] Player ${player.address} sat at seat ${seatId} with ${tournamentChips} chips`);
+        console.log(`[TournamentTable] Player ${player.address || player.id} sat at seat ${seatId} with ${tournamentChips} chips`);
     }
     
     /**
@@ -249,7 +263,7 @@ class TournamentTable extends Table {
         for (const seatId of Object.keys(this.seats)) {
             const seat = this.seats[seatId];
 
-            if (seat && seat.stack === 0 && !this.isPlayerEliminated(seat.player.socketId)) {
+            if (seat && seat.stack <= 0 && !this.isPlayerEliminated(seat.player.socketId || seat.player.id || seat.player.address)) {
                 // Calculate position BEFORE adding to eliminated list
                 const remainingCount = this.getRemainingPlayers().length;
 
@@ -264,7 +278,7 @@ class TournamentTable extends Table {
                 eliminated.push(eliminationData);
                 this.eliminatedPlayers.push(eliminationData);
 
-                console.log(`[TournamentTable] Player ${seat.player.address} eliminated at position ${eliminationData.finalPosition}`);
+                console.log(`[TournamentTable] Player ${seat.player.address || seat.player.id} eliminated at position ${eliminationData.finalPosition}, stack=${seat.stack}`);
 
                 // Callback
                 if (this.onElimination) {
@@ -280,7 +294,14 @@ class TournamentTable extends Table {
      * Check if player is already eliminated
      */
     isPlayerEliminated(socketId) {
-        return this.eliminatedPlayers.some(e => e.player.socketId === socketId);
+        return this.eliminatedPlayers.some(e => {
+            if (!e.player) return false;
+            // Match by socketId or address (socketId may be null)
+            if (socketId && e.player.socketId === socketId) return true;
+            if (socketId && e.player.id === socketId) return true;
+            if (e.player.address && e.player.address === socketId) return true;
+            return false;
+        });
     }
     
     /**
@@ -292,7 +313,7 @@ class TournamentTable extends Table {
         for (const seatId of Object.keys(this.seats)) {
             const seat = this.seats[seatId];
             
-            if (seat && seat.stack > 0 && !this.isPlayerEliminated(seat.player.socketId)) {
+            if (seat && seat.stack > 0 && !this.isPlayerEliminated(seat.player.socketId || seat.player.id || seat.player.address)) {
                 remaining.push({
                     seatId: parseInt(seatId),
                     player: seat.player,
@@ -433,9 +454,11 @@ class TournamentTable extends Table {
      * Find player by wallet address (fallback when socketId is not set)
      */
     findPlayerByAddress(address) {
+        const normalizedAddress = (address || '').toLowerCase();
         for (const seatId of Object.keys(this.seats)) {
             const seat = this.seats[seatId];
-            if (seat && seat.player.id === address) {
+            const seatAddr = (seat && seat.player && (seat.player.id || seat.player.address) || '').toLowerCase();
+            if (seat && seatAddr === normalizedAddress) {
                 return seat;
             }
         }

@@ -899,6 +899,7 @@ module.exports = {
 
             console.log(`[TournamentService] Test mode: Player ${walletAddress} joined tournament ${tournamentId}`);
             console.log(`[TournamentService] Test mode: Player count ${tournament.players.length}/${tournament.playerCount}`);
+            console.log(`[TournamentService] Test mode: Player addresses in DB: ${tournament.players.map(p => p.address?.substring(0, 10)).join(', ')}`);
 
             const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
             
@@ -927,10 +928,17 @@ module.exports = {
                     tournament.config?.initialChips || 2000000
                 );
                 
-                // Set callback for tournament end
+                // Set callback for tournament end (sync wrapper for async handler)
                 table.onTournamentEnd = (data) => {
-                    console.log(`[TournamentService] Test mode: Tournament ${tournamentId} ended`, data);
-                    this._handleTournamentEnd(tournamentId, data);
+                    console.log(`[TournamentService] Test mode: >>> Tournament ${tournamentId} ended`, data);
+                    // Immediately mark as inactive and remove from active tables
+                    testModeActiveTables.delete(tournamentId);
+                    console.log(`[TournamentService] Test mode: >>> Removed from activeTables`);
+                    // Handle DB save and broadcast asynchronously
+                    // Use module.exports._handleTournamentEnd since 'this' may not be correct in this context
+                    module.exports._handleTournamentEnd(tournamentId, data).catch(err => {
+                        console.error(`[TournamentService] Test mode: _handleTournamentEnd error:`, err);
+                    });
                 };
                 
                 // Set callback for next hand (for broadcasting)
@@ -1034,7 +1042,10 @@ module.exports = {
                             for (let i = 1; i <= table.maxPlayers; i++) {
                                 const seat = table.seats[i];
                                 if (seat && seat.player && seat.hand) {
-                                    if (seat.player.id === playerWallet) {
+                                    // Case-insensitive address comparison
+                                    const seatAddr = seat.player.id?.toLowerCase();
+                                    const walletAddr = playerWallet?.toLowerCase();
+                                    if (seatAddr === walletAddr) {
                                         // Show own cards
                                         personalState.seats[i].hand = seat.hand;
                                     } else if (!seat.folded && table.wentToShowdown) {
@@ -1084,39 +1095,26 @@ module.exports = {
                 console.log(`[TournamentService] Test mode: Created game table with ${tournament.players.length} players, 30 min time limit`);
                 
                 // Start first hand after a short delay
-                setTimeout(() => {
-                    console.log(`[TournamentService] Test mode: Starting first hand...`);
+                setTimeout(async () => {
+                    console.log(`[TournamentService] Test mode: >>> Starting first hand...`);
+                    console.log(`[TournamentService] Test mode: Room sockets before startHand: ${testModeSocketIO ? (() => {
+                        const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+                        return rs ? Array.from(rs).join(', ') : 'none';
+                    })() : 'no IO'}`);
+                    
                     table.startHand();
+                    console.log(`[TournamentService] Test mode: startHand done. table.turn=${table.turn}`);
                     
                     // Broadcast initial game state
                     if (testModeSocketIO) {
-                        // Use broadcastTableState from instance or create inline version
-                        const gameState = {
-                            tournamentId,
-                            isTournament: true,
-                            pot: table.pot,
-                            board: table.board,
-                            turn: table.turn,
-                            initialChips: table.initialChips,
-                            seats: {}
-                        };
+                        console.log(`[TournamentService] Test mode: Room sockets after startHand: ${(() => {
+                            const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+                            return rs ? Array.from(rs).join(', ') : 'none';
+                        })()}`);
                         
-                        // Build seats
-                        for (let i = 1; i <= table.maxPlayers; i++) {
-                            const seat = table.seats[i];
-                            if (seat && seat.player) {
-                                gameState.seats[i] = {
-                                    player: { id: seat.player.id, name: seat.player.name },
-                                    stack: seat.stack,
-                                    bet: seat.bet,
-                                    folded: seat.folded,
-                                    hand: seat.hand
-                                };
-                            }
-                        }
-                        
-                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
-                        console.log(`[TournamentService] Test mode: Broadcasted game state`);
+                        // Use broadcastGameState helper for personalized state
+                        broadcastGameState(tournamentId, table);
+                        console.log(`[TournamentService] Test mode: >>> Broadcasted initial game state via broadcastGameState`);
                     }
                 }, 2000);
             }
@@ -1210,6 +1208,20 @@ module.exports = {
         }
         return tournamentServiceInstance.getPlayerHistory(walletAddress);
     },
+    getActiveTournaments: async () => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            return TournamentModel.find({ status: { $in: ['WAITING', 'IN_PROGRESS'] } }).sort({ createdAt: -1 });
+        }
+        return tournamentServiceInstance.getActiveTournaments();
+    },
+    getWaitingTournaments: async () => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            return TournamentModel.find({ status: 'WAITING' }).sort({ createdAt: -1 });
+        }
+        return tournamentServiceInstance.getWaitingTournaments();
+    },
     claimPrize: async (tournamentId, walletAddress) => {
         if (!tournamentServiceInstance) {
             const TournamentModel = require('../models/Tournament');
@@ -1301,8 +1313,8 @@ module.exports = {
                 throw new Error('Unknown action');
         }
         
-        // Broadcast updated state
-        if (testModeSocketIO && result) {
+        // Broadcast updated state (only if tournament is still active)
+        if (testModeSocketIO && result && table.isTournamentActive) {
             const gameState = {
                 tournamentId,
                 isTournament: true,
@@ -1345,7 +1357,7 @@ module.exports = {
                         folded: seat.folded,
                         checked: seat.checked,
                         lastAction: seat.lastAction,
-                        turn: seat.turn,
+                        turn: seat.turn !== undefined ? seat.turn : (table.turn === i),
                         sittingOut: seat.sittingOut
                     };
                 }
@@ -1363,7 +1375,10 @@ module.exports = {
                     for (let i = 1; i <= table.maxPlayers; i++) {
                         const seat = table.seats[i];
                         if (seat && seat.player && seat.hand) {
-                            if (seat.player.id === playerWallet) {
+                            // Case-insensitive address comparison
+                            const seatAddr = seat.player.id?.toLowerCase();
+                            const walletAddr = playerWallet?.toLowerCase();
+                            if (seatAddr === walletAddr) {
                                 personalState.seats[i].hand = seat.hand;
                             } else if (!seat.folded && table.wentToShowdown) {
                                 personalState.seats[i].hand = seat.hand;
@@ -1374,6 +1389,7 @@ module.exports = {
                     }
                     
                     testModeSocketIO.to(sockId).emit('tournament_game_state', personalState);
+                    console.log(`[TournamentService] handleGameAction: sent to ${sockId}, wallet=${playerWallet?.substring(0, 10)}, turn=${personalState.turn}`);
                 }
             } else {
                 testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
@@ -1435,21 +1451,26 @@ module.exports = {
                     folded: seat.folded,
                     hand: seat.hand,
                     lastAction: seat.lastAction,
-                    turn: seat.turn
+                    turn: seat.turn !== undefined ? seat.turn : (table.turn === i)
                 };
-                console.log(`[TournamentService] Seat ${i}: player=${seat.player.id?.substring(0, 10)}, turn=${seat.turn}, stack=${seat.stack}`);
+                console.log(`[TournamentService] Seat ${i}: player=${seat.player.id?.substring(0, 10)}, turn=${seat.turn}, table.turn=${table.turn}, stack=${seat.stack}`);
             }
         }
         
         testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
         console.log(`[TournamentService] Sent game state to room tournament:${tournamentId}`);
     },
-    // Internal: Handle tournament end
+    // Internal: Handle tournament end (called async from onTournamentEnd callback)
     _handleTournamentEnd: async (tournamentId, data) => {
         const TournamentModel = require('../models/Tournament');
         const tournament = await TournamentModel.findOne({ tournamentId });
         
-        if (!tournament) return;
+        if (!tournament) {
+            console.error(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} not found in DB!`);
+            return;
+        }
+        
+        console.log(`[TournamentService] _handleTournamentEnd: Saving tournament ${tournamentId} to DB, rankings:`, data.rankings);
         
         // Update tournament status
         tournament.status = 'COMPLETED';
@@ -1463,11 +1484,9 @@ module.exports = {
         tournament.totalHands = data.totalHands;
         
         await tournament.save();
+        console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} saved to DB`);
         
-        // Remove from active tables
-        testModeActiveTables.delete(tournamentId);
-        
-        // Broadcast tournament ended
+        // Broadcast tournament ended (activeTable already removed by sync callback)
         if (testModeSocketIO) {
             testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_ENDED', {
                 tournamentId,
@@ -1475,8 +1494,9 @@ module.exports = {
                 reason: data.reason || 'elimination',
                 totalHands: data.totalHands
             });
+            console.log(`[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to room`);
         }
         
-        console.log(`[TournamentService] Test mode: Tournament ${tournamentId} ended and saved to DB`);
+        console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} end handling complete`);
     }
 };

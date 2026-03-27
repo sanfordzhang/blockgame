@@ -247,16 +247,19 @@ function initTournamentHandlers(socket, io) {
      */
     socket.on('CS_TOURNAMENT_ROOM_JOIN', async ({ tournamentId, walletAddress }) => {
         try {
-            console.log(`[TournamentHandler] CS_TOURNAMENT_ROOM_JOIN: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
+            // Normalize address for case-insensitive comparison
+            const normalizedWallet = walletAddress?.toLowerCase();
+            console.log(`[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=${tournamentId}, wallet=${normalizedWallet?.substring(0, 10)}..., socketId=${socket.id}`);
             
             // 存储socket到钱包地址的映射
-            socketWalletMap.set(socket.id, walletAddress);
+            socketWalletMap.set(socket.id, normalizedWallet);
             
             // 也存储到 socket 对象上，以便后续广播时可以获取
-            socket.walletAddress = walletAddress;
+            socket.walletAddress = normalizedWallet;
             
             // Join the socket.io room
             socket.join(`tournament:${tournamentId}`);
+            console.log(`[TournamentHandler] Socket ${socket.id} joined room tournament:${tournamentId}`);
             
             // Track player in room
             if (!tournamentRooms.has(tournamentId)) {
@@ -269,32 +272,45 @@ function initTournamentHandlers(socket, io) {
             const tournament = await TournamentService.getTournament(tournamentId);
             
             console.log(`[TournamentHandler] Tournament status: ${tournament?.status}, players: ${tournament?.players?.length}`);
+            if (tournament?.players) {
+                tournament.players.forEach((p, i) => {
+                    console.log(`[TournamentHandler]   DB player[${i}]: address=${p.address?.substring(0, 10)}... (lowercase: ${p.address?.toLowerCase()?.substring(0, 10)}...)`);
+                });
+            }
+            console.log(`[TournamentHandler] Looking for normalizedWallet: ${normalizedWallet?.substring(0, 10)}...`);
             
-            // Update player's socketId in tournament if they're already joined
+            // Update player's socketId in tournament if they're already joined (case-insensitive)
             if (tournament && tournament.players) {
-                const playerIndex = tournament.players.findIndex(p => p.address === walletAddress);
+                const playerIndex = tournament.players.findIndex(p => p.address?.toLowerCase() === normalizedWallet);
+                console.log(`[TournamentHandler] Player index found: ${playerIndex}`);
                 if (playerIndex !== -1) {
                     tournament.players[playerIndex].socketId = socket.id;
                     await tournament.save();
-                    console.log(`[TournamentHandler] Updated socketId for player ${walletAddress?.substring(0, 10)}...`);
+                    console.log(`[TournamentHandler] Updated socketId for player ${normalizedWallet?.substring(0, 10)}...`);
                 }
             }
             
-            // 更新 active table 中的 socketId
+            // 更新 active table 中的 socketId (case-insensitive)
             const table = TournamentService.activeTables?.get(tournamentId);
+            console.log(`[TournamentHandler] Active table exists: ${!!table}`);
             if (table) {
+                console.log(`[TournamentHandler] Table turn: ${table.turn}, handOver: ${table.handOver}`);
                 for (let i = 1; i <= table.maxPlayers; i++) {
                     const seat = table.seats[i];
-                    if (seat && seat.player && seat.player.id === walletAddress) {
-                        seat.player.socketId = socket.id;
-                        console.log(`[TournamentHandler] Updated socketId in table for seat ${i}: ${socket.id}`);
+                    if (seat && seat.player) {
+                        console.log(`[TournamentHandler]   Table seat[${i}]: id=${seat.player.id?.substring(0, 10)}... (lowercase: ${seat.player.id?.toLowerCase()?.substring(0, 10)}...), socketId=${seat.player.socketId}`);
+                        if (seat.player.id?.toLowerCase() === normalizedWallet) {
+                            seat.player.socketId = socket.id;
+                            console.log(`[TournamentHandler] >>> MATCH! Updated socketId in table for seat ${i}: ${socket.id}`);
+                        }
                     }
                 }
             }
             
-            // Check if player is already in this tournament
-            const existingPlayer = tournament?.players?.find(p => p.address === walletAddress);
+            // Check if player is already in this tournament (case-insensitive)
+            const existingPlayer = tournament?.players?.find(p => p.address?.toLowerCase() === normalizedWallet);
             const isInProgress = tournament && tournament.status === 'IN_PROGRESS';
+            console.log(`[TournamentHandler] existingPlayer=${!!existingPlayer}, isInProgress=${isInProgress}, willSendState=${isInProgress && !!existingPlayer}`);
             
             socket.emit('SC_TOURNAMENT_ROOM_JOINED', {
                 tournamentId,
@@ -311,14 +327,29 @@ function initTournamentHandlers(socket, io) {
                 playerCount: tournamentRooms.get(tournamentId).size
             });
             
-            // If tournament is in progress and player is already joined, send game state (reconnect)
+            // If tournament is in progress and player is already joined, send game state (reconnect or late join)
             if (isInProgress && existingPlayer) {
                 if (table) {
-                    console.log(`[TournamentHandler] Sending game state to reconnecting player ${walletAddress?.substring(0, 10)}...`);
-                    TournamentService.broadcastTableState?.(tournamentId, table);
+                    console.log(`[TournamentHandler] >>> Sending game state to player ${normalizedWallet?.substring(0, 10)}... (reconnect/late join)`);
+                    
+                    // Check if hand has started (turn is not null)
+                    if (table.turn === null || table.turn === undefined) {
+                        console.log(`[TournamentHandler] Hand not started yet (turn=${table.turn}), scheduling retry in 2500ms...`);
+                        // Hand hasn't started yet, wait and retry
+                        setTimeout(() => {
+                            console.log(`[TournamentHandler] >>> Retry: sending game state to player ${normalizedWallet?.substring(0, 10)}...`);
+                            sendGameStateToPlayer(socket, table, tournamentId, normalizedWallet);
+                        }, 2500); // Wait for hand to start
+                    } else {
+                        console.log(`[TournamentHandler] Hand already started (turn=${table.turn}), sending immediately`);
+                        // Hand already started, send immediately
+                        sendGameStateToPlayer(socket, table, tournamentId, normalizedWallet);
+                    }
                 } else {
-                    console.warn(`[TournamentHandler] No active table found for tournament ${tournamentId}`);
+                    console.warn(`[TournamentHandler] >>> WARNING: No active table found for tournament ${tournamentId}!`);
                 }
+            } else if (isInProgress && !existingPlayer) {
+                console.warn(`[TournamentHandler] >>> WARNING: Tournament in progress but player NOT found in player list. Will NOT send game state!`);
             }
             
         } catch (error) {
@@ -526,93 +557,99 @@ function handleTournamentGameAction(socket, io, tournamentId, actionType, amount
             });
         }
         
-        // Broadcast updated table state (includes handOver state for next hand)
-        if (table) {
-            const gameState = {
-                tournamentId,
-                isTournament: true,
-                pot: table.pot,
-                board: table.board,
-                turn: table.turn,
-                button: table.button,
-                smallBlind: table.smallBlind,
-                bigBlind: table.bigBlind,
-                initialChips: table.initialChips,
-                handOver: table.handOver,
-                winMessages: table.winMessages,
-                wentToShowdown: table.wentToShowdown,
-                // Tournament specific info
-                blindLevel: table.currentBlindLevel,
-                handsPlayed: table.handsPlayed,
-                currentBlinds: {
-                    small: table.minBet,
-                    big: table.minBet * 2
-                },
-                remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
-                isTournamentActive: table.isTournamentActive,
-                eliminatedPlayers: table.eliminatedPlayers || [],
-                remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
-                seats: {}
-            };
-            
-            // Build seats with personalized cards
-            for (let i = 1; i <= table.maxPlayers; i++) {
-                const seat = table.seats[i];
-                if (seat && seat.player) {
-                    gameState.seats[i] = {
-                        player: { 
-                            id: seat.player.id, 
-                            name: seat.player.name,
-                            socketId: seat.player.socketId
-                        },
-                        stack: seat.stack,
-                        bet: seat.bet,
-                        folded: seat.folded,
-                        checked: seat.checked,
-                        lastAction: seat.lastAction,
-                        turn: seat.turn,
-                        sittingOut: seat.sittingOut
-                    };
-                }
-            }
-            
-            // Send personalized state to each player (show their cards)
-            const roomSockets = io.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
-            if (roomSockets) {
-                for (const socketId of roomSockets) {
-                    const personalState = JSON.parse(JSON.stringify(gameState));
-                    const playerWallet = socketWalletMap.get(socketId);
-                    
-                    // Add cards for each seat
-                    for (let i = 1; i <= table.maxPlayers; i++) {
-                        const seat = table.seats[i];
-                        if (seat && seat.player && seat.hand) {
-                            if (seat.player.id === playerWallet) {
-                                // Show own cards
-                                personalState.seats[i].hand = seat.hand;
-                            } else if (!seat.folded && table.wentToShowdown) {
-                                // Show cards at showdown
-                                personalState.seats[i].hand = seat.hand;
-                            } else {
-                                // Hide opponent cards
-                                personalState.seats[i].hand = null;
-                            }
-                        }
-                    }
-                    
-                    io.to(socketId).emit('tournament_game_state', personalState);
-                }
-            }
+        // Note: TournamentService.handleGameAction (test mode) already broadcasts game state.
+        // We do NOT broadcast again here to avoid double-broadcast.
+        // Only broadcast if tournamentServiceInstance is active (non-test mode, which uses table.broadcastTableState)
+        const serviceInstance = TournamentService.getTournamentService?.();
+        if (serviceInstance && table && table.isTournamentActive) {
+            TournamentService.broadcastTableState?.(tournamentId, table);
         }
         
     } catch (error) {
         console.error('[TournamentHandler] Game action error:', error.message);
-        socket.emit('SC_TOURNAMENT_ACTION_ERROR', { 
-            tournamentId, 
-            action: actionType, 
-            error: error.message 
+        socket.emit('SC_TOURNAMENT_ACTION_ERROR', {
+            tournamentId,
+            action: actionType,
+            error: error.message
         });
     }
+}
+
+/**
+ * Send personalized game state to a specific player
+ */
+function sendGameStateToPlayer(socket, table, tournamentId, walletAddress) {
+    console.log(`[TournamentHandler] >>> sendGameStateToPlayer: wallet=${walletAddress?.substring(0, 10)}..., table.turn=${table.turn}, handOver=${table.handOver}, board=${table.board?.length} cards`);
+    
+    const gameState = {
+        tournamentId,
+        isTournament: true,
+        pot: table.pot,
+        board: table.board,
+        turn: table.turn,
+        button: table.button,
+        smallBlind: table.smallBlind,
+        bigBlind: table.bigBlind,
+        initialChips: table.initialChips,
+        handOver: table.handOver,
+        winMessages: table.winMessages,
+        wentToShowdown: table.wentToShowdown,
+        callAmount: table.callAmount,
+        minBet: table.minBet,
+        blindLevel: table.currentBlindLevel,
+        handsPlayed: table.handsPlayed,
+        currentBlinds: {
+            small: table.minBet,
+            big: table.minBet * 2
+        },
+        remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
+        isTournamentActive: table.isTournamentActive,
+        eliminatedPlayers: table.eliminatedPlayers || [],
+        remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
+        seats: {}
+    };
+    
+    // Build seats with personalized cards
+    for (let i = 1; i <= table.maxPlayers; i++) {
+        const seat = table.seats[i];
+        if (seat && seat.player) {
+            const normalizedSeatId = seat.player.id?.toLowerCase();
+            const normalizedWallet = walletAddress?.toLowerCase();
+            const isOwnSeat = normalizedSeatId === normalizedWallet;
+            const turnVal = seat.turn !== undefined ? seat.turn : (table.turn === i);
+            
+            console.log(`[TournamentHandler]   Seat ${i}: seat.turn=${seat.turn}, table.turn=${table.turn}, computedTurn=${turnVal}, player=${seat.player.id?.substring(0, 10)}, isOwn=${isOwnSeat}`);
+            
+            gameState.seats[i] = {
+                player: { 
+                    id: seat.player.id, 
+                    name: seat.player.name,
+                    socketId: seat.player.socketId
+                },
+                stack: seat.stack,
+                bet: seat.bet,
+                folded: seat.folded,
+                checked: seat.checked,
+                lastAction: seat.lastAction,
+                turn: turnVal,
+                sittingOut: seat.sittingOut
+            };
+            
+            // Show own cards or cards at showdown (case-insensitive comparison)
+            if (seat.hand) {
+                if (isOwnSeat) {
+                    gameState.seats[i].hand = seat.hand;
+                } else if (!seat.folded && table.wentToShowdown) {
+                    gameState.seats[i].hand = seat.hand;
+                } else {
+                    gameState.seats[i].hand = null;
+                }
+            }
+        }
+    }
+    
+    socket.emit('tournament_game_state', gameState);
+    console.log(`[TournamentHandler] >>> EMIT tournament_game_state to socket ${socket.id}, player ${walletAddress?.substring(0, 10)}..., turn=${gameState.turn}, seatsCount=${Object.keys(gameState.seats).length}`);
 }
 
 module.exports = { initTournamentHandlers };

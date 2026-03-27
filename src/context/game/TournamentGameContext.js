@@ -32,7 +32,7 @@ const convertToTableFormat = (state, tournamentId, playerAddress) => {
           bet: seat.bet || 0,
           hand: seat.hand || [],
           folded: seat.folded || false,
-          turn: state.turn === seatNum,
+          turn: seat.turn || false,
           lastAction: seat.lastAction || null,
           sittingOut: seat.sittingOut || false,
         };
@@ -146,9 +146,24 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       socket.connect();
     }
 
+    // Diagnostic: warn if no game state received within 5s
+    const noStateTimer = setTimeout(() => {
+      if (!currentTableRef.current) {
+        console.warn('[TournamentGameContext] >>> WARNING: No game state received after 5 seconds! currentTable is still null.');
+        console.warn('[TournamentGameContext] >>> Possible causes: 1) Player not in DB players list, 2) Address case mismatch, 3) Socket not in room');
+        console.warn('[TournamentGameContext] >>> socket.connected:', socket.connected);
+      }
+    }, 5000);
+
     // Room joined
     socket.on('SC_TOURNAMENT_ROOM_JOINED', (data) => {
-      console.log('[TournamentGameContext] Room joined:', data);
+      console.log('[TournamentGameContext] >>> SC_TOURNAMENT_ROOM_JOINED:', {
+        tournamentId: data.tournamentId,
+        status: data.tournament?.status,
+        playerCount: data.playerCount,
+        isReconnecting: data.isReconnecting,
+        players: data.tournament?.players?.map(p => p.address?.substring(0, 10))
+      });
       setTournament(data.tournament);
     });
 
@@ -181,11 +196,12 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       
       setCurrentTable(table);
       
-      // Find my seat
+      // Find my seat (case-insensitive comparison for TRON addresses)
       let foundSeatId = null;
+      const normalizedWalletAddress = walletAddress?.toLowerCase();
       if (state.seats) {
         for (const [id, seat] of Object.entries(state.seats)) {
-          if (seat?.player?.id === walletAddress) {
+          if (seat?.player?.id?.toLowerCase() === normalizedWalletAddress) {
             foundSeatId = parseInt(id);
             setSeatId(foundSeatId);
             console.log('[TournamentGameContext] Found my seat:', foundSeatId, 'myTurn:', seat.turn, 'globalTurn:', state.turn);
@@ -235,6 +251,7 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
 
     // Cleanup
     return () => {
+      clearTimeout(noStateTimer);
       socket.off('connect', joinRoom);
       socket.off('SC_TOURNAMENT_ROOM_JOINED');
       socket.off('SC_TOURNAMENT_ROOM_ERROR');
