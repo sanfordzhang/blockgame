@@ -7,6 +7,10 @@ import Button from '../components/buttons/Button';
 import Hider from '../components/layout/Hider';
 import illustrationMobile from '../assets/img/main-illustration-mobile@2x.png';
 import illustrationDesktop from '../assets/img/main-illustration-desktop@2x.png';
+import jackImg from '../assets/img/jack-rounded-img@2x.png';
+import kingImg from '../assets/img/king-rounded-img@2x.png';
+import queenImg from '../assets/img/queen-rounded-img@2x.png';
+import queen2Img from '../assets/img/queen2-rounded-img@2x.png';
 import styled from 'styled-components';
 import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import Markdown from 'react-remarkable';
@@ -813,6 +817,35 @@ const Landing = () => {
                   {contractBalance < 100000000 ? 'Deposit Required to Play' : 'Enter Game'}
                 </Button>
               )}
+              
+              {/* Feature Entries - Show if registered */}
+              {isRegistered && (
+                <FeatureSection data-testid="feature-section">
+                  <FeatureTitle>功能入口</FeatureTitle>
+                  <FeatureGrid>
+                    <FeatureCard onClick={() => navigate('/tournament')} data-testid="feature-tournament">
+                      <FeatureIcon src={queen2Img} alt="Tournament" />
+                      <FeatureName>锦标赛</FeatureName>
+                      <FeatureDesc>Tournament</FeatureDesc>
+                    </FeatureCard>
+                    <FeatureCard onClick={() => navigate('/nft')} data-testid="feature-nft">
+                      <FeatureIcon src={jackImg} alt="NFT Gallery" />
+                      <FeatureName>NFT画廊</FeatureName>
+                      <FeatureDesc>NFT Gallery</FeatureDesc>
+                    </FeatureCard>
+                    <FeatureCard onClick={() => navigate('/wallet')} data-testid="feature-wallet">
+                      <FeatureIcon src={queenImg} alt="CHIP Wallet" />
+                      <FeatureName>代币钱包</FeatureName>
+                      <FeatureDesc>CHIP Wallet</FeatureDesc>
+                    </FeatureCard>
+                    <FeatureCard onClick={() => navigate('/dao')} data-testid="feature-dao">
+                      <FeatureIcon src={kingImg} alt="DAO" />
+                      <FeatureName>DAO治理</FeatureName>
+                      <FeatureDesc>Governance</FeatureDesc>
+                    </FeatureCard>
+                  </FeatureGrid>
+                </FeatureSection>
+              )}
             </>
           )}
         </Wrapper>
@@ -1171,6 +1204,85 @@ const InstallPrompt = styled.div`
     &:hover {
       color: #1a3d4d;
     }
+  }
+`;
+
+const FeatureSection = styled.div`
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(36, 81, 106, 0.2);
+  width: 100%;
+`;
+
+const FeatureTitle = styled.h3`
+  text-align: center;
+  color: #24516a;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+`;
+
+const FeatureGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  
+  @media screen and (min-width: 624px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+`;
+
+const FeatureCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  background: rgba(36, 81, 106, 0.05);
+  border: 1px solid rgba(36, 81, 106, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(36, 81, 106, 0.1);
+    border-color: rgba(36, 81, 106, 0.3);
+    transform: translateY(-2px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const FeatureIcon = styled.img`
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+  
+  @media screen and (max-width: 468px) {
+    width: 36px;
+    height: 36px;
+  }
+`;
+
+const FeatureName = styled.span`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #24516a;
+  text-align: center;
+  
+  @media screen and (max-width: 468px) {
+    font-size: 0.75rem;
+  }
+`;
+
+const FeatureDesc = styled.span`
+  font-size: 0.7rem;
+  color: #888;
+  text-align: center;
+  
+  @media screen and (max-width: 468px) {
+    font-size: 0.6rem;
   }
 `;
 

@@ -209,41 +209,41 @@ const CHIPWallet = () => {
       </Tabs>
 
       {!walletAddress ? (
-        <Text textCentered>Connect your wallet to view your CHIP balance</Text>
+        <Text textCentered data-testid="connect-wallet-prompt">Connect your wallet to view your CHIP balance</Text>
       ) : loading ? (
-        <Text textCentered>Loading...</Text>
+        <Text textCentered data-testid="loading">Loading...</Text>
       ) : tab === 'wallet' ? (
         <>
-          <WalletCard>
+          <WalletCard data-testid="wallet-card">
             <Text color="textSecondary">CHIP Balance</Text>
-            <BalanceDisplay>{balance.chip?.toLocaleString() || 0} CHIP</BalanceDisplay>
+            <BalanceDisplay data-testid="chip-balance">{balance.chip?.toLocaleString() || 0} CHIP</BalanceDisplay>
             <Container flexDirection="row" gap="1rem" marginTop="1rem">
-              <ActionButton primary>Transfer</ActionButton>
-              <ActionButton>History</ActionButton>
+              <ActionButton primary data-testid="transfer-btn">Transfer</ActionButton>
+              <ActionButton data-testid="history-btn">History</ActionButton>
             </Container>
           </WalletCard>
 
           {balance.pendingReward > 0 && (
-            <RewardDisplay>
+            <RewardDisplay data-testid="pending-reward">
               <Container flexDirection="row" justifyContent="space-between" alignItems="center">
                 <div>
                   <Text color="white">Pending Rewards</Text>
                   <Heading as="h3">{balance.pendingReward?.toFixed(2)} CHIP</Heading>
                 </div>
-                <ActionButton primary onClick={() => handleClaimReward()}>Claim</ActionButton>
+                <ActionButton primary onClick={() => handleClaimReward()} data-testid="claim-btn">Claim</ActionButton>
               </Container>
             </RewardDisplay>
           )}
         </>
       ) : tab === 'stake' ? (
         <>
-          <WalletCard>
+          <WalletCard data-testid="stake-card">
             <Container flexDirection="row" justifyContent="space-between" alignItems="center">
               <div>
                 <Text color="textSecondary">Total Staked</Text>
-                <BalanceDisplay>{balance.staked?.toLocaleString() || 0} CHIP</BalanceDisplay>
+                <BalanceDisplay data-testid="staked-amount">{balance.staked?.toLocaleString() || 0} CHIP</BalanceDisplay>
               </div>
-              <ActionButton primary onClick={() => handleStake(100, 30)}>
+              <ActionButton primary onClick={() => handleStake(100, 30)} data-testid="stake-btn">
                 Stake CHIP
               </ActionButton>
             </Container>
@@ -273,13 +273,13 @@ const CHIPWallet = () => {
             ))
           )}
         </>
-      ) : (
-        <WalletCard>
+      ) : tab === 'vip' ? (
+        <WalletCard data-testid="vip-card">
           <Container flexDirection="column" alignItems="center" gap="1rem">
-            <VIPBadge level={vipStatus.level}>
+            <VIPBadge level={vipStatus.level} data-testid="vip-badge">
               {vipStatus.level} VIP
             </VIPBadge>
-            <Text size="1.5rem" fontWeight="bold">
+            <Text size="1.5rem" fontWeight="bold" data-testid="vip-discount">
               {vipStatus.discount}% Rake Discount
             </Text>
             <Text color="textSecondary">

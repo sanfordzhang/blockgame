@@ -49,7 +49,7 @@ describe('TournamentService', function () {
 
         // Create service instance
         TournamentService = require('../../server/services/TournamentService');
-        tournamentService = new TournamentService({
+        tournamentService = new TournamentService.TournamentService({
             tronWeb: mockTronWeb,
             tournamentContractAddress: 'TTOURNAMENT',
             serverWallet: 'TSERVER'

@@ -1,0 +1,59 @@
+.tournament-play-area {
+  position: relative;
+  overflow: hidden;
+}
+
+.elimination-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.95);
+  padding: 2rem 3rem;
+  border-radius: 20px;
+  text-align: center;
+  z-index: 1000;
+  border: 3px solid #f44336;
+  box-shadow: 0 0 50px rgba(244, 67, 54, 0.5);
+  
+  h2 {
+    color: #f44336;
+    margin-bottom: 1rem;
+  }
+}
+
+.ranking-display {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  padding: 2rem;
+  border-radius: 15px;
+  margin-top: 1rem;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  min-width: 300px;
+  
+  .rank-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    
+    &.you {
+      background: rgba(255, 215, 0, 0.2);
+      border: 1px solid #ffd700;
+    }
+    
+    .position {
+      font-weight: bold;
+      color: #ffd700;
+    }
+    
+    .prize {
+      color: #4caf50;
+    }
+  }
+}

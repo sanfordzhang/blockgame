@@ -67,6 +67,8 @@
     },
     "scripts": {
         "start": "node server/server.js | react-scripts --openssl-legacy-provider start",
+        "start:server": "node server/server.js",
+        "start:client": "react-scripts --openssl-legacy-provider start",
         "build": "node server/server.js | react-scripts --openssl-legacy-provider build",
         "test": "node server/server.js | react-scripts --openssl-legacy-provider test",
         "test:contracts": "hardhat test tests/contracts/*.test.js",
@@ -99,5 +101,5 @@
             "last 1 safari version"
         ]
     },
-    "proxy": "http://localhost:7777"
+    "proxy": "http://localhost:7778"
 }

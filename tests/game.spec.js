@@ -9,7 +9,7 @@ test.describe('Poker Game Flow', () => {
     const username = `player_${Math.floor(Math.random() * 10000)}`
 
     // 访问游戏页面并传递参数
-    await page.goto(`http://localhost:3000/?walletAddress=${walletAddress}&gameId=1&username=${username}`);
+    await page.goto(`http://localhost:3001/?walletAddress=${walletAddress}&gameId=1&username=${username}`);
 
     // 等待游戏页面加载
     await expect(page.locator('.play-area')).toBeVisible({ timeout: 10000 });

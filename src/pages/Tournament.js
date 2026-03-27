@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import Container from '../components/layout/Container';
@@ -6,6 +6,14 @@ import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
 import modalContext from '../context/modal/modalContext';
+import { useTron } from '../context/tron/TronContext';
+import clientConfig from '../clientConfig';
+
+// API base URL helper
+const getApiUrl = (path) => {
+  const baseUrl = clientConfig.socketURI || 'http://127.0.0.1:7778/';
+  return baseUrl.replace(/\/$/, '') + path;
+};
 
 const TournamentCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -88,71 +96,235 @@ const FilterButton = styled.button`
   }
 `;
 
+const InfoBanner = styled.div`
+  background: rgba(36, 81, 106, 0.1);
+  border: 1px solid rgba(36, 81, 106, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  text-align: center;
+`;
+
+const CreateSection = styled.div`
+  background: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+`;
+
+const CreateButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+`;
+
+const CreateButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  
+  &:hover:not(:disabled) {
+    background: #218838;
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const ErrorBanner = styled.div`
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  color: #dc3545;
+  text-align: center;
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 2rem;
+  background: rgba(36, 81, 106, 0.05);
+  border-radius: 8px;
+`;
+
 const Tournament = () => {
   const navigate = useNavigate();
-  const { walletAddress } = useContext(globalContext);
+  const { walletAddress, setWalletAddress } = useContext(globalContext);
   const { openModal } = useContext(modalContext);
-  
+  const { connect, isConnecting, isConnected, address } = useTron();
+
   const [tournaments, setTournaments] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [configs, setConfigs] = useState([]);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(null);
+
+  // 同步 TronContext 地址到 globalContext
+  useEffect(() => {
+    if (address && address !== walletAddress) {
+      setWalletAddress(address);
+    }
+  }, [address, walletAddress, setWalletAddress]);
+
+  // 默认测试配置（当合约未配置时使用）
+  const DEFAULT_CONFIGS = [
+    { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, name: '6人赛 (100 TRX)' },
+    { id: 2, playerCount: 4, buyIn: 50000000, rakeRate: 500, name: '4人赛 (50 TRX)' },
+    { id: 3, playerCount: 2, buyIn: 10000000, rakeRate: 500, name: '2人赛 (10 TRX)' },
+  ];
 
   useEffect(() => {
     fetchTournaments();
+    fetchConfigs();
   }, [filter]);
 
   const fetchTournaments = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (filter !== 'all') {
         params.append('status', filter);
       }
-      const response = await fetch(`/api/tournament/list?${params}`);
+      const response = await fetch(getApiUrl(`/api/tournament/list?${params}`));
       const data = await response.json();
       if (data.success) {
-        setTournaments(data.tournaments);
+        setTournaments(data.tournaments || []);
+      } else {
+        setError(data.error || '获取锦标赛列表失败');
       }
     } catch (error) {
       console.error('Failed to fetch tournaments:', error);
+      setError('网络错误，请检查服务器连接');
     }
     setLoading(false);
   };
 
+  const fetchConfigs = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/tournament/configs/list'));
+      const data = await response.json();
+      if (data.success && data.configs && data.configs.length > 0) {
+        setConfigs(data.configs);
+      } else {
+        // 使用默认配置
+        setConfigs(DEFAULT_CONFIGS);
+      }
+    } catch (error) {
+      console.error('Failed to fetch configs, using defaults:', error);
+      // 使用默认配置
+      setConfigs(DEFAULT_CONFIGS);
+    }
+  };
+
+  // 创建测试锦标赛
+  const handleCreateTestTournament = async (configId) => {
+    if (!configId) {
+      setError('请选择锦标赛配置');
+      return;
+    }
+    
+    setCreating(true);
+    setError(null);
+    try {
+      const response = await fetch(getApiUrl('/api/tournament/create'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configId, walletAddress })
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchTournaments();
+      } else {
+        setError('创建失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Failed to create tournament:', error);
+      setError('创建失败: ' + error.message);
+    }
+    setCreating(false);
+  };
+
   const handleJoinTournament = async (tournamentId, buyIn) => {
-    if (!walletAddress) {
+    if (!walletAddress && !isConnected) {
+      // 定义连接钱包回调
+      const handleConnectWallet = async () => {
+        try {
+          await connect();
+          // connect 成功后会触发 useEffect 同步地址
+        } catch (err) {
+          setError('连接钱包失败: ' + err.message);
+        }
+      };
+      
       openModal(
         () => <Text>Please connect your wallet to join a tournament.</Text>,
         'Wallet Required',
-        'Connect Wallet'
+        isConnecting ? 'Connecting...' : 'Connect Wallet',
+        handleConnectWallet
       );
       return;
     }
 
+    // 使用 TronContext 的地址（更可靠）
+    const currentAddress = address || walletAddress;
+    if (!currentAddress) {
+      setError('无法获取钱包地址');
+      return;
+    }
+
+    // 定义join逻辑
+    const handleJoin = async () => {
+      try {
+        setError(null);
+        const response = await fetch(getApiUrl(`/api/tournament/${tournamentId}/join`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress: currentAddress })
+        });
+        const data = await response.json();
+        if (data.success) {
+          // 关闭弹窗 - 通过触发closeModal
+          const modal = document.querySelector('[id="wrapper"]');
+          if (modal) modal.click();
+          
+          // 保存钱包地址到 localStorage (测试模式支持)
+          localStorage.setItem('testWalletAddress', currentAddress);
+          
+          // 导航到游戏页面，传递钱包地址参数
+          navigate(`/tournament/${tournamentId}/play?address=${currentAddress}`);
+        } else {
+          setError('加入失败: ' + (data.error || '未知错误'));
+        }
+      } catch (error) {
+        console.error('Failed to join tournament:', error);
+        setError('加入失败: ' + error.message);
+      }
+    };
+
     openModal(
       () => (
         <Container flexDirection="column" gap="1rem">
-          <Text>Buy-in: {buyIn} TRX</Text>
+          <Text>Buy-in: {buyIn / 1e6} TRX</Text>
           <Text>Are you sure you want to join this tournament?</Text>
         </Container>
       ),
       'Join Tournament',
       'Confirm',
-      async () => {
-        try {
-          const response = await fetch(`/api/tournament/${tournamentId}/join`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ walletAddress })
-          });
-          const data = await response.json();
-          if (data.success) {
-            navigate(`/tournament/${tournamentId}/play`);
-          }
-        } catch (error) {
-          console.error('Failed to join tournament:', error);
-        }
-      }
+      handleJoin
     );
   };
 
@@ -167,37 +339,66 @@ const Tournament = () => {
       fullHeight
       flexDirection="column"
       padding="6rem 2rem 2rem 2rem"
+      data-testid="tournament-page"
     >
       <Heading as="h1" textCentered>Tournaments</Heading>
       
+      <InfoBanner>
+        <Text>💡 点击状态为 <strong>WAITING</strong> 的锦标赛卡片即可报名参赛</Text>
+      </InfoBanner>
+      
+      {/* 测试：创建锦标赛按钮 - 始终显示 */}
+      <CreateSection data-testid="create-tournament-section">
+        <Text size="0.85rem">测试模式：快速创建锦标赛</Text>
+        <CreateButtons>
+          {configs.map(config => (
+            <CreateButton 
+              key={config.id}
+              onClick={() => handleCreateTestTournament(config.id)}
+              disabled={creating}
+              data-testid={`create-tournament-btn-${config.id}`}
+            >
+              {creating ? '创建中...' : config.name || `${config.playerCount}人赛 (${config.buyIn/1e6} TRX)`}
+            </CreateButton>
+          ))}
+        </CreateButtons>
+      </CreateSection>
+      
+      {/* 错误提示 */}
+      {error && <ErrorBanner data-testid="error-message">{error}</ErrorBanner>}
+      
       <FilterBar>
-        <FilterButton active={filter === 'all'} onClick={() => setFilter('all')}>
+        <FilterButton active={filter === 'all'} onClick={() => setFilter('all')} data-testid="filter-all">
           All
         </FilterButton>
-        <FilterButton active={filter === 'WAITING'} onClick={() => setFilter('WAITING')}>
+        <FilterButton active={filter === 'WAITING'} onClick={() => setFilter('WAITING')} data-testid="filter-waiting">
           Waiting
         </FilterButton>
-        <FilterButton active={filter === 'IN_PROGRESS'} onClick={() => setFilter('IN_PROGRESS')}>
+        <FilterButton active={filter === 'IN_PROGRESS'} onClick={() => setFilter('IN_PROGRESS')} data-testid="filter-in-progress">
           In Progress
         </FilterButton>
-        <FilterButton active={filter === 'COMPLETED'} onClick={() => setFilter('COMPLETED')}>
+        <FilterButton active={filter === 'COMPLETED'} onClick={() => setFilter('COMPLETED')} data-testid="filter-completed">
           Completed
         </FilterButton>
       </FilterBar>
 
       {loading ? (
-        <Text textCentered>Loading tournaments...</Text>
+        <Text textCentered data-testid="loading-text">Loading tournaments...</Text>
       ) : tournaments.length === 0 ? (
-        <Text textCentered>No tournaments available</Text>
+        <EmptyState data-testid="empty-state">
+          <Text textCentered>No tournaments available</Text>
+          <Text size="0.85rem" color="textSecondary">点击上方绿色按钮创建一个锦标赛</Text>
+        </EmptyState>
       ) : (
         <TournamentGrid>
           {tournaments.map((tournament) => (
             <TournamentCard
-              key={tournament.id}
-              onClick={() => tournament.status === 'WAITING' && handleJoinTournament(tournament.id, tournament.buyIn)}
+              key={tournament.tournamentId}
+              onClick={() => tournament.status === 'WAITING' && handleJoinTournament(tournament.tournamentId, tournament.buyIn)}
+              data-testid={`tournament-card-${tournament.tournamentId}`}
             >
               <Container flexDirection="row" justifyContent="space-between" alignItems="center">
-                <Heading as="h3">{tournament.config?.name || `Tournament #${tournament.id}`}</Heading>
+                <Heading as="h3">{tournament.config?.name || `Tournament #${tournament.tournamentId}`}</Heading>
                 <StatusBadge status={tournament.status}>{tournament.status}</StatusBadge>
               </Container>
               

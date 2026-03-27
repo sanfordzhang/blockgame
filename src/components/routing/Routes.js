@@ -28,6 +28,7 @@ const AppRoutes = () => {
       <Route path="/" element={<Landing />} />
       <Route path="/play" element={<Play />} />
       <Route path="/tournament" element={<Tournament />} />
+      <Route path="/tournament/:tournamentId" element={<TournamentTable />} />
       <Route path="/tournament/:tournamentId/waiting" element={<TournamentWaitingRoom />} />
       <Route path="/tournament/:tournamentId/play" element={<TournamentTable />} />
       <Route path="/nft" element={<NFTGallery />} />

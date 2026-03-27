@@ -3,7 +3,7 @@ require("./config/loadEnv")();
 
 const path = require("path");
 const express = require("express");
-// const connectDB = require('./config/db');
+const connectDB = require('./config/db');
 const configureMiddleware = require("./middleware");
 const configureRoutes = require("./routes");
 const socketio = require("socket.io");
@@ -18,11 +18,11 @@ const EventListener = require("./blockchain/EventListener");
 const GameSettlementService = require("./services/GameSettlementService");
 const gameFlowIntegration = require("./services/GameFlowIntegration");
 // Connect and get reference to mongodb instance
-// let db;
+let db;
 
-// (async function () {
-//   db = await connectDB();
-// })();
+(async function () {
+  db = await connectDB();
+})();
 
 // Init express app
 const app = express();
@@ -144,7 +144,7 @@ global.gameFlowIntegration = gameFlowIntegration;
 // Error handling - close server
 
 process.on("unhandledRejection", (err) => {
-    // db.disconnect();
+    db.disconnect();
 
     console.error(`Error: ${err.message}`);
     server.close(() => {

@@ -36,7 +36,7 @@ describe('ChipService', function () {
         };
 
         ChipService = require('../../server/services/ChipService');
-        chipService = new ChipService({
+        chipService = new ChipService.ChipService({
             tronWeb: mockTronWeb,
             chipTokenAddress: 'TCHIP',
             stakingAddress: 'TSTAKE'

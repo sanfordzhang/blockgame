@@ -5,9 +5,10 @@ import CloseIcon from '../icons/CloseIcon';
 
 const StyledCloseIcon = styled.div`
   display: inline-block;
-  cursor: pointer;
+  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
   outline: none;
   border: 2px solid rgba(0, 0, 0, 0);
+  opacity: ${props => props.disabled ? 0.5 : 1};
 
   &:focus {
     outline: none;
@@ -16,14 +17,15 @@ const StyledCloseIcon = styled.div`
   }
 `;
 
-const CloseButton = ({ clickHandler }) => {
+const CloseButton = ({ clickHandler, disabled }) => {
   return (
     <StyledCloseIcon
-      onClick={clickHandler}
+      onClick={disabled ? undefined : clickHandler}
       onKeyDown={(e) => {
-        if (e.keyCode === 13) clickHandler();
+        if (e.keyCode === 13 && !disabled) clickHandler();
       }}
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
+      disabled={disabled}
     >
       <CloseIcon />
     </StyledCloseIcon>
@@ -32,6 +34,11 @@ const CloseButton = ({ clickHandler }) => {
 
 CloseButton.propTypes = {
   clickHandler: PropTypes.func,
+  disabled: PropTypes.bool,
+};
+
+CloseButton.defaultProps = {
+  disabled: false,
 };
 
 export default CloseButton;

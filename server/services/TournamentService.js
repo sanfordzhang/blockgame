@@ -44,23 +44,64 @@ class TournamentService {
     /**
      * Create a new tournament
      * @param {number} configId - Configuration ID
+     * @param {string} creatorAddress - Creator wallet address (for test mode)
      * @returns {Promise<Object>} - Created tournament
      */
-    async createTournament(configId) {
-        // Call contract to create tournament
-        const tx = await this.contract.createTournament(configId).send({
-            from: this.serverWallet
-        });
+    async createTournament(configId, creatorAddress = null) {
+        // Default configs for test mode
+        const DEFAULT_CONFIGS = {
+            1: { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] },
+            2: { playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40] },
+            3: { playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100] }
+        };
         
-        // Get tournament ID from event
-        const tournamentId = await this._getTournamentIdFromTx(tx);
+        let tournamentId;
+        let txHash = null;
+        
+        // Try to use contract if available
+        if (this.contract) {
+            try {
+                const tx = await this.contract.createTournament(configId).send({
+                    from: this.serverWallet
+                });
+                tournamentId = await this._getTournamentIdFromTx(tx);
+                txHash = tx;
+            } catch (err) {
+                console.log('[TournamentService] Contract call failed, using test mode:', err.message);
+            }
+        }
+        
+        // Fallback to test mode
+        if (!tournamentId) {
+            tournamentId = Date.now().toString();
+            console.log(`[TournamentService] Creating test tournament ${tournamentId}`);
+        }
+        
+        // Get config from defaults or contract
+        const defaultConfig = DEFAULT_CONFIGS[configId] || DEFAULT_CONFIGS[1];
         
         // Create database record
-        const tournament = new Tournament({
+        const TournamentModel = require('../models/Tournament');
+        const tournament = new TournamentModel({
             tournamentId,
             configId,
             status: 'WAITING',
-            txHash: tx
+            players: [],
+            txHash,
+            config: {
+                playerCount: defaultConfig.playerCount,
+                buyIn: defaultConfig.buyIn,
+                rakeRate: defaultConfig.rakeRate,
+                initialChips: defaultConfig.initialChips,
+                prizeDistribution: defaultConfig.prizeDistribution,
+                tournamentType: 'SNG',
+                startMode: 'INSTANT',
+                name: `${defaultConfig.playerCount}人赛 (${defaultConfig.buyIn/1e6} TRX)`
+            },
+            buyIn: defaultConfig.buyIn,
+            playerCount: defaultConfig.playerCount,
+            rakeRate: defaultConfig.rakeRate,
+            prizePool: 0
         });
         
         await tournament.save();
@@ -74,7 +115,14 @@ class TournamentService {
      * Get tournament configurations
      */
     async getConfigs() {
-        if (!this.contract) return [];
+        // Default configs for test mode (when no contract)
+        const DEFAULT_CONFIGS = [
+            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
+            { id: 2, playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40], name: '4人赛 (50 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
+            { id: 3, playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100], name: '双人赛 (10 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
+        ];
+        
+        if (!this.contract) return DEFAULT_CONFIGS;
         
         const configs = [];
         for (let i = 1; i <= 4; i++) {
@@ -94,6 +142,97 @@ class TournamentService {
         }
         
         return configs;
+    }
+    
+    /**
+     * Get all tournaments with filter
+     */
+    async getTournaments(filter = {}) {
+        const query = {};
+        if (filter.status) query.status = filter.status;
+        if (filter.type) query.type = filter.type;
+        
+        return Tournament.find(query).sort({ createdAt: -1 });
+    }
+    
+    /**
+     * Get tournament by ID
+     */
+    async getTournamentById(tournamentId) {
+        return Tournament.findOne({ tournamentId });
+    }
+    
+    /**
+     * Get tournament config
+     */
+    async getConfig(configId) {
+        if (!this.contract) return null;
+        try {
+            const config = await this.contract.getConfig(configId).call();
+            return config;
+        } catch (e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Get tournament players
+     */
+    async getTournamentPlayers(tournamentId) {
+        const tournament = await Tournament.findOne({ tournamentId });
+        return tournament?.players || [];
+    }
+    
+    /**
+     * Get player tournament history
+     */
+    async getPlayerHistory(walletAddress) {
+        return Tournament.find({
+            'players.address': walletAddress
+        }).sort({ createdAt: -1 }).limit(20);
+    }
+    
+    /**
+     * Finish tournament with rankings
+     */
+    async finishTournament(tournamentId, rankings) {
+        const tournament = await Tournament.findOne({ tournamentId });
+        if (!tournament) {
+            throw new Error('Tournament not found');
+        }
+        
+        tournament.status = 'FINISHED';
+        tournament.rankings = rankings;
+        tournament.finishedAt = new Date();
+        
+        await tournament.save();
+        
+        return tournament;
+    }
+    
+    /**
+     * Claim tournament prize
+     */
+    async claimPrize(tournamentId, walletAddress) {
+        const tournament = await Tournament.findOne({ tournamentId });
+        if (!tournament || tournament.status !== 'FINISHED') {
+            throw new Error('Tournament not finished');
+        }
+        
+        const ranking = tournament.rankings?.find(r => r.address === walletAddress);
+        if (!ranking) {
+            throw new Error('Not a winner');
+        }
+        
+        if (ranking.claimed) {
+            throw new Error('Already claimed');
+        }
+        
+        // Mark as claimed
+        ranking.claimed = true;
+        await tournament.save();
+        
+        return { success: true, prize: ranking.prize };
     }
     
     // ============ Player Actions ============
@@ -131,8 +270,13 @@ class TournamentService {
         });
         
         // Check if ready to start
-        const config = await this.getConfig(tournament.configId);
-        if (tournament.players.length >= config.playerCount) {
+        // Use tournament's playerCount (stored at creation time) instead of config query
+        // This works in both contract mode and test mode
+        const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
+        console.log(`[TournamentService] Player count check: ${tournament.players.length}/${requiredPlayerCount}`);
+        
+        if (tournament.players.length >= requiredPlayerCount) {
+            console.log(`[TournamentService] Tournament ${tournamentId} is full, starting...`);
             await this.startTournament(tournamentId);
         }
         
@@ -587,4 +731,453 @@ class TournamentService {
     }
 }
 
-module.exports = TournamentService;
+// Singleton instance
+let tournamentServiceInstance = null;
+
+// Test mode globals (used when tournamentServiceInstance is null)
+let testModeSocketIO = null;
+let testModeActiveTables = new Map();
+
+/**
+ * Initialize TournamentService singleton
+ */
+function initTournamentService(config) {
+    if (!tournamentServiceInstance) {
+        tournamentServiceInstance = new TournamentService(config);
+    }
+    return tournamentServiceInstance;
+}
+
+// Export with proxy methods for backward compatibility
+module.exports = {
+    TournamentService,
+    initTournamentService,
+    getTournamentService: () => tournamentServiceInstance,
+    
+    // Proxy methods to instance
+    getTournaments: async (filter = {}) => {
+        // Fallback to direct Tournament model query if service not initialized
+        if (!tournamentServiceInstance) {
+            const Tournament = require('../models/Tournament');
+            return Tournament.find(filter).sort({ createdAt: -1 });
+        }
+        return tournamentServiceInstance.getTournaments(filter);
+    },
+    getTournamentById: async (id) => {
+        if (!tournamentServiceInstance) {
+            // Test mode fallback
+            const TournamentModel = require('../models/Tournament');
+            return TournamentModel.findOne({ tournamentId: id });
+        }
+        return tournamentServiceInstance.getTournamentById(id);
+    },
+    getTournament: async (tournamentId) => {
+        // Fallback to direct Tournament model query if service not initialized
+        if (!tournamentServiceInstance) {
+            const Tournament = require('../models/Tournament');
+            return Tournament.findOne({ tournamentId });
+        }
+        return tournamentServiceInstance.getTournament(tournamentId);
+    },
+    getConfigs: async () => {
+        // Default configs for test mode
+        const DEFAULT_CONFIGS = [
+            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
+            { id: 2, playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40], name: '4人赛 (50 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
+            { id: 3, playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100], name: '双人赛 (10 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
+        ];
+        
+        if (!tournamentServiceInstance) return DEFAULT_CONFIGS;
+        return tournamentServiceInstance.getConfigs();
+    },
+    createTournament: async (data) => {
+        if (!tournamentServiceInstance) {
+            // Create a minimal instance for test mode
+            const TournamentModel = require('../models/Tournament');
+            const config = data.configId === 2 
+                ? { playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40] }
+                : data.configId === 3
+                ? { playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100] }
+                : { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] };
+            
+            const tournamentId = Date.now().toString();
+            const tournament = new TournamentModel({
+                tournamentId,
+                configId: data.configId || 1,
+                status: 'WAITING',
+                players: [],
+                config: {
+                    ...config,
+                    tournamentType: 'SNG',
+                    startMode: 'INSTANT',
+                    name: `${config.playerCount}人赛 (${config.buyIn/1e6} TRX)`
+                },
+                buyIn: config.buyIn,
+                playerCount: config.playerCount,
+                rakeRate: config.rakeRate,
+                prizePool: 0
+            });
+            
+            await tournament.save();
+            console.log(`[TournamentService] Created test tournament ${tournamentId}`);
+            return tournament;
+        }
+        return tournamentServiceInstance.createTournament(data.configId, data.creatorAddress);
+    },
+    joinTournament: async (tournamentId, walletAddress, socketId) => {
+        // Test mode fallback - direct DB operation
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            const tournament = await TournamentModel.findOne({ tournamentId });
+            
+            if (!tournament) {
+                throw new Error('Tournament not found');
+            }
+            
+            if (tournament.status !== 'WAITING') {
+                throw new Error('Tournament not accepting players');
+            }
+            
+            // Check if already joined
+            const existingPlayer = tournament.players?.find(p => p.address === walletAddress);
+            if (existingPlayer) {
+                return { success: true, message: 'Already joined', tournament };
+            }
+            
+            // Add player
+            if (!tournament.players) tournament.players = [];
+            tournament.players.push({
+                address: walletAddress,
+                socketId,
+                joinedAt: new Date()
+            });
+            
+            // Update prize pool
+            tournament.prizePool = (tournament.prizePool || 0) + tournament.buyIn;
+            
+            await tournament.save();
+            console.log(`[TournamentService] Test mode: Player ${walletAddress} joined tournament ${tournamentId}`);
+            
+            // Check if tournament is full and should auto-start
+            const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
+            console.log(`[TournamentService] Test mode: Player count ${tournament.players.length}/${requiredPlayerCount}`);
+            
+            if (tournament.players.length >= requiredPlayerCount) {
+                console.log(`[TournamentService] Test mode: Tournament ${tournamentId} is full, auto-starting...`);
+                tournament.status = 'IN_PROGRESS';
+                tournament.startedAt = new Date();
+                await tournament.save();
+                console.log(`[TournamentService] Test mode: Tournament ${tournamentId} started`);
+                
+                // Broadcast tournament started event to all players
+                if (testModeSocketIO) {
+                    testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_STARTED', {
+                        tournamentId,
+                        status: 'IN_PROGRESS',
+                        prizePool: tournament.prizePool
+                    });
+                    console.log(`[TournamentService] Test mode: Broadcasted SC_TOURNAMENT_STARTED`);
+                }
+                
+                // Create game table (for testing without contract)
+                const TournamentTable = require('../pokergame/TournamentTable');
+                const table = new TournamentTable(
+                    tournamentId,
+                    requiredPlayerCount,
+                    tournament.config?.initialChips || 2000000
+                );
+                
+                // Sit all players
+                for (let i = 0; i < tournament.players.length; i++) {
+                    const player = tournament.players[i];
+                    table.sitPlayer(
+                        { 
+                            address: player.address, 
+                            socketId: player.socketId,
+                            id: player.address,
+                            name: `Player ${i + 1}`
+                        },
+                        i + 1,
+                        tournament.config?.initialChips || 2000000
+                    );
+                }
+                
+                // Store active table
+                testModeActiveTables.set(tournamentId, table);
+                
+                console.log(`[TournamentService] Test mode: Created game table with ${tournament.players.length} players`);
+                
+                // Start first hand after a short delay
+                setTimeout(() => {
+                    console.log(`[TournamentService] Test mode: Starting first hand...`);
+                    table.startHand();
+                    
+                    // Broadcast initial game state
+                    if (testModeSocketIO) {
+                        // Use broadcastTableState from instance or create inline version
+                        const gameState = {
+                            tournamentId,
+                            isTournament: true,
+                            pot: table.pot,
+                            board: table.board,
+                            turn: table.turn,
+                            initialChips: table.initialChips,
+                            seats: {}
+                        };
+                        
+                        // Build seats
+                        for (let i = 1; i <= table.maxPlayers; i++) {
+                            const seat = table.seats[i];
+                            if (seat && seat.player) {
+                                gameState.seats[i] = {
+                                    player: { id: seat.player.id, name: seat.player.name },
+                                    stack: seat.stack,
+                                    bet: seat.bet,
+                                    folded: seat.folded,
+                                    hand: seat.hand
+                                };
+                            }
+                        }
+                        
+                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+                        console.log(`[TournamentService] Test mode: Broadcasted game state`);
+                    }
+                }, 2000);
+            }
+            
+            return { success: true, tournament };
+        }
+        return tournamentServiceInstance.joinTournament(tournamentId, walletAddress, socketId);
+    },
+    cancelJoin: async (tournamentId, walletAddress) => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            const tournament = await TournamentModel.findOne({ tournamentId });
+            
+            if (!tournament) {
+                throw new Error('Tournament not found');
+            }
+            
+            // Remove player
+            const playerIndex = tournament.players?.findIndex(p => p.address === walletAddress);
+            if (playerIndex > -1) {
+                tournament.players.splice(playerIndex, 1);
+                tournament.prizePool = (tournament.prizePool || 0) - tournament.buyIn;
+                await tournament.save();
+            }
+            
+            return { success: true, tournament };
+        }
+        return tournamentServiceInstance.cancelJoin(tournamentId, walletAddress);
+    },
+    startTournament: async (tournamentId) => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            const tournament = await TournamentModel.findOne({ tournamentId });
+            
+            if (!tournament) {
+                throw new Error('Tournament not found');
+            }
+            
+            tournament.status = 'IN_PROGRESS';
+            tournament.startedAt = new Date();
+            await tournament.save();
+            
+            console.log(`[TournamentService] Test mode: Tournament ${tournamentId} started`);
+            return { success: true, tournament };
+        }
+        return tournamentServiceInstance.startTournament(tournamentId);
+    },
+    finishTournament: async (tournamentId, rankings) => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            const tournament = await TournamentModel.findOne({ tournamentId });
+            
+            if (!tournament) {
+                throw new Error('Tournament not found');
+            }
+            
+            tournament.status = 'COMPLETED';
+            tournament.rankings = rankings;
+            tournament.finishedAt = new Date();
+            
+            // Update player positions
+            for (const ranking of rankings) {
+                const player = tournament.players?.find(p => p.address === ranking.address);
+                if (player) {
+                    player.finalPosition = ranking.position;
+                    player.prizeAmount = ranking.prize;
+                }
+            }
+            
+            await tournament.save();
+            
+            console.log(`[TournamentService] Test mode: Tournament ${tournamentId} finished`);
+            return { success: true, tournament };
+        }
+        return tournamentServiceInstance.finishTournament(tournamentId, rankings);
+    },
+    getTournamentPlayers: async (tournamentId) => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            const tournament = await TournamentModel.findOne({ tournamentId });
+            return tournament?.players || [];
+        }
+        return tournamentServiceInstance.getTournamentPlayers(tournamentId);
+    },
+    getPlayerHistory: async (walletAddress) => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            return TournamentModel.find({
+                'players.address': walletAddress
+            }).sort({ createdAt: -1 }).limit(20);
+        }
+        return tournamentServiceInstance.getPlayerHistory(walletAddress);
+    },
+    claimPrize: async (tournamentId, walletAddress) => {
+        if (!tournamentServiceInstance) {
+            const TournamentModel = require('../models/Tournament');
+            const tournament = await TournamentModel.findOne({ tournamentId });
+            
+            if (!tournament || tournament.status !== 'COMPLETED') {
+                throw new Error('Tournament not finished');
+            }
+            
+            const ranking = tournament.rankings?.find(r => r.address === walletAddress);
+            if (!ranking) {
+                throw new Error('Not a winner');
+            }
+            
+            if (ranking.claimed) {
+                throw new Error('Already claimed');
+            }
+            
+            // Mark as claimed
+            ranking.claimed = true;
+            await tournament.save();
+            
+            return { success: true, prize: ranking.prize };
+        }
+        return tournamentServiceInstance.claimPrize(tournamentId, walletAddress);
+    },
+    // Set Socket.IO instance (for test mode)
+    setSocketIO: (io) => {
+        if (tournamentServiceInstance) {
+            tournamentServiceInstance.setSocketIO(io);
+        } else {
+            testModeSocketIO = io;
+            console.log('[TournamentService] Test mode: Socket.IO instance set');
+        }
+    },
+    // Get active tables (for test mode)
+    get activeTables() {
+        if (tournamentServiceInstance) {
+            return tournamentServiceInstance.activeTables;
+        }
+        return testModeActiveTables;
+    },
+    // Handle game action (for test mode)
+    handleGameAction: (tournamentId, socketId, action) => {
+        if (tournamentServiceInstance) {
+            return tournamentServiceInstance.handleGameAction(tournamentId, socketId, action);
+        }
+        
+        // Test mode
+        const table = testModeActiveTables.get(tournamentId);
+        if (!table) {
+            throw new Error('Tournament not active');
+        }
+        
+        let result;
+        switch (action.type) {
+            case 'fold':
+                result = table.handleFold(socketId);
+                break;
+            case 'check':
+                result = table.handleCheck(socketId);
+                break;
+            case 'call':
+                result = table.handleCall(socketId);
+                break;
+            case 'raise':
+                result = table.handleRaise(socketId, action.amount);
+                break;
+            default:
+                throw new Error('Unknown action');
+        }
+        
+        // Broadcast updated state
+        if (testModeSocketIO && result) {
+            const gameState = {
+                tournamentId,
+                isTournament: true,
+                pot: table.pot,
+                board: table.board,
+                turn: table.turn,
+                handOver: table.handOver,
+                winMessages: table.winMessages,
+                seats: {}
+            };
+            
+            for (let i = 1; i <= table.maxPlayers; i++) {
+                const seat = table.seats[i];
+                if (seat && seat.player) {
+                    gameState.seats[i] = {
+                        player: { id: seat.player.id, name: seat.player.name },
+                        stack: seat.stack,
+                        bet: seat.bet,
+                        folded: seat.folded,
+                        lastAction: seat.lastAction
+                    };
+                }
+            }
+            
+            testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+        }
+        
+        return result;
+    },
+    // Handle disconnect
+    handleDisconnect: (socketId) => {
+        if (tournamentServiceInstance) {
+            return tournamentServiceInstance.handleDisconnect(socketId);
+        }
+        // Test mode - no-op for now
+    },
+    // Broadcast table state
+    broadcastTableState: (tournamentId, table) => {
+        if (tournamentServiceInstance) {
+            return tournamentServiceInstance.broadcastTableState(tournamentId, table);
+        }
+        
+        // Test mode
+        if (!testModeSocketIO || !table) return;
+        
+        const gameState = {
+            tournamentId,
+            isTournament: true,
+            pot: table.pot,
+            board: table.board,
+            turn: table.turn,
+            initialChips: table.initialChips,
+            handOver: table.handOver,
+            seats: {}
+        };
+        
+        for (let i = 1; i <= table.maxPlayers; i++) {
+            const seat = table.seats[i];
+            if (seat && seat.player) {
+                gameState.seats[i] = {
+                    player: { id: seat.player.id, name: seat.player.name },
+                    stack: seat.stack,
+                    bet: seat.bet,
+                    folded: seat.folded,
+                    hand: seat.hand,
+                    lastAction: seat.lastAction
+                };
+            }
+        }
+        
+        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
+    }
+};

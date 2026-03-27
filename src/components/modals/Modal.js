@@ -64,19 +64,19 @@ const IconWrapper = styled.div`
   right: 1.5rem;
 `;
 
-const Modal = ({ children, headingText, btnText, onClose, onBtnClicked }) => {
+const Modal = ({ children, headingText, btnText, onClose, onBtnClicked, isLoading }) => {
   return ReactDOM.createPortal(
     <ModalWrapper
       id="wrapper"
       onClick={(e) => {
-        if (e.target.id === 'wrapper') {
+        if (e.target.id === 'wrapper' && !isLoading) {
           onClose();
         }
       }}
     >
       <StyledModal>
         <IconWrapper>
-          <CloseButton clickHandler={onClose} />
+          <CloseButton clickHandler={onClose} disabled={isLoading} />
         </IconWrapper>
         <ModalContent>
           <HeadingWithLogo textCentered hideIconOnMobile={false}>
@@ -92,7 +92,7 @@ const Modal = ({ children, headingText, btnText, onClose, onBtnClicked }) => {
               rem sunt incidunt inventore esse. Modi.
             </Text>
           )}
-          <Button primary onClick={onBtnClicked}>
+          <Button primary onClick={onBtnClicked} disabled={isLoading}>
             {btnText}
           </Button>
         </ModalContent>
@@ -107,11 +107,13 @@ Modal.propTypes = {
   btnText: PropTypes.string,
   onClose: PropTypes.func.isRequired,
   onBtnClicked: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool,
 };
 
 Modal.defaultProps = {
   headingText: 'Modal',
   btnText: 'Call to Action',
+  isLoading: false,
 };
 
 const initialModalData = {

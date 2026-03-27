@@ -37,7 +37,7 @@ describe('DAOService', function () {
         };
 
         DAOService = require('../../server/services/DAOService');
-        daoService = new DAOService({
+        daoService = new DAOService.DAOService({
             tronWeb: mockTronWeb,
             governanceAddress: 'TGOVERNANCE',
             chipTokenAddress: 'TCHIP'

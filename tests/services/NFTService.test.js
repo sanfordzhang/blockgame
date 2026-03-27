@@ -38,7 +38,7 @@ describe('NFTService', function () {
 
         // Create service instance
         NFTService = require('../../server/services/NFTService');
-        nftService = new NFTService({
+        nftService = new NFTService.NFTService({
             tronWeb: mockTronWeb,
             nftContractAddress: 'TNFT'
         });

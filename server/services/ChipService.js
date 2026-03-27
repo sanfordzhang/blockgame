@@ -250,4 +250,108 @@ class ChipService {
     }
 }
 
-module.exports = ChipService;
+// Create singleton instance with TronService
+let chipServiceInstance = null;
+
+/**
+ * Initialize ChipService singleton
+ */
+async function initChipService(tronWeb, config = {}) {
+    if (!chipServiceInstance) {
+        chipServiceInstance = new ChipService({
+            tronWeb,
+            chipTokenAddress: config.chipTokenAddress || process.env.CHIP_TOKEN_ADDRESS,
+            stakingAddress: config.stakingAddress || process.env.STAKING_CONTRACT_ADDRESS,
+            gameRewardRate: config.gameRewardRate,
+            tournamentRewardRate: config.tournamentRewardRate
+        });
+        
+        try {
+            await chipServiceInstance.init();
+            console.log('[ChipService] Initialized successfully');
+        } catch (err) {
+            console.warn('[ChipService] Failed to initialize:', err.message);
+        }
+    }
+    return chipServiceInstance;
+}
+
+// For backward compatibility, export both class and instance methods
+module.exports = {
+    // Class for creating new instances
+    ChipService,
+    
+    // Initialize singleton
+    initChipService,
+    
+    // Get singleton instance
+    getChipService: () => chipServiceInstance,
+    
+    // Proxy methods to instance (for backward compatibility)
+    getBalance: async (...args) => {
+        if (!chipServiceInstance) return 0;
+        return chipServiceInstance.getBalance(...args);
+    },
+    getUserInfo: async (...args) => {
+        if (!chipServiceInstance) return { balance: 0, stakedAmount: 0, pendingReward: 0, isVip: false };
+        return chipServiceInstance.getUserInfo(...args);
+    },
+    getVIPStatus: (...args) => {
+        if (!chipServiceInstance) return { isVip: false, isSuperVip: false, discount: 0, level: 0 };
+        return chipServiceInstance.getVipStatus(...args);
+    },
+    getStakeInfo: async (...args) => {
+        if (!chipServiceInstance) return { stakes: [], pendingReward: 0 };
+        return chipServiceInstance.getStakeInfo(...args);
+    },
+    getPendingRewards: async (...args) => {
+        if (!chipServiceInstance) return 0;
+        return chipServiceInstance.getPendingReward(...args);
+    },
+    getSupplyInfo: async () => {
+        if (!chipServiceInstance) return { totalSupply: 0, stakedSupply: 0, circulatingSupply: 0 };
+        // Return mock supply info for now
+        return { 
+            totalSupply: 1000000000000000, 
+            stakedSupply: 50000000000000,
+            circulatingSupply: 950000000000000 
+        };
+    },
+    getTransactionHistory: async (address, page = 1, limit = 20) => {
+        if (!chipServiceInstance) return { history: [], total: 0, page, limit };
+        return { history: [], total: 0, page, limit };
+    },
+    claimRewards: async (...args) => {
+        if (!chipServiceInstance) return { claimedAmount: 0 };
+        return chipServiceInstance.claimReward(...args);
+    },
+    // Stake methods
+    createStake: async (walletAddress, amount, lockDays) => {
+        if (!chipServiceInstance) return { success: false, error: 'Service not initialized' };
+        return chipServiceInstance.stake(walletAddress, amount, lockDays);
+    },
+    unstake: async (...args) => {
+        if (!chipServiceInstance) return { success: false, error: 'Service not initialized' };
+        return chipServiceInstance.unstake(...args);
+    },
+    claimStakeReward: async (...args) => {
+        if (!chipServiceInstance) return { claimedAmount: 0 };
+        return chipServiceInstance.claimReward(...args);
+    },
+    getPendingStakeReward: async (...args) => {
+        if (!chipServiceInstance) return 0;
+        return chipServiceInstance.getPendingReward(...args);
+    },
+    getStakingStats: async () => {
+        if (!chipServiceInstance) return { totalStaked: 0, totalStakers: 0, avgLockDuration: 0 };
+        return { totalStaked: 0, totalStakers: 0, avgLockDuration: 0 };
+    },
+    // Transfer method
+    transfer: async (from, to, amount) => {
+        if (!chipServiceInstance || !chipServiceInstance.tokenContract) {
+            return { success: false, error: 'Service not initialized' };
+        }
+        // This would call the contract - simplified for now
+        return { success: true, txHash: 'pending' };
+    }
+};

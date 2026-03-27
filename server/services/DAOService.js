@@ -318,4 +318,87 @@ class DAOService {
     }
 }
 
-module.exports = DAOService;
+// Singleton instance
+let daoServiceInstance = null;
+
+function initDAOService(config) {
+    if (!daoServiceInstance) {
+        daoServiceInstance = new DAOService(config);
+    }
+    return daoServiceInstance;
+}
+
+// Export with proxy methods
+module.exports = {
+    DAOService,
+    initDAOService,
+    getDAOService: () => daoServiceInstance,
+    
+    // Proxy methods
+    getProposals: async (filter = {}) => {
+        if (!daoServiceInstance) return [];
+        return daoServiceInstance.getActiveProposals();
+    },
+    getProposal: async (id) => {
+        if (!daoServiceInstance) return null;
+        return daoServiceInstance.getProposal(id);
+    },
+    getProposalById: async (id) => {
+        if (!daoServiceInstance) return null;
+        return daoServiceInstance.getProposal(id);
+    },
+    getActiveProposals: async () => {
+        if (!daoServiceInstance) return [];
+        return daoServiceInstance.getActiveProposals();
+    },
+    getProposalsByProposer: async (address) => {
+        if (!daoServiceInstance) return [];
+        return daoServiceInstance.getProposalsByProposer(address);
+    },
+    createProposal: async (address, data) => {
+        if (!daoServiceInstance) throw new Error('Service not initialized');
+        return daoServiceInstance.createProposal({ proposerAddress: address, ...data });
+    },
+    createRakeRateProposal: async (address, newRakeRate, description) => {
+        if (!daoServiceInstance) throw new Error('Service not initialized');
+        return daoServiceInstance.createRakeRateProposal(address, newRakeRate, description);
+    },
+    castVote: async (voterAddress, proposalId, support, reason) => {
+        if (!daoServiceInstance) throw new Error('Service not initialized');
+        return daoServiceInstance.castVote(proposalId, voterAddress, support, reason);
+    },
+    hasVoted: async (proposalId, voterAddress) => {
+        if (!daoServiceInstance) return false;
+        return daoServiceInstance.hasVoted(proposalId, voterAddress);
+    },
+    getVoteStats: async (proposalId) => {
+        if (!daoServiceInstance) return { for: 0, against: 0, abstain: 0 };
+        return daoServiceInstance.getVoteStats(proposalId);
+    },
+    executeProposal: async (proposalId) => {
+        if (!daoServiceInstance) throw new Error('Service not initialized');
+        return daoServiceInstance.executeProposal(proposalId);
+    },
+    getProposalThreshold: async () => {
+        if (!daoServiceInstance) return 1000000;
+        return daoServiceInstance.getProposalThreshold();
+    },
+    getVotingPeriod: async () => {
+        if (!daoServiceInstance) return 86400;
+        return daoServiceInstance.getVotingPeriod();
+    },
+    getUserVotes: async (walletAddress) => {
+        if (!daoServiceInstance) return [];
+        // Get votes from Vote model directly
+        const Vote = require('../models/Vote');
+        return Vote.find({ voterAddress }).sort({ createdAt: -1 }).limit(50);
+    },
+    getVotingPower: async (walletAddress) => {
+        if (!daoServiceInstance) return 0;
+        return daoServiceInstance.getChipBalance(walletAddress);
+    },
+    getQuorum: async () => {
+        if (!daoServiceInstance) return 10000000;
+        return 10000000; // Default quorum
+    }
+};

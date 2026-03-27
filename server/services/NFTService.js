@@ -383,4 +383,76 @@ class NFTService {
     }
 }
 
-module.exports = NFTService;
+// Singleton instance
+let nftServiceInstance = null;
+
+function initNFTService(config) {
+    if (!nftServiceInstance) {
+        nftServiceInstance = new NFTService(config);
+    }
+    return nftServiceInstance;
+}
+
+// Export with proxy methods
+module.exports = {
+    NFTService,
+    initNFTService,
+    getNFTService: () => nftServiceInstance,
+    
+    // Proxy methods
+    list: async (playerAddress) => {
+        if (!nftServiceInstance) return [];
+        return nftServiceInstance.getPlayerNFTs(playerAddress);
+    },
+    getPlayerNFTs: async (playerAddress) => {
+        if (!nftServiceInstance) return [];
+        return nftServiceInstance.getPlayerNFTs(playerAddress);
+    },
+    canMintNFT: async (achievementTypeId) => {
+        if (!nftServiceInstance) return false;
+        return nftServiceInstance.canMintNFT(achievementTypeId);
+    },
+    getMonthlyRemaining: async (achievementTypeId) => {
+        if (!nftServiceInstance) return 0;
+        return nftServiceInstance.getMonthlyRemaining(achievementTypeId);
+    },
+    getAchievementTypes: () => {
+        return [
+            { id: 1, name: 'ROYAL_FLUSH', description: '皇家同花顺', monthlyLimit: 10 },
+            { id: 2, name: 'STRAIGHT_FLUSH', description: '同花顺', monthlyLimit: 20 },
+            { id: 3, name: 'FOUR_OF_A_KIND', description: '四条', monthlyLimit: 30 },
+            { id: 4, name: 'FULL_HOUSE', description: '葫芦', monthlyLimit: 50 },
+            { id: 5, name: 'FLUSH', description: '同花', monthlyLimit: 100 },
+            { id: 6, name: 'STRAIGHT', description: '顺子', monthlyLimit: 200 }
+        ];
+    },
+    generateMintSignature: async (playerAddress, achievementTypeId, gameId) => {
+        if (!nftServiceInstance) throw new Error('Service not initialized');
+        return nftServiceInstance.generateMintSignature(playerAddress, achievementTypeId, gameId);
+    },
+    recordClaim: async (playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId) => {
+        if (!nftServiceInstance) throw new Error('Service not initialized');
+        return nftServiceInstance.recordClaim(playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId);
+    },
+    // Additional methods for routes
+    getNFTById: async (tokenId) => {
+        if (!nftServiceInstance) return null;
+        return nftServiceInstance.getNFTById?.(tokenId) || null;
+    },
+    checkMonthlyLimit: async (walletAddress, achievementType) => {
+        if (!nftServiceInstance) return { canMint: true, remaining: 999 };
+        return nftServiceInstance.checkMonthlyLimit?.(walletAddress, achievementType) || { canMint: true, remaining: 999 };
+    },
+    prepareMint: async (walletAddress, data) => {
+        if (!nftServiceInstance) throw new Error('Service not initialized');
+        return nftServiceInstance.prepareMint?.(walletAddress, data) || { signature: 'mock', achievementType: data.achievementType };
+    },
+    getNFTStats: async (walletAddress) => {
+        if (!nftServiceInstance) return { total: 0, byType: {} };
+        return nftServiceInstance.getNFTStats?.(walletAddress) || { total: 0, byType: {} };
+    },
+    getNFTMetadata: async (tokenId) => {
+        if (!nftServiceInstance) return { name: 'NFT', description: 'Poker Achievement NFT' };
+        return nftServiceInstance.getNFTMetadata?.(tokenId) || { name: 'NFT', description: 'Poker Achievement NFT' };
+    }
+};

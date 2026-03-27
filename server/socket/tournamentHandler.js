@@ -54,6 +54,8 @@ const playerTournamentMap = new Map(); // socketId -> tournamentId
  * @param {Server} io - Socket.io server
  */
 function initTournamentHandlers(socket, io) {
+    // Set Socket.IO instance on TournamentService (for test mode)
+    TournamentService.setSocketIO(io);
     // ============ Tournament Events ============
     
     socket.on(CS_TOURNAMENT_LIST, async ({ status, type }) => {
@@ -272,6 +274,15 @@ function initTournamentHandlers(socket, io) {
                 playerAddress: walletAddress,
                 playerCount: tournamentRooms.get(tournamentId).size
             });
+            
+            // If tournament is in progress, send current game state
+            if (tournament && tournament.status === 'IN_PROGRESS') {
+                const table = TournamentService.activeTables?.get(tournamentId);
+                if (table) {
+                    console.log(`[TournamentHandler] Sending current game state to ${walletAddress}`);
+                    TournamentService.broadcastTableState?.(tournamentId, table);
+                }
+            }
             
         } catch (error) {
             console.error('[TournamentHandler] Room join error:', error.message);
