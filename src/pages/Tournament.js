@@ -114,6 +114,37 @@ const CreateSection = styled.div`
   text-align: center;
 `;
 
+const MockSection = styled.div`
+  background: rgba(147, 51, 234, 0.1);
+  border: 1px solid rgba(147, 51, 234, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+`;
+
+const MockCheckbox = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+`;
+
+const MockInfo = styled.span`
+  color: #9333ea;
+  font-weight: 500;
+`;
+
 const CreateButtons = styled.div`
   display: flex;
   gap: 0.5rem;
@@ -194,6 +225,10 @@ const Tournament = () => {
   const [configs, setConfigs] = useState([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+  const [mockGame, setMockGame] = useState(() => {
+    // 从 localStorage 恢复 mock 状态
+    return localStorage.getItem('mockGame') === 'true';
+  });
 
   // 同步 TronContext 地址到 globalContext
   useEffect(() => {
@@ -266,7 +301,11 @@ const Tournament = () => {
       const response = await fetch(getApiUrl('/api/tournament/create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ configId, walletAddress })
+        body: JSON.stringify({ 
+          configId, 
+          walletAddress,
+          mockGame: mockGame  // 传递 mock 状态
+        })
       });
       const data = await response.json();
       if (data.success) {
@@ -429,6 +468,27 @@ const Tournament = () => {
       <InfoBanner>
         <Text>💡 点击状态为 <strong>WAITING</strong> 的锦标赛卡片即可报名参赛</Text>
       </InfoBanner>
+      
+      {/* Mock 游戏开关 */}
+      <MockSection data-testid="mock-game-section">
+        <MockCheckbox>
+          <input
+            type="checkbox"
+            checked={mockGame}
+            onChange={(e) => {
+              const newValue = e.target.checked;
+              setMockGame(newValue);
+              localStorage.setItem('mockGame', newValue);
+              console.log('[Mock Game] Set to:', newValue);
+            }}
+            data-testid="mock-game-checkbox"
+          />
+          <MockInfo>🎮 Mock 游戏模式</MockInfo>
+        </MockCheckbox>
+        <Text size="0.8rem" color="textSecondary">
+          {mockGame ? '开启 - 玩家1将获得顺子牌型' : '关闭 - 正常游戏模式'}
+        </Text>
+      </MockSection>
       
       {/* 测试：创建锦标赛按钮 - 始终显示 */}
       <CreateSection data-testid="create-tournament-section">

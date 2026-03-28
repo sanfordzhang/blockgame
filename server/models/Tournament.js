@@ -124,7 +124,10 @@ const tournamentSchema = new mongoose.Schema({
     cancelReason: { type: String, default: null },
     
     // Statistics
-    totalHands: { type: Number, default: 0 }
+    totalHands: { type: Number, default: 0 },
+    
+    // Mock game mode (for testing NFT achievements)
+    mockGame: { type: Boolean, default: false }
 }, {
     timestamps: true
 });

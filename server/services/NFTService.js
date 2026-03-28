@@ -176,11 +176,19 @@ class NFTService {
      * Parse a card string
      */
     _parseCard(cardStr) {
-        const rank = cardStr.slice(0, -1);
-        const suit = cardStr.slice(-1).toLowerCase();
+        // 支持对象格式 {rank: 'A', suit: 'h'} 或字符串格式 'Ah'
+        let rank, suit;
+        
+        if (typeof cardStr === 'object' && cardStr !== null) {
+            rank = cardStr.rank;
+            suit = (cardStr.suit || '').toLowerCase();
+        } else {
+            rank = cardStr.slice(0, -1);
+            suit = cardStr.slice(-1).toLowerCase();
+        }
         
         const rankMap = {
-            'A': 14, 'K': 13, 'Q': 12, 'J': 11, 'T': 10,
+            'A': 14, 'K': 13, 'Q': 12, 'J': 11, 'T': 10, '10': 10,
             '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2
         };
         
@@ -399,21 +407,25 @@ module.exports = {
     initNFTService,
     getNFTService: () => nftServiceInstance,
     
-    // Proxy methods
+    // Proxy methods - 直接使用数据库模型，不依赖实例初始化
     list: async (playerAddress) => {
-        if (!nftServiceInstance) return [];
-        return nftServiceInstance.getPlayerNFTs(playerAddress);
+        return NFTClaim.findByPlayer(playerAddress);
     },
     getPlayerNFTs: async (playerAddress) => {
-        if (!nftServiceInstance) return [];
-        return nftServiceInstance.getPlayerNFTs(playerAddress);
+        return NFTClaim.findByPlayer(playerAddress);
     },
     canMintNFT: async (achievementTypeId) => {
-        if (!nftServiceInstance) return false;
+        if (!nftServiceInstance) return true;
         return nftServiceInstance.canMintNFT(achievementTypeId);
     },
     getMonthlyRemaining: async (achievementTypeId) => {
-        if (!nftServiceInstance) return 0;
+        if (!nftServiceInstance) {
+            // 从数据库计算
+            const yearMonth = NFTClaim.getYearMonth();
+            const minted = await NFTClaim.getMonthlyMinted(yearMonth, achievementTypeId);
+            const limits = { 1: 10, 2: 20, 3: 30, 4: 50, 5: 100, 6: 200 };
+            return (limits[achievementTypeId] || 200) - minted;
+        }
         return nftServiceInstance.getMonthlyRemaining(achievementTypeId);
     },
     getAchievementTypes: () => {
@@ -430,29 +442,80 @@ module.exports = {
         if (!nftServiceInstance) throw new Error('Service not initialized');
         return nftServiceInstance.generateMintSignature(playerAddress, achievementTypeId, gameId);
     },
-    recordClaim: async (playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId) => {
-        if (!nftServiceInstance) throw new Error('Service not initialized');
-        return nftServiceInstance.recordClaim(playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId);
+    recordClaim: async (playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId, cards) => {
+        const claim = new NFTClaim({
+            playerAddress,
+            achievementTypeId,
+            achievementType: ['ROYAL_FLUSH', 'STRAIGHT_FLUSH', 'FOUR_OF_A_KIND', 'FULL_HOUSE', 'FLUSH', 'STRAIGHT'][achievementTypeId - 1],
+            tokenId,
+            txHash,
+            handDescription,
+            gameId,
+            cards: cards || [],
+            yearMonth: NFTClaim.getYearMonth()
+        });
+        await claim.save();
+        return claim;
     },
     // Additional methods for routes
     getNFTById: async (tokenId) => {
-        if (!nftServiceInstance) return null;
-        return nftServiceInstance.getNFTById?.(tokenId) || null;
+        return NFTClaim.findOne({ tokenId: parseInt(tokenId) });
     },
     checkMonthlyLimit: async (walletAddress, achievementType) => {
-        if (!nftServiceInstance) return { canMint: true, remaining: 999 };
-        return nftServiceInstance.checkMonthlyLimit?.(walletAddress, achievementType) || { canMint: true, remaining: 999 };
+        const yearMonth = NFTClaim.getYearMonth();
+        const minted = await NFTClaim.getMonthlyMinted(yearMonth, achievementType);
+        const limits = { 1: 10, 2: 20, 3: 30, 4: 50, 5: 100, 6: 200 };
+        return { 
+            canMint: minted < (limits[achievementType] || 200), 
+            remaining: (limits[achievementType] || 200) - minted 
+        };
     },
     prepareMint: async (walletAddress, data) => {
-        if (!nftServiceInstance) throw new Error('Service not initialized');
-        return nftServiceInstance.prepareMint?.(walletAddress, data) || { signature: 'mock', achievementType: data.achievementType };
+        if (!nftServiceInstance) {
+            // 返回模拟签名用于测试
+            const timestamp = Math.floor(Date.now() / 1000);
+            return {
+                signature: {
+                    player: walletAddress,
+                    achievementTypeId: data.achievementType,
+                    timestamp,
+                    gameId: data.gameSessionId || `game-${Date.now()}`,
+                    mockMode: true
+                }
+            };
+        }
+        return nftServiceInstance.prepareMint?.(walletAddress, data) || { signature: 'mock' };
     },
     getNFTStats: async (walletAddress) => {
-        if (!nftServiceInstance) return { total: 0, byType: {} };
-        return nftServiceInstance.getNFTStats?.(walletAddress) || { total: 0, byType: {} };
+        const nfts = await NFTClaim.findByPlayer(walletAddress);
+        const byType = {};
+        nfts.forEach(nft => {
+            byType[nft.achievementType] = (byType[nft.achievementType] || 0) + 1;
+        });
+        return { total: nfts.length, byType };
     },
     getNFTMetadata: async (tokenId) => {
-        if (!nftServiceInstance) return { name: 'NFT', description: 'Poker Achievement NFT' };
-        return nftServiceInstance.getNFTMetadata?.(tokenId) || { name: 'NFT', description: 'Poker Achievement NFT' };
+        const nft = await NFTClaim.findOne({ tokenId: parseInt(tokenId) });
+        if (!nft) return { name: 'NFT', description: 'Poker Achievement NFT' };
+        return {
+            name: `${nft.achievementType} #${nft.tokenId}`,
+            description: nft.handDescription,
+            attributes: [
+                { trait_type: 'Achievement', value: nft.achievementType },
+                { trait_type: 'Rarity', value: nft.rarity },
+                { trait_type: 'Game ID', value: nft.gameId }
+            ]
+        };
+    },
+    // Check achievement from hand cards - static method for game flow
+    checkAchievement: (holeCards, board) => {
+        // Create a temporary instance to use the method
+        const tempInstance = new NFTService({
+            tronWeb: null,
+            contractAddress: null,
+            signerPrivateKey: null,
+            signerAddress: null
+        });
+        return tempInstance.checkAchievement(holeCards, board);
     }
 };

@@ -1297,6 +1297,53 @@ const init = (socket, io) => {
       broadcastToTable(table);
     }
 
+    // ============ NFT Achievement Detection ============
+    // Auto-detect NFT achievements at showdown
+    if (table.wentToShowdown) {
+      console.log('[Socket] Checking NFT achievements at showdown...');
+      const NFTService = require('../services/NFTService');
+      
+      for (const seatId of Object.keys(table.seats)) {
+        const seat = table.seats[seatId];
+        if (seat && seat.player && seat.hand && !seat.folded) {
+          try {
+            // Check if player's hand qualifies for NFT achievement
+            const achievement = NFTService.checkAchievement(seat.hand, table.board);
+            
+            if (achievement && achievement.type) {
+              console.log(`[Socket] 🎉 NFT Achievement detected for ${seat.player.name}: ${achievement.type}`);
+              
+              // Find player's socket
+              const playerEntry = Object.entries(players).find(
+                ([_, p]) => p.id === seat.player.id
+              );
+              
+              if (playerEntry) {
+                const [socketId] = playerEntry;
+                const gameId = table.tournamentId ? `tournament-${table.tournamentId}` : `table-${table.id}`;
+                
+                // Send achievement notification to player
+                io.to(socketId).emit(SC_NFT_ACHIEVEMENT_EARNED, {
+                  achievementType: achievement.type,
+                  handType: achievement.name,
+                  cards: achievement.cards,
+                  description: achievement.description,
+                  typeId: achievement.typeId,
+                  gameId,
+                  hand: seat.hand,
+                  board: table.board
+                });
+                
+                console.log(`[Socket] Sent SC_NFT_ACHIEVEMENT_EARNED to ${seat.player.name}`);
+              }
+            }
+          } catch (error) {
+            console.error(`[Socket] NFT check error for ${seat.player.name}:`, error.message);
+          }
+        }
+      }
+    }
+
     // Clear stack tracking for next hand
     stackBeforeHand.clear();
 

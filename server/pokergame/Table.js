@@ -15,6 +15,7 @@ class Table {
     this.seats = this.initSeats(maxPlayers);
     this.board = [];
     this.deck = null;
+    this.mockDeck = null; // For testing: mock specific card deals
     this.button = null;
     this.turn = null;
     this.pot = 0;
@@ -29,6 +30,11 @@ class Table {
     this.wentToShowdown = false;
     this.sidePots = [];
     this.history = [];
+  }
+  
+  // Set mock deck for testing specific hands
+  setMockDeck(cards) {
+    this.mockDeck = cards;
   }
 
   initSeats(maxPlayers) {
@@ -147,7 +153,17 @@ class Table {
     return current;
   }
   startHand() {
-    this.deck = new Deck();
+    // Use mock deck if set, otherwise create new deck
+    if (this.mockDeck && Array.isArray(this.mockDeck)) {
+      this.deck = {
+        cards: [...this.mockDeck],
+        count: () => this.deck.cards.length,
+        draw: () => this.deck.cards.shift()
+      };
+      console.log('[Table] Using MOCK deck with', this.mockDeck.length, 'cards');
+    } else {
+      this.deck = new Deck();
+    }
     this.wentToShowdown = false;
     this.resetBoardAndPot();
     this.clearSeatHands();

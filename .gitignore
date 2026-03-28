@@ -24,3 +24,5 @@ yarn-error.log*
 ***REMOVED***
 .env.testnet
 /tests/e2e/screenshots
+/test-resultsOLD
+/test-results

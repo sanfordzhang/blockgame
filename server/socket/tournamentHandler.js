@@ -71,8 +71,15 @@ function initTournamentHandlers(socket, io) {
     
     socket.on(CS_TOURNAMENT_JOIN, async ({ tournamentId, walletAddress }) => {
         try {
+            // 存储钱包地址映射，用于后续游戏操作
+            socketWalletMap.set(socket.id, walletAddress);
+            console.log(`[TournamentHandler] Player ${walletAddress?.substring(0, 10)}... joining tournament ${tournamentId}, socketId=${socket.id}`);
+            
             const result = await TournamentService.joinTournament(tournamentId, walletAddress);
             socket.emit(SC_TOURNAMENT_JOINED, { tournamentId, ...result });
+            
+            // 存储玩家-锦标赛映射
+            playerTournamentMap.set(socket.id, tournamentId);
             
             // Broadcast to other players
             socket.broadcast.emit('SC_TOURNAMENT_PLAYER_JOINED', {

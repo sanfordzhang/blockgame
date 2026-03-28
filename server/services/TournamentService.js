@@ -43,11 +43,22 @@ class TournamentService {
     
     /**
      * Create a new tournament
-     * @param {number} configId - Configuration ID
-     * @param {string} creatorAddress - Creator wallet address (for test mode)
+     * @param {Object|number} configOrId - Configuration object or ID
+     * @param {string} creatorAddress - Creator wallet address (for test mode, deprecated)
      * @returns {Promise<Object>} - Created tournament
      */
-    async createTournament(configId, creatorAddress = null) {
+    async createTournament(configOrId, creatorAddress = null) {
+        // 支持对象参数或数字ID
+        let configId, mockGame;
+        if (typeof configOrId === 'object') {
+            configId = configOrId.configId;
+            creatorAddress = configOrId.creatorAddress || creatorAddress;
+            mockGame = configOrId.mockGame || false;
+        } else {
+            configId = configOrId;
+            mockGame = false;
+        }
+        
         // Default configs for test mode
         const DEFAULT_CONFIGS = {
             1: { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] },
@@ -74,7 +85,7 @@ class TournamentService {
         // Fallback to test mode
         if (!tournamentId) {
             tournamentId = Date.now().toString();
-            console.log(`[TournamentService] Creating test tournament ${tournamentId}`);
+            console.log(`[TournamentService] Creating test tournament ${tournamentId}, mockGame=${mockGame}`);
         }
         
         // Get config from defaults or contract
@@ -88,6 +99,7 @@ class TournamentService {
             status: 'WAITING',
             players: [],
             txHash,
+            mockGame,  // 添加 mockGame 字段
             config: {
                 playerCount: defaultConfig.playerCount,
                 buyIn: defaultConfig.buyIn,
@@ -106,7 +118,7 @@ class TournamentService {
         
         await tournament.save();
         
-        console.log(`[TournamentService] Created tournament ${tournamentId}`);
+        console.log(`[TournamentService] Created tournament ${tournamentId}, mockGame=${mockGame}`);
         
         return tournament;
     }
@@ -353,7 +365,9 @@ class TournamentService {
         const table = new TournamentTable(
             tournamentId,
             config.playerCount,
-            config.initialChips
+            config.initialChips,
+            null,  // blindConfig
+            tournament.mockGame || false  // mockGame
         );
         
         // Set callbacks
@@ -925,7 +939,9 @@ module.exports = {
                 const table = new TournamentTable(
                     tournamentId,
                     requiredPlayerCount,
-                    tournament.config?.initialChips || 2000000
+                    tournament.config?.initialChips || 2000000,
+                    null,  // blindConfig
+                    tournament.mockGame || false  // mockGame
                 );
                 
                 // Set callback for tournament end (sync wrapper for async handler)

@@ -94,9 +94,14 @@ router.get('/:tournamentId', async (req, res) => {
  */
 router.post('/create', optionalAuth, async (req, res) => {
     try {
-        const { configId, walletAddress } = req.body;
+        const { configId, walletAddress, mockGame } = req.body;
         const creatorAddress = req.user?.walletAddress || walletAddress || 'test-mode';
-        const tournament = await TournamentService.createTournament({ configId, creatorAddress });
+        const tournament = await TournamentService.createTournament({ 
+            configId, 
+            creatorAddress,
+            mockGame: mockGame || false
+        });
+        console.log(`[Tournament API] Created tournament ${tournament.tournamentId}, mockGame=${mockGame}`);
         res.json({ success: true, tournament });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });

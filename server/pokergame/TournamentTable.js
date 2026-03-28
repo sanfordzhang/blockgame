@@ -9,12 +9,87 @@
 
 const Table = require('./Table');
 
+/**
+ * Generate a mock deck that gives player 1 a straight
+ * @param {number} playerCount - Number of players
+ * @returns {Array} - Array of card objects
+ */
+function generateStraightMockDeck(playerCount) {
+    // 顺子牌型：玩家1获得 5-6，公共牌 7-8-9-2-3
+    // 这样玩家1有 5-6-7-8-9 顺子
+    
+    const suits = ['h', 'd', 'c', 's']; // hearts, diamonds, clubs, spades
+    
+    // 玩家1的手牌: 5h, 6h (红桃顺子起始)
+    const player1Hand = [
+        { rank: '5', suit: 'h' },
+        { rank: '6', suit: 'h' }
+    ];
+    
+    // 公共牌: 7h, 8h, 9d (flop), 2c (turn), 3s (river)
+    // 这样玩家1有 5-6-7-8-9 顺子（红桃5-8 + 方块9）
+    const board = [
+        { rank: '7', suit: 'h' },
+        { rank: '8', suit: 'h' },
+        { rank: '9', suit: 'd' },
+        { rank: '2', suit: 'c' },
+        { rank: '3', suit: 's' }
+    ];
+    
+    // 玩家2的手牌: 随机不形成顺子的牌
+    const player2Hand = [
+        { rank: 'K', suit: 'c' },
+        { rank: 'Q', suit: 'd' }
+    ];
+    
+    // 构建完整的 mock deck
+    // 发牌顺序: 玩家1卡1, 玩家2卡1, 玩家1卡2, 玩家2卡2, [burn], flop3张, [burn], turn, [burn], river
+    const mockDeck = [];
+    
+    // Pre-flop: 按座位顺序发牌
+    // 玩家1第一张, 玩家2第一张, 玩家1第二张, 玩家2第二张
+    mockDeck.push(player1Hand[0]);
+    mockDeck.push(player2Hand[0]);
+    mockDeck.push(player1Hand[1]);
+    mockDeck.push(player2Hand[1]);
+    
+    // Flop (3张)
+    mockDeck.push(...board.slice(0, 3));
+    
+    // Turn (1张)
+    mockDeck.push(board[3]);
+    
+    // River (1张)
+    mockDeck.push(board[4]);
+    
+    // 剩余的牌（用于其他情况）
+    const usedRanks = new Set(['5', '6', '7', '8', '9', '2', '3', 'K', 'Q']);
+    const allRanks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    
+    for (const rank of allRanks) {
+        for (const suit of suits) {
+            const cardStr = `${rank}${suit}`;
+            const isUsed = mockDeck.some(c => c.rank === rank && c.suit === suit);
+            if (!isUsed) {
+                mockDeck.push({ rank, suit });
+            }
+        }
+    }
+    
+    console.log('[MockDeck] Generated straight mock deck for', playerCount, 'players');
+    console.log('[MockDeck] Player 1 will get:', player1Hand.map(c => c.rank + c.suit).join(' '));
+    console.log('[MockDeck] Board will be:', board.map(c => c.rank + c.suit).join(' '));
+    
+    return mockDeck;
+}
+
 class TournamentTable extends Table {
-    constructor(tournamentId, maxPlayers, initialChips, blindConfig = null) {
+    constructor(tournamentId, maxPlayers, initialChips, blindConfig = null, mockGame = false) {
         super(tournamentId, `Tournament-${tournamentId}`, initialChips * 100, maxPlayers);
         
         this.tournamentId = tournamentId;
         this.initialChips = initialChips;
+        this.mockGame = mockGame;  // Mock 游戏模式
         
         // Override minBet for tournament (based on initial chips, not limit)
         // Default: 1/40 of initial chips = small blind
@@ -239,6 +314,14 @@ class TournamentTable extends Table {
         
         // Clear win messages from previous hand
         this.clearWinMessages();
+        
+        // Set mock deck for mock game mode (only on first hand)
+        if (this.mockGame && this.handsPlayed === 0) {
+            const playerCount = this.getRemainingPlayers().length;
+            const mockDeck = generateStraightMockDeck(playerCount);
+            this.setMockDeck(mockDeck);
+            console.log('[TournamentTable] Mock game mode: Setting straight deck for player 1');
+        }
         
         // Start new hand
         this.startHand();
