@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/TRC721/TRC721.sol";
-import "@openzeppelin/contracts/token/TRC721/extensions/TRC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title AchievementNFT
  * @dev NFT Achievement system for Texas Hold'em Poker
  * Players earn NFTs by achieving specific hand types
  */
-contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
-    using Counters for Counters.Counter;
+contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, Pausable {
     using ECDSA for bytes32;
     
     // ============ Enums ============
@@ -48,8 +48,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
     
     // ============ State Variables ============
     
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIdCounter;
+    uint256 private _tokenIdCounter;
     
     address public signer;
     string public baseURI;
@@ -82,7 +81,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
     // ============ Constructor ============
     
     constructor(address _signer, string memory _baseURI) 
-        TRC721("Poker Achievement NFT", "PA NFT") 
+        ERC721("Poker Achievement NFT", "PA NFT") 
         Ownable(msg.sender)
     {
         require(_signer != address(0), "AchievementNFT: invalid signer");
@@ -175,7 +174,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
         bytes32 r,
         bytes32 s
     ) 
-        external 
+        public 
         payable 
         whenNotPaused 
         returns (uint256)
@@ -206,7 +205,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
             gameId
         ));
         
-        bytes32 ethSignedHash = hash.toEthSignedMessageHash();
+        bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(hash);
         address recoveredSigner = ecrecover(ethSignedHash, v, r, s);
         
         require(recoveredSigner == signer, "AchievementNFT: invalid signature");
@@ -217,8 +216,8 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
         claimRecord[claimHash] = true;
         
         // Mint NFT
-        _tokenIdCounter.increment();
-        uint256 tokenId = _tokenIdCounter.current();
+        _tokenIdCounter++;
+        uint256 tokenId = _tokenIdCounter;
         
         _safeMint(msg.sender, tokenId);
         tokenAchievementType[tokenId] = achievementTypeId;
@@ -257,11 +256,10 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
         bytes32 r;
         bytes32 s;
         
-        assembly {
-            r := mload(add(signature, 32))
-            s := mload(add(signature, 64))
-            v := byte(0, mload(add(signature, 96)))
-        }
+        // Parse signature manually
+        r = bytes32(signature[0:32]);
+        s = bytes32(signature[32:64]);
+        v = uint8(signature[64]);
         
         return claimNFT(achievementTypeId, timestamp, gameId, v, r, s);
     }
@@ -321,7 +319,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
     /**
      * @dev Get current year-month in YYYYMM format
      */
-    function getCurrentYearMonth() external pure returns (uint256) {
+    function getCurrentYearMonth() external view returns (uint256) {
         return _getYearMonth();
     }
     
@@ -399,7 +397,22 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
         require(success, "AchievementNFT: withdrawal failed");
     }
     
-    // ============ TRC721 Overrides ============
+    // ============ ERC721 Overrides ============
+    
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+    
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
     
     function _baseURI() internal view override returns (string memory) {
         return baseURI;
@@ -408,7 +421,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
     function tokenURI(uint256 tokenId) 
         public 
         view 
-        override(TRC721, TRC721URIStorage) 
+        override(ERC721, ERC721URIStorage) 
         returns (string memory) 
     {
         _requireOwned(tokenId);
@@ -443,7 +456,7 @@ contract AchievementNFT is TRC721, TRC721URIStorage, Ownable, Pausable {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(TRC721, TRC721URIStorage)
+        override(ERC721, ERC721URIStorage, ERC721Enumerable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

@@ -35,7 +35,7 @@
 - [x] 3.5 Implement signature recovery functions
 - [x] 3.6 Add default achievement types in constructor
 - [x] 3.7 Implement `tokenURI()` for metadata
-- [ ] 3.8 Write unit tests for AchievementNFT.sol
+- [x] 3.8 Write unit tests for AchievementNFT.sol
 
 ---
 
@@ -409,9 +409,9 @@
 
 ## 24. Documentation
 
-- [ ] 24.1 Update API documentation with new endpoints
-- [ ] 24.2 Create user guide for tournament system
-- [ ] 24.3 Create user guide for NFT minting
+- [x] 24.1 Update API documentation with new endpoints ✅
+- [x] 24.2 Create user guide for tournament system ✅
+- [x] 24.3 Create user guide for NFT minting ✅
 - [ ] 24.4 Create user guide for staking and rewards
 - [ ] 24.5 Create user guide for DAO voting
 - [ ] 24.6 Document contract ABIs

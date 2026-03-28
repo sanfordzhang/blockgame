@@ -1,29 +1,29 @@
-require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-chai-matchers");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.27",
     settings: {
       optimizer: {
         enabled: true,
         runs: 200
-      }
+      },
+      evmVersion: "cancun",
+      viaIR: true
     }
   },
   networks: {
     hardhat: {
-      // Local testnet configuration
       chainId: 1337
     },
     tron: {
-      // TRON Nile testnet
       url: "https://nile.trongrid.io",
       chainId: 3448148188,
       accounts: process.env.NILE_PRIVATE_KEY ? [process.env.NILE_PRIVATE_KEY] : []
     },
     tronMainnet: {
-      // TRON mainnet
       url: "https://api.trongrid.io",
       chainId: 728126428,
       accounts: process.env.MAINNET_PRIVATE_KEY ? [process.env.MAINNET_PRIVATE_KEY] : []
