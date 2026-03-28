@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import styled from 'styled-components';
 import Container from '../components/layout/Container';
 import Heading from '../components/typography/Heading';
@@ -97,14 +97,25 @@ const Tab = styled.button`
 `;
 
 const CHIPWallet = () => {
-  const { walletAddress } = useContext(globalContext);
+  const { walletAddress: contextWalletAddress } = useContext(globalContext);
+  
+  // Get wallet address from context, URL params, or localStorage (test mode support)
+  const walletAddress = useMemo(() => {
+    if (contextWalletAddress) return contextWalletAddress;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('address') || localStorage.getItem('testWalletAddress');
+  }, [contextWalletAddress]);
+  
   const [tab, setTab] = useState('wallet');
   const [balance, setBalance] = useState({ chip: 0, staked: 0, pendingReward: 0 });
   const [vipStatus, setVipStatus] = useState({ level: 'BRONZE', discount: 0, requiredStake: 0 });
   const [stakes, setStakes] = useState([]);
-  const [transactions, setTransactions] = useState([]); // Task 18.7
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showHistory, setShowHistory] = useState(false); // Task 18.7
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTo, setTransferTo] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferring, setTransferring] = useState(false);
 
   useEffect(() => {
     if (walletAddress) {
@@ -193,6 +204,44 @@ const CHIPWallet = () => {
     }
   };
 
+  const handleTransfer = async () => {
+    if (!transferTo || !transferAmount) {
+      alert('Please enter recipient address and amount');
+      return;
+    }
+    
+    setTransferring(true);
+    try {
+      const response = await fetch('/api/chip/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          from: walletAddress, 
+          to: transferTo, 
+          amount: parseFloat(transferAmount) 
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowTransferModal(false);
+        setTransferTo('');
+        setTransferAmount('');
+        fetchData();
+        alert(`Successfully transferred ${transferAmount} CHIP to ${transferTo.substring(0, 8)}...`);
+      } else {
+        alert('Transfer failed: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Failed to transfer:', error);
+      alert('Transfer failed');
+    }
+    setTransferring(false);
+  };
+
+  const handleShowHistory = () => {
+    setTab('history');
+  };
+
   return (
     <Container
       fullHeight
@@ -218,8 +267,8 @@ const CHIPWallet = () => {
             <Text color="textSecondary">CHIP Balance</Text>
             <BalanceDisplay data-testid="chip-balance">{balance.chip?.toLocaleString() || 0} CHIP</BalanceDisplay>
             <Container flexDirection="row" gap="1rem" marginTop="1rem">
-              <ActionButton primary data-testid="transfer-btn">Transfer</ActionButton>
-              <ActionButton data-testid="history-btn">History</ActionButton>
+              <ActionButton primary data-testid="transfer-btn" onClick={() => setShowTransferModal(true)}>Transfer</ActionButton>
+              <ActionButton data-testid="history-btn" onClick={handleShowHistory}>History</ActionButton>
             </Container>
           </WalletCard>
 
@@ -356,6 +405,42 @@ const CHIPWallet = () => {
           )}
         </>
       ) : null}
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <WalletCard style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, minWidth: '400px' }}>
+          <Heading as="h3">Transfer CHIP</Heading>
+          <Container flexDirection="column" gap="1rem" marginTop="1rem">
+            <div>
+              <Text size="0.8rem" color="textSecondary">Recipient Address</Text>
+              <input
+                type="text"
+                value={transferTo}
+                onChange={(e) => setTransferTo(e.target.value)}
+                placeholder="TRX address"
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+            <div>
+              <Text size="0.8rem" color="textSecondary">Amount</Text>
+              <input
+                type="number"
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(e.target.value)}
+                placeholder="CHIP amount"
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+            <Text size="0.8rem" color="textSecondary">Available: {balance.chip?.toLocaleString() || 0} CHIP</Text>
+            <Container flexDirection="row" gap="1rem" marginTop="1rem">
+              <ActionButton primary onClick={handleTransfer} disabled={transferring}>
+                {transferring ? 'Transferring...' : 'Confirm Transfer'}
+              </ActionButton>
+              <ActionButton onClick={() => setShowTransferModal(false)}>Cancel</ActionButton>
+            </Container>
+          </Container>
+        </WalletCard>
+      )}
     </Container>
   );
 };

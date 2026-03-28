@@ -21,7 +21,7 @@ test.describe('Poker Game Flow', () => {
 
   test('should connect with localStorage', async ({ page }) => {
     // 设置 localStorage
-    await page.goto('http://localhost:3000/');
+    await page.goto('http://localhost:3001/');
     await page.evaluate(() => {
       localStorage.setItem('game_walletAddress', '0xtest123456789');
       localStorage.setItem('game_username', 'test_player');
@@ -39,7 +39,7 @@ test.describe('Poker Game Flow', () => {
     const username = `player_${Math.floor(Math.random() * 10000)}`
 
     // 访问游戏页面
-    await page.goto(`http://localhost:3000/?walletAddress=${walletAddress}&gameId=1&username=${username}`);
+    await page.goto(`http://localhost:3001/?walletAddress=${walletAddress}&gameId=1&username=${username}`);
 
     // 等待游戏界面加载
     await page.waitForSelector('.play-area', { timeout: 15000 });
@@ -70,7 +70,7 @@ test.describe('Poker Game Flow', () => {
       const playerPage = await context.newPage();
       pages.push(playerPage);
 
-      await playerPage.goto(`http://localhost:3000/?walletAddress=${player.walletAddress}&gameId=1&username=${player.username}`);
+      await playerPage.goto(`http://localhost:3001/?walletAddress=${player.walletAddress}&gameId=1&username=${player.username}`);
       await playerPage.waitForSelector('.play-area', { timeout: 15000 });
       await playerPage.waitForTimeout(2000);
     }
