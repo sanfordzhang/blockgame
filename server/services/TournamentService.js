@@ -535,6 +535,10 @@ class TournamentService {
             // Standard game state
             pot: table.pot,
             board: table.board,
+            street: table.board.length === 0 ? 'preflop' : 
+                    table.board.length === 3 ? 'flop' :
+                    table.board.length === 4 ? 'turn' :
+                    table.board.length === 5 ? 'river' : 'showdown',
             turn: table.turn,
             button: table.button,
             smallBlind: table.smallBlind,
@@ -844,6 +848,7 @@ module.exports = {
                 configId: data.configId || 1,
                 status: 'WAITING',
                 players: [],
+                mockGame: data.mockGame || false,  // 添加 mockGame 字段
                 config: {
                     ...config,
                     tournamentType: 'SNG',
@@ -857,10 +862,10 @@ module.exports = {
             });
             
             await tournament.save();
-            console.log(`[TournamentService] Created test tournament ${tournamentId}`);
+            console.log(`[TournamentService] Created test tournament ${tournamentId}, mockGame=${data.mockGame}`);
             return tournament;
         }
-        return tournamentServiceInstance.createTournament(data.configId, data.creatorAddress);
+        return tournamentServiceInstance.createTournament(data);
     },
     joinTournament: async (tournamentId, walletAddress, socketId) => {
         // Test mode fallback - use atomic operation
@@ -936,6 +941,7 @@ module.exports = {
                 
                 // Create game table (for testing without contract)
                 const TournamentTable = require('../pokergame/TournamentTable');
+                console.log(`[TournamentService] Test mode: Creating table with mockGame=${tournament.mockGame}`);
                 const table = new TournamentTable(
                     tournamentId,
                     requiredPlayerCount,
@@ -943,6 +949,7 @@ module.exports = {
                     null,  // blindConfig
                     tournament.mockGame || false  // mockGame
                 );
+                console.log(`[TournamentService] Test mode: Table created, table.mockGame=${table.mockGame}`);
                 
                 // Set callback for tournament end (sync wrapper for async handler)
                 table.onTournamentEnd = (data) => {
@@ -987,6 +994,10 @@ module.exports = {
                         isTournament: true,
                         pot: table.pot,
                         board: table.board,
+                        street: table.board.length === 0 ? 'preflop' : 
+                                table.board.length === 3 ? 'flop' :
+                                table.board.length === 4 ? 'turn' :
+                                table.board.length === 5 ? 'river' : 'showdown',
                         turn: table.turn,
                         button: table.button,
                         smallBlind: table.smallBlind,
@@ -1113,13 +1124,15 @@ module.exports = {
                 // Start first hand after a short delay
                 setTimeout(async () => {
                     console.log(`[TournamentService] Test mode: >>> Starting first hand...`);
+                    console.log(`[TournamentService] Test mode: Table mockGame=${table.mockGame}, handsPlayed=${table.handsPlayed}`);
                     console.log(`[TournamentService] Test mode: Room sockets before startHand: ${testModeSocketIO ? (() => {
                         const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
                         return rs ? Array.from(rs).join(', ') : 'none';
                     })() : 'no IO'}`);
                     
-                    table.startHand();
-                    console.log(`[TournamentService] Test mode: startHand done. table.turn=${table.turn}`);
+                    // Use startNextHand instead of startHand to ensure mock deck is applied
+                    table.startNextHand();
+                    console.log(`[TournamentService] Test mode: startNextHand done. table.turn=${table.turn}`);
                     
                     // Broadcast initial game state
                     if (testModeSocketIO) {
@@ -1336,6 +1349,10 @@ module.exports = {
                 isTournament: true,
                 pot: table.pot,
                 board: table.board,
+                street: table.board.length === 0 ? 'preflop' : 
+                        table.board.length === 3 ? 'flop' :
+                        table.board.length === 4 ? 'turn' :
+                        table.board.length === 5 ? 'river' : 'showdown',
                 turn: table.turn,
                 button: table.button,
                 smallBlind: table.smallBlind,
@@ -1412,6 +1429,40 @@ module.exports = {
             }
         }
         
+        // Send NFT achievements if any
+        if (table.pendingAchievements && table.pendingAchievements.length > 0) {
+            const { SC_NFT_ACHIEVEMENT_EARNED } = require('../pokergame/actions');
+            
+            for (const achievement of table.pendingAchievements) {
+                // Find the player's socket
+                const roomSockets = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+                if (roomSockets) {
+                    for (const sockId of roomSockets) {
+                        const socket = testModeSocketIO.sockets.sockets.get(sockId);
+                        const playerWallet = socket?.handshake?.query?.address || socket?.walletAddress;
+                        
+                        if (playerWallet?.toLowerCase() === achievement.playerAddress?.toLowerCase()) {
+                            console.log(`[TournamentService] Sending NFT achievement to ${playerWallet?.substring(0, 10)}: ${achievement.achievementType}`);
+                            
+                            testModeSocketIO.to(sockId).emit(SC_NFT_ACHIEVEMENT_EARNED, {
+                                achievementType: achievement.achievementType,
+                                handType: achievement.handType,
+                                cards: achievement.cards,
+                                description: achievement.description,
+                                typeId: achievement.typeId,
+                                hand: achievement.hand,
+                                board: achievement.board,
+                                gameId: `tournament-${tournamentId}`
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Clear pending achievements after sending
+            table.pendingAchievements = [];
+        }
+        
         return result;
     },
     // Handle disconnect
@@ -1437,6 +1488,10 @@ module.exports = {
             isTournament: true,
             pot: table.pot,
             board: table.board,
+            street: table.board.length === 0 ? 'preflop' : 
+                    table.board.length === 3 ? 'flop' :
+                    table.board.length === 4 ? 'turn' :
+                    table.board.length === 5 ? 'river' : 'showdown',
             turn: table.turn,
             button: table.button,
             smallBlind: table.smallBlind,

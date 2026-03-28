@@ -26,3 +26,4 @@ yarn-error.log*
 /tests/e2e/screenshots
 /test-resultsOLD
 /test-results
+/test-results_副本

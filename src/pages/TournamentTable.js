@@ -17,7 +17,18 @@ import { GameStateInfo } from '../components/game/GameStateInfo';
 import BrandingImage from '../components/game/BrandingImage';
 import PokerCard from '../components/game/PokerCard';
 import background from '../assets/img/background.png';
+import Swal from 'sweetalert2';
 import './Play.scss';
+
+// NFT Achievement types mapping
+const achievementTypes = {
+  'STRAIGHT': { name: '顺子', icon: '🃏' },
+  'FLUSH': { name: '同花', icon: '♠️' },
+  'FULL_HOUSE': { name: '葫芦', icon: '🏠' },
+  'FOUR_OF_A_KIND': { name: '四条', icon: '🎯' },
+  'STRAIGHT_FLUSH': { name: '同花顺', icon: '🌟' },
+  'ROYAL_FLUSH': { name: '皇家同花顺', icon: '👑' },
+};
 
 /**
  * TournamentTableGame - 内部游戏组件，复用 Play.js 的 UI
@@ -39,13 +50,55 @@ const TournamentTableGame = ({ tournamentId }) => {
     tournament,
     tournamentEnded,
     finalRankings,
+    nftAchievement,
+    setNftAchievement,
   } = useContext(TournamentGameContext);
 
   const [bet, setBet] = useState(0);
-  
+
   // Track previous turn state to only reset bet when turn changes
   const prevTurnRef = useRef(null);
   const prevHandRef = useRef(null);
+
+  // Handle NFT Achievement notification
+  useEffect(() => {
+    if (nftAchievement) {
+      console.log('[TournamentTable] Showing NFT achievement notification:', nftAchievement);
+      const achievement = achievementTypes[nftAchievement.achievementType] || {};
+
+      // Format cards for display
+      const formatCard = (card) => {
+        if (typeof card === 'object' && card !== null) {
+          return `${card.rank}${card.suit}`;
+        }
+        return card;
+      };
+
+      const handCards = nftAchievement.hand?.map(formatCard).join(' ') || '';
+      const boardCards = nftAchievement.board?.map(formatCard).join(' ') || '';
+
+      Swal.fire({
+        title: '🎉 成就解锁！',
+        html: `
+          <div style="text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">${achievement.icon || '🃏'}</div>
+            <h2 style="color: #ffd700; margin-bottom: 0.5rem;">${achievement.name || nftAchievement.handType}</h2>
+            <p style="margin-bottom: 1rem;">恭喜！您获得了一个稀有牌型成就！</p>
+            ${handCards ? `<p><strong>手牌:</strong> ${handCards}</p>` : ''}
+            ${boardCards ? `<p><strong>公共牌:</strong> ${boardCards}</p>` : ''}
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">请前往 NFT 画廊铸造您的成就 NFT</p>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonText: '太棒了！',
+        confirmButtonColor: '#3085d6',
+        background: '#1a1a2e',
+        color: '#fff',
+      }).then(() => {
+        setNftAchievement(null);
+      });
+    }
+  }, [nftAchievement, setNftAchievement]);
 
   // Update bet amount only when turn starts or hand changes
   useEffect(() => {

@@ -27,6 +27,7 @@ let gameState = {
     mySeat: null,
     isMyTurn: false,
     lastStreet: null,
+    lastTurnKey: null,  // 用于跟踪轮次变化
     lastActionTime: 0,
     gameStarted: false
 };
@@ -163,14 +164,24 @@ function handleGameState(state) {
                     log(`检查轮次: state.turn=${state.turn}(${typeof state.turn}), seatId=${seatId}(${typeof seatId}), turnSeat=${turnSeat}, isMyTurnNow=${isMyTurnNow}`);
                     
                     if (isMyTurnNow && !seat.folded) {
-                        // 防止重复操作
+                        // 防止同一轮次重复操作
+                        const currentTurnKey = `${state.turn}-${state.street || 'preflop'}`;
                         const now = Date.now();
-                        if (now - gameState.lastActionTime > 3000) {
+                        
+                        // 如果轮次变化了，重置防抖
+                        if (gameState.lastTurnKey !== currentTurnKey) {
+                            gameState.lastTurnKey = currentTurnKey;
+                            gameState.lastActionTime = 0; // 重置，允许立即操作
+                        }
+                        
+                        if (now - gameState.lastActionTime > 2000) {
                             gameState.lastActionTime = now;
-                            log(`🎯 轮到我了！座位: ${seatId}`);
+                            log(`🎯 轮到我了！座位: ${seatId}, turnKey: ${currentTurnKey}`);
                             
                             // 延迟后做决策
-                            setTimeout(() => makeDecision(state), 1500);
+                            setTimeout(() => makeDecision(state), 1000);
+                        } else {
+                            log(`⏳ 等待操作冷却... (${Math.floor((now - gameState.lastActionTime) / 1000)}s)`);
                         }
                     }
                 }
@@ -238,9 +249,33 @@ function makeDecision(state) {
     gameState.socket.emit(eventName, payload);
 }
 
+// 加入指定锦标赛
+async function joinTournament(tournamentId) {
+    log(`加入指定锦标赛: ${tournamentId}...`);
+    
+    gameState.tournamentId = tournamentId;
+    
+    // 1. 先发送 JOIN 事件
+    gameState.socket.emit('CS_TOURNAMENT_JOIN', {
+        tournamentId: tournamentId,
+        walletAddress: BOT_CONFIG.address
+    });
+    log('发送 CS_TOURNAMENT_JOIN');
+    
+    // 2. 再发送 ROOM_JOIN 事件（更新 socketId）
+    await sleep(500);
+    gameState.socket.emit('CS_TOURNAMENT_ROOM_JOIN', {
+        tournamentId: tournamentId,
+        walletAddress: BOT_CONFIG.address
+    });
+    log('发送 CS_TOURNAMENT_ROOM_JOIN');
+    
+    log(`✅ 已加入锦标赛: ${tournamentId}`);
+}
+
 // 创建2人锦标赛
 async function createTournament() {
-    log('创建2人锦标赛 (configId: 3)...');
+    log('创建2人锦标赛 (configId: 3, mockGame: true)...');
     
     try {
         const response = await fetch(`${BOT_CONFIG.serverUrl}/api/tournament/create`, {
@@ -248,7 +283,8 @@ async function createTournament() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 configId: 3,  // 2人锦标赛配置
-                walletAddress: BOT_CONFIG.address
+                walletAddress: BOT_CONFIG.address,
+                mockGame: true  // 启用 mock 模式测试 NFT
             })
         });
         
@@ -301,7 +337,14 @@ async function main() {
     try {
         await connectSocket();
         await sleep(2000);
-        await createTournament();
+        
+        // 检查是否要加入指定的锦标赛
+        const joinTournamentId = process.env.JOIN_TOURNAMENT_ID;
+        if (joinTournamentId) {
+            await joinTournament(joinTournamentId);
+        } else {
+            await createTournament();
+        }
         
         // 保持运行
         process.on('SIGINT', () => {

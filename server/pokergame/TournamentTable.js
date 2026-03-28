@@ -168,6 +168,46 @@ class TournamentTable extends Table {
         this.handsPlayed++;
         console.log(`[TournamentTable] Hand ${this.handsPlayed} ended`);
         
+        // ============ NFT Achievement Detection ============
+        // Auto-detect NFT achievements at showdown
+        if (this.wentToShowdown) {
+            console.log('[TournamentTable] Checking NFT achievements at showdown...');
+            const NFTService = require('../services/NFTService');
+            const { SC_NFT_ACHIEVEMENT_EARNED } = require('./actions');
+            
+            for (const seatId of Object.keys(this.seats)) {
+                const seat = this.seats[seatId];
+                if (seat && seat.player && seat.hand && !seat.folded) {
+                    try {
+                        // Check if player's hand qualifies for NFT achievement
+                        const achievement = NFTService.checkAchievement(seat.hand, this.board);
+                        
+                        if (achievement && achievement.type) {
+                            console.log(`[TournamentTable] 🎉 NFT Achievement detected for ${seat.player.name || seat.player.id?.substring(0,10)}: ${achievement.type}`);
+                            
+                            // Store achievement for this player (will be sent via socket by TournamentService)
+                            if (!this.pendingAchievements) {
+                                this.pendingAchievements = [];
+                            }
+                            this.pendingAchievements.push({
+                                playerAddress: seat.player.id,
+                                playerSocketId: seat.player.socketId,
+                                achievementType: achievement.type,
+                                handType: achievement.name,
+                                cards: achievement.cards,
+                                description: achievement.description,
+                                typeId: achievement.typeId,
+                                hand: seat.hand,
+                                board: this.board
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`[TournamentTable] NFT check error:`, error.message);
+                    }
+                }
+            }
+        }
+        
         // Check for eliminated players
         this.checkEliminatedPlayers();
         

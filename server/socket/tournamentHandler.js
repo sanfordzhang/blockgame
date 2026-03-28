@@ -593,6 +593,10 @@ function sendGameStateToPlayer(socket, table, tournamentId, walletAddress) {
         isTournament: true,
         pot: table.pot,
         board: table.board,
+        street: table.board.length === 0 ? 'preflop' : 
+                table.board.length === 3 ? 'flop' :
+                table.board.length === 4 ? 'turn' :
+                table.board.length === 5 ? 'river' : 'showdown',
         turn: table.turn,
         button: table.button,
         smallBlind: table.smallBlind,

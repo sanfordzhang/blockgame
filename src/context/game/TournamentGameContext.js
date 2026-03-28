@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import socket from '../../socket';
 import globalContext from '../global/globalContext';
+import { SC_NFT_ACHIEVEMENT_EARNED, SC_NFT_MINT_READY } from '../../pokergame/actions';
 
 export const TournamentGameContext = createContext();
 
@@ -99,6 +100,7 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   const [tournament, setTournament] = useState(null);
   const [tournamentEnded, setTournamentEnded] = useState(false);
   const [finalRankings, setFinalRankings] = useState([]);
+  const [nftAchievement, setNftAchievement] = useState(null);  // NFT成就数据
 
   const currentTableRef = useRef(currentTable);
   const seatIdRef = useRef(seatId);
@@ -249,6 +251,17 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       console.log('[TournamentGameContext] Tournament end handling complete');
     });
 
+    // NFT Achievement earned
+    socket.on(SC_NFT_ACHIEVEMENT_EARNED, (data) => {
+      console.log('[TournamentGameContext] 🎉 NFT Achievement earned:', data);
+      setNftAchievement(data);
+    });
+
+    // NFT Mint ready
+    socket.on(SC_NFT_MINT_READY, (data) => {
+      console.log('[TournamentGameContext] NFT Mint ready:', data);
+    });
+
     // Cleanup
     return () => {
       clearTimeout(noStateTimer);
@@ -259,6 +272,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       socket.off('SC_TOURNAMENT_STARTED');
       socket.off('tournament_blind_update');
       socket.off('SC_TOURNAMENT_ENDED');
+      socket.off(SC_NFT_ACHIEVEMENT_EARNED);
+      socket.off(SC_NFT_MINT_READY);
       socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,6 +349,9 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
         walletAddress,
         tournamentEnded,
         finalRankings,
+        // NFT Achievement
+        nftAchievement,
+        setNftAchievement,
       }}
     >
       {children}
