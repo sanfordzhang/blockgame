@@ -48,6 +48,7 @@ const TournamentTableGame = ({ tournamentId }) => {
     call,
     raise,
     tournament,
+    walletAddress,  // Get walletAddress from context
     tournamentEnded,
     finalRankings,
     nftAchievement,
@@ -86,19 +87,72 @@ const TournamentTableGame = ({ tournamentId }) => {
             <p style="margin-bottom: 1rem;">恭喜！您获得了一个稀有牌型成就！</p>
             ${handCards ? `<p><strong>手牌:</strong> ${handCards}</p>` : ''}
             ${boardCards ? `<p><strong>公共牌:</strong> ${boardCards}</p>` : ''}
-            <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">请前往 NFT 画廊铸造您的成就 NFT</p>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">点击下方按钮铸造您的成就 NFT</p>
           </div>
         `,
         icon: 'success',
-        confirmButtonText: '太棒了！',
+        showCancelButton: true,
+        confirmButtonText: '铸造 NFT',
+        cancelButtonText: '稍后再说',
         confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#6c757d',
         background: '#1a1a2e',
         color: '#fff',
-      }).then(() => {
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Mint NFT via socket
+          const socket = require('../socket').default;
+          socket.emit('CS_NFT_PREPARE_MINT', {
+            walletAddress: walletAddress,  // Use from context
+            achievementType: nftAchievement.achievementType,
+            gameSessionId: nftAchievement.gameId,
+            handData: { 
+              cards: nftAchievement.cards,
+              hand: nftAchievement.hand,
+              board: nftAchievement.board
+            }
+          });
+          
+          // Show minting in progress
+          Swal.fire({
+            title: '铸造中...',
+            html: '<p>正在铸造您的 NFT...</p>',
+            allowOutsideClick: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
+          
+          // Listen for mint result
+          socket.once('SC_NFT_MINT_READY', (data) => {
+            Swal.fire({
+              title: '🎉 铸造成功！',
+              html: `
+                <div style="text-align: center;">
+                  <p>您的 ${achievement.name || nftAchievement.handType} NFT 已铸造成功！</p>
+                  <p style="font-size: 0.9rem; color: #888;">Token ID: ${data.tokenId || 'N/A'}</p>
+                </div>
+              `,
+              icon: 'success',
+              confirmButtonText: '查看收藏',
+              confirmButtonColor: '#3085d6',
+            }).then(() => {
+              navigate('/nft');
+            });
+          });
+          
+          socket.once('SC_NFT_MINT_ERROR', (data) => {
+            Swal.fire({
+              title: '铸造失败',
+              text: data.error || '未知错误',
+              icon: 'error',
+            });
+          });
+        }
         setNftAchievement(null);
       });
     }
-  }, [nftAchievement, setNftAchievement]);
+  }, [nftAchievement, setNftAchievement, walletAddress, navigate]);
 
   // Update bet amount only when turn starts or hand changes
   useEffect(() => {

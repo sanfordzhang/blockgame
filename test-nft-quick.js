@@ -172,6 +172,7 @@ async function main() {
     let consecutiveNoAction = 0;
     const startTime = Date.now();
     const maxDuration = 180000; // 3 minutes max
+    let nftMinted = false;
     
     console.log('[Test] Starting game loop (browser will auto-play)...');
     
@@ -185,6 +186,19 @@ async function main() {
             console.log('[Test] Title:', popup.title);
             console.log('[Test] Content:', popup.html);
             await takeScreenshot(Page, '02-nft-popup');
+            
+            // Click the mint button
+            await sleep(500);
+            const mintClicked = await clickButton(Runtime, ['铸造 NFT', 'Mint NFT', '确认', 'Confirm']);
+            if (mintClicked) {
+                console.log('[Test] ✅ Clicked mint button:', mintClicked);
+                await sleep(2000);
+                await takeScreenshot(Page, '03-minting');
+                
+                // Wait for mint to complete
+                await sleep(3000);
+                nftMinted = true;
+            }
             break;
         }
         
@@ -203,14 +217,14 @@ async function main() {
         // Check for game end
         if (pageState.endScreen) {
             console.log('[Test] Tournament ended!');
-            await takeScreenshot(Page, '03-tournament-end');
+            await takeScreenshot(Page, '04-tournament-end');
             break;
         }
         
         // Check for NFT event from WebSocket
         if (nftEventReceived) {
             console.log('[Test] 🎉 NFT Event received from WebSocket!');
-            await takeScreenshot(Page, '04-nft-event');
+            await takeScreenshot(Page, '05-nft-event');
             break;
         }
         
@@ -237,13 +251,25 @@ async function main() {
     
     // Check server logs for NFT achievement
     try {
-        const logs = execSync(`cat /tmp/game-server.log | grep -i "achievement\\|straight\\|nft\\|showdown\\|winner" | tail -30`).toString();
+        const logs = execSync(`cat /tmp/game-server.log | grep -i "achievement\\|straight\\|nft\\|showdown\\|winner\\|mint\\|saved" | tail -30`).toString();
         console.log('[Test] Server logs (achievement related):');
         console.log(logs);
     } catch (e) {}
     
+    // Check database for new NFT
+    try {
+        const nftCheck = execSync(`curl -s "http://127.0.0.1:7778/api/nft/collection/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Total NFTs:', len(d.get('nfts',[]))); [print('  -', n.get('achievementType'), n.get('gameId'), n.get('claimedAt','')[:19]) for n in d.get('nfts',[])]"`).toString();
+        console.log('[Test] Database NFT check:\n' + nftCheck);
+    } catch (e) {}
+    
     // Take final screenshot
-    await takeScreenshot(Page, '05-final');
+    await takeScreenshot(Page, '06-final');
+    
+    // Navigate to NFT gallery to verify
+    console.log('[Test] Navigating to NFT gallery to verify...');
+    await Page.navigate({ url: 'http://127.0.0.1:3001/nft' });
+    await sleep(2000);
+    await takeScreenshot(Page, '07-nft-gallery');
     
     // Cleanup
     if (botProcess) {
@@ -252,9 +278,10 @@ async function main() {
     await client.close();
     
     console.log('\n========================================');
-    if (nftEventReceived || popup?.hasPopup) {
+    if (nftEventReceived || nftMinted) {
         console.log('✅ TEST PASSED: NFT Achievement detected!');
         console.log('   Event:', nftEventReceived?.eventName);
+        console.log('   Minted:', nftMinted);
     } else {
         console.log('❌ TEST FAILED: No NFT Achievement detected');
     }

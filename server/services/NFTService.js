@@ -471,20 +471,101 @@ module.exports = {
         };
     },
     prepareMint: async (walletAddress, data) => {
+        const { achievementType, gameSessionId, handData } = data;
+        
+        // Get type ID from type name
+        const typeIds = {
+            'ROYAL_FLUSH': 1,
+            'STRAIGHT_FLUSH': 2,
+            'FOUR_OF_A_KIND': 3,
+            'FULL_HOUSE': 4,
+            'FLUSH': 5,
+            'STRAIGHT': 6
+        };
+        
+        // Rarity mapping
+        const rarityMap = {
+            'ROYAL_FLUSH': 'LEGENDARY',
+            'STRAIGHT_FLUSH': 'EPIC',
+            'FOUR_OF_A_KIND': 'RARE',
+            'FULL_HOUSE': 'RARE',
+            'FLUSH': 'COMMON',
+            'STRAIGHT': 'COMMON'
+        };
+        
+        const achievementTypeId = typeof achievementType === 'number' ? achievementType : typeIds[achievementType];
+        const achievementTypeName = typeof achievementType === 'number' 
+            ? Object.keys(typeIds).find(k => typeIds[k] === achievementType) 
+            : achievementType;
+        const gameId = gameSessionId || `game-${Date.now()}`;
+        const tokenId = Date.now();
+        
+        // Validate walletAddress
+        if (!walletAddress) {
+            throw new Error('walletAddress is required');
+        }
+        
+        // Extract cards for description
+        let handDescription = '';
+        if (handData?.cards) {
+            const cards = handData.cards.map(c => {
+                if (typeof c === 'object') {
+                    return `${c.rank}${c.suit}`;
+                }
+                return c;
+            });
+            handDescription = `${achievementTypeName} - ${cards.join(' ')}`;
+        }
+        
+        // Parse cards into proper format
+        const parsedCards = (handData?.cards || []).map(c => {
+            if (typeof c === 'object' && c !== null) {
+                return { rank: c.rank, suit: c.suit };
+            }
+            return { rank: c.slice(0, -1), suit: c.slice(-1) };
+        });
+        
+        // Save to database
+        const claim = new NFTClaim({
+            playerAddress: walletAddress.toLowerCase(),
+            achievementTypeId,
+            achievementType: achievementTypeName,
+            rarity: rarityMap[achievementTypeName] || 'COMMON',
+            tokenId,
+            txHash: null, // Will be updated when blockchain tx completes
+            handDescription,
+            gameId,
+            cards: parsedCards,
+            yearMonth: NFTClaim.getYearMonth()
+        });
+        
+        await claim.save();
+        console.log(`[NFTService] NFT saved to database: ${achievementTypeName} for ${walletAddress.substring(0, 10)}...`);
+        
         if (!nftServiceInstance) {
             // 返回模拟签名用于测试
             const timestamp = Math.floor(Date.now() / 1000);
             return {
+                success: true,
                 signature: {
                     player: walletAddress,
-                    achievementTypeId: data.achievementType,
+                    achievementTypeId,
                     timestamp,
-                    gameId: data.gameSessionId || `game-${Date.now()}`,
+                    gameId,
                     mockMode: true
-                }
+                },
+                tokenId,
+                achievementType: achievementTypeName
             };
         }
-        return nftServiceInstance.prepareMint?.(walletAddress, data) || { signature: 'mock' };
+        
+        const sig = await nftServiceInstance.generateCompactSignature?.(walletAddress, achievementTypeId, gameId);
+        return {
+            success: true,
+            signature: sig,
+            tokenId,
+            achievementType: achievementTypeName
+        };
     },
     getNFTStats: async (walletAddress) => {
         const nfts = await NFTClaim.findByPlayer(walletAddress);
