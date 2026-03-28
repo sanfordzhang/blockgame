@@ -18,6 +18,7 @@ import BrandingImage from '../components/game/BrandingImage';
 import PokerCard from '../components/game/PokerCard';
 import background from '../assets/img/background.png';
 import Swal from 'sweetalert2';
+import html2canvas from 'html2canvas';
 import './Play.scss';
 
 // NFT Achievement types mapping
@@ -78,31 +79,111 @@ const TournamentTableGame = ({ tournamentId }) => {
       const handCards = nftAchievement.hand?.map(formatCard).join(' ') || '';
       const boardCards = nftAchievement.board?.map(formatCard).join(' ') || '';
 
-      Swal.fire({
-        title: '🎉 成就解锁！',
-        html: `
-          <div style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">${achievement.icon || '🃏'}</div>
-            <h2 style="color: #ffd700; margin-bottom: 0.5rem;">${achievement.name || nftAchievement.handType}</h2>
-            <p style="margin-bottom: 1rem;">恭喜！您获得了一个稀有牌型成就！</p>
-            ${handCards ? `<p><strong>手牌:</strong> ${handCards}</p>` : ''}
-            ${boardCards ? `<p><strong>公共牌:</strong> ${boardCards}</p>` : ''}
-            <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">点击下方按钮铸造您的成就 NFT</p>
-          </div>
-        `,
-        icon: 'success',
-        showCancelButton: true,
-        confirmButtonText: '铸造 NFT',
-        cancelButtonText: '稍后再说',
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#6c757d',
-        background: '#1a1a2e',
-        color: '#fff',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // Mint NFT via socket
-          const socket = require('../socket').default;
-          socket.emit('CS_NFT_PREPARE_MINT', {
+      // === CAPTURE SCREENSHOT BEFORE SHOWING POPUP ===
+      // Use async IIFE to capture screenshot before showing popup
+      (async () => {
+        let screenshotBase64 = null;
+        try {
+          console.log('[TournamentTable] Capturing screenshot BEFORE showing popup...');
+          
+          // Find the best element to capture - prefer specific game containers
+          const gameElement = document.querySelector('.play-area') || 
+                              document.querySelector('[class*="PokerTableWrapper"]') ||
+                              document.querySelector('[class*="Container"]');
+          
+          if (!gameElement) {
+            console.warn('[TournamentTable] No suitable game element found for screenshot');
+          }
+          
+          // Get the element dimensions for logging
+          const elementWidth = gameElement?.offsetWidth || 0;
+          const elementHeight = gameElement?.offsetHeight || 0;
+          console.log('[TournamentTable] Element dimensions:', elementWidth, 'x', elementHeight);
+          
+          const canvas = await html2canvas(gameElement, {
+            backgroundColor: '#0a0a0f',
+            scale: 1.0,
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            // Limit the canvas size to reasonable dimensions
+            width: Math.min(elementWidth, 1920),
+            height: Math.min(elementHeight, 1080),
+            windowWidth: elementWidth,
+            windowHeight: elementHeight,
+            x: 0,
+            y: 0,
+            scrollX: 0,
+            scrollY: 0,
+            // Use onclone to fix styles before rendering
+            onclone: (clonedDoc) => {
+              const clonedElement = clonedDoc.querySelector('.play-area') || 
+                                    clonedDoc.querySelector('[class*="PokerTableWrapper"]') ||
+                                    clonedDoc.querySelector('[class*="Container"]');
+              if (clonedElement) {
+                // Remove pseudo-element effects by setting explicit background
+                clonedElement.style.background = 'linear-gradient(180deg, #0a0a12 0%, #1a1a2e 50%, #0a0a0f 100%)';
+                clonedElement.style.backgroundImage = 'none';
+                // Remove any shadow effects
+                clonedElement.style.boxShadow = 'none';
+                clonedElement.style.filter = 'none';
+                // Ensure proper sizing
+                clonedElement.style.overflow = 'hidden';
+              }
+              
+              // Add style to hide pseudo-elements
+              const style = clonedDoc.createElement('style');
+              style.textContent = `
+                .play-area::before,
+                .play-area::after {
+                  display: none !important;
+                  content: none !important;
+                }
+              `;
+              clonedDoc.head.appendChild(style);
+              
+              // Remove backdrop-filter from all elements (not supported by html2canvas)
+              clonedDoc.querySelectorAll('[style*="backdrop"], [style*="filter"]').forEach(el => {
+                el.style.backdropFilter = 'none';
+                el.style.webkitBackdropFilter = 'none';
+                el.style.filter = 'none';
+              });
+            }
+          });
+          screenshotBase64 = canvas.toDataURL('image/png').split(',')[1];
+          console.log('[TournamentTable] Screenshot captured successfully, size:', screenshotBase64.length);
+        } catch (err) {
+          console.warn('[TournamentTable] Screenshot capture failed:', err);
+        }
+
+        // Show popup after screenshot is captured
+        Swal.fire({
+          title: '🎉 成就解锁！',
+          html: `
+            <div style="text-align: center;">
+              <div style="font-size: 3rem; margin-bottom: 1rem;">${achievement.icon || '🃏'}</div>
+              <h2 style="color: #ffd700; margin-bottom: 0.5rem;">${achievement.name || nftAchievement.handType}</h2>
+              <p style="margin-bottom: 1rem;">恭喜！您获得了一个稀有牌型成就！</p>
+              ${handCards ? `<p><strong>手牌:</strong> ${handCards}</p>` : ''}
+              ${boardCards ? `<p><strong>公共牌:</strong> ${boardCards}</p>` : ''}
+              <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">点击下方按钮铸造您的成就 NFT</p>
+            </div>
+          `,
+          icon: 'success',
+          showCancelButton: true,
+          confirmButtonText: '铸造 NFT',
+          cancelButtonText: '稍后再说',
+          confirmButtonColor: '#3085d6',
+          cancelButtonColor: '#6c757d',
+          background: '#1a1a2e',
+          color: '#fff',
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+            // Screenshot already captured before popup was shown
+            
+            // Mint NFT via socket
+            const socket = require('../socket').default;
+            socket.emit('CS_NFT_PREPARE_MINT', {
             walletAddress: walletAddress,  // Use from context
             achievementType: nftAchievement.achievementType,
             gameSessionId: nftAchievement.gameId,
@@ -110,7 +191,8 @@ const TournamentTableGame = ({ tournamentId }) => {
               cards: nftAchievement.cards,
               hand: nftAchievement.hand,
               board: nftAchievement.board
-            }
+            },
+            screenshot: screenshotBase64
           });
           
           // Show minting in progress
@@ -149,9 +231,11 @@ const TournamentTableGame = ({ tournamentId }) => {
             });
           });
         }
-        setNftAchievement(null);
-      });
-    }
+      }); // end of Swal.then()
+    })(); // end of async IIFE
+    
+    setNftAchievement(null);
+  }
   }, [nftAchievement, setNftAchievement, walletAddress, navigate]);
 
   // Update bet amount only when turn starts or hand changes

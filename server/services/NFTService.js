@@ -536,6 +536,8 @@ module.exports = {
             handDescription,
             gameId,
             cards: parsedCards,
+            gameScreenshot: data.screenshot || null,
+            screenshotFormat: 'png',
             yearMonth: NFTClaim.getYearMonth()
         });
         

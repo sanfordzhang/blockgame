@@ -66,6 +66,18 @@ const nftClaimSchema = new mongoose.Schema({
         suit: String
     }],
     
+    // Game screenshot (base64 encoded image)
+    gameScreenshot: {
+        type: String,
+        default: null
+    },
+    
+    // Screenshot format (e.g., 'png', 'jpeg')
+    screenshotFormat: {
+        type: String,
+        default: 'png'
+    },
+    
     // Year-month for monthly tracking
     yearMonth: {
         type: Number,

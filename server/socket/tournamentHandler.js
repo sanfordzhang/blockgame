@@ -129,12 +129,13 @@ function initTournamentHandlers(socket, io) {
         }
     });
     
-    socket.on(CS_NFT_PREPARE_MINT, async ({ walletAddress, achievementType, gameSessionId, handData }) => {
+    socket.on(CS_NFT_PREPARE_MINT, async ({ walletAddress, achievementType, gameSessionId, handData, screenshot }) => {
         try {
             const result = await NFTService.prepareMint(walletAddress, {
                 achievementType,
                 gameSessionId,
-                handData
+                handData,
+                screenshot
             });
             
             socket.emit(SC_NFT_MINT_READY, result);

@@ -11,42 +11,169 @@ import PokerCard from '../components/game/PokerCard';
 
 const NFTGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-top: 1.5rem;
 `;
 
-const NFTCard = styled.div`
-  background: linear-gradient(145deg, #1e2130, #161820);
+// Achievement Types cards - simple colorful design
+const TypeCard = styled.div`
+  background: ${(props) => props.theme.colors.playingCardBg};
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s ease;
+  box-shadow: ${(props) => props.theme.other.cardDropShadow};
+  transition: transform 0.3s, box-shadow 0.3s;
+
+  &:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  }
+`;
+
+const TypeImage = styled.div`
+  width: 100%;
+  height: 180px;
+  background: ${props => {
+    switch(props.rarity) {
+      case 1: return 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%)';
+      case 2: return 'linear-gradient(135deg, #E040FB 0%, #9C27B0 50%, #7B1FA2 100%)';
+      case 3: return 'linear-gradient(135deg, #42A5F5 0%, #2196F3 50%, #1976D2 100%)';
+      case 4: return 'linear-gradient(135deg, #66BB6A 0%, #4CAF50 50%, #43A047 100%)';
+      case 5: return 'linear-gradient(135deg, #90A4AE 0%, #607D8B 50%, #546E7A 100%)';
+      case 6: return 'linear-gradient(135deg, #A1887F 0%, #795548 50%, #6D4C41 100%)';
+      default: return 'linear-gradient(135deg, #BDBDBD 0%, #9E9E9E 50%, #757575 100%)';
+    }
+  }};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+    pointer-events: none;
+  }
+`;
+
+const TypeIcon = styled.div`
+  font-size: 4rem;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+`;
+
+const TypeName = styled.div`
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  margin-top: 0.5rem;
+`;
+
+const TypeInfo = styled.div`
+  padding: 1rem;
+  background: ${(props) => props.theme.colors.playingCardBg};
+`;
+
+const TypeRarityBadge = styled.span`
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background: ${props => {
+    switch(props.rarity) {
+      case 1: return 'linear-gradient(135deg, #FFD700, #FFA500)';
+      case 2: return 'linear-gradient(135deg, #E040FB, #9C27B0)';
+      case 3: return 'linear-gradient(135deg, #42A5F5, #2196F3)';
+      case 4: return 'linear-gradient(135deg, #66BB6A, #4CAF50)';
+      default: return 'linear-gradient(135deg, #90A4AE, #607D8B)';
+    }
+  }};
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+`;
+
+// My Collection cards - with game screenshot style
+const CollectionCard = styled.div`
+  background: ${(props) => props.theme.colors.playingCardBg};
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: ${(props) => props.theme.other.cardDropShadow};
+  transition: transform 0.3s, box-shadow 0.3s;
   border: 1px solid rgba(255, 255, 255, 0.05);
 
   &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    transform: scale(1.03);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
     border-color: ${props => {
       switch(props.rarity) {
-        case 'LEGENDARY': return 'rgba(255, 215, 0, 0.5)';
-        case 'EPIC': return 'rgba(156, 39, 176, 0.5)';
-        case 'RARE': return 'rgba(33, 150, 243, 0.5)';
+        case 1: return 'rgba(255, 215, 0, 0.5)';
+        case 2: return 'rgba(156, 39, 176, 0.5)';
+        case 3: return 'rgba(33, 150, 243, 0.5)';
+        case 4: return 'rgba(76, 175, 80, 0.5)';
         default: return 'rgba(255, 255, 255, 0.1)';
       }
     }};
   }
 `;
 
-const NFTImage = styled.div`
+const GameScreenshotWrapper = styled.div`
   width: 100%;
-  height: 220px;
+  height: 200px;
+  position: relative;
+  overflow: hidden;
+`;
+
+const ScreenshotImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+`;
+
+// Modal overlay for enlarged screenshot
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  cursor: pointer;
+`;
+
+const EnlargedImage = styled.img`
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+`;
+
+const GameScreenshot = styled.div`
+  width: 100%;
+  height: 200px;
   background: ${props => {
     switch(props.rarity) {
-      case 'LEGENDARY': return 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)';
-      case 'EPIC': return 'linear-gradient(135deg, #1a1a2e 0%, #2d1f3d 50%, #4a1259 100%)';
-      case 'RARE': return 'linear-gradient(135deg, #1a1a2e 0%, #1a3a5c 50%, #0d4f8a 100%)';
-      case 'UNCOMMON': return 'linear-gradient(135deg, #1a1a2e 0%, #1a3d2e 50%, #0d5a32 100%)';
+      case 1: return 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)';
+      case 2: return 'linear-gradient(135deg, #1a1a2e 0%, #2d1f3d 50%, #4a1259 100%)';
+      case 3: return 'linear-gradient(135deg, #1a1a2e 0%, #1a3a5c 50%, #0d4f8a 100%)';
+      case 4: return 'linear-gradient(135deg, #1a1a2e 0%, #1a3d2e 50%, #0d5a32 100%)';
       default: return 'linear-gradient(135deg, #1a1a2e 0%, #2a2a3e 50%, #3a3a4e 100%)';
     }
   }};
@@ -56,95 +183,107 @@ const NFTImage = styled.div`
   justify-content: center;
   padding: 1rem;
   position: relative;
-  overflow: hidden;
   
+  /* Table felt texture */
   &::before {
     content: '';
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: ${props => {
-      switch(props.rarity) {
-        case 'LEGENDARY': return 'radial-gradient(circle, rgba(255, 215, 0, 0.1) 0%, transparent 50%)';
-        case 'EPIC': return 'radial-gradient(circle, rgba(156, 39, 176, 0.1) 0%, transparent 50%)';
-        case 'RARE': return 'radial-gradient(circle, rgba(33, 150, 243, 0.1) 0%, transparent 50%)';
-        default: return 'radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 50%)';
-      }
-    }};
-    animation: rotate 20s linear infinite;
-  }
-  
-  @keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(ellipse 100% 60% at 50% 40%, rgba(34, 139, 34, 0.15), transparent),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03), transparent);
+    pointer-events: none;
   }
 `;
 
-const AchievementIcon = styled.div`
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-  z-index: 1;
-`;
-
-const CardsContainer = styled.div`
+const CardsArea = styled.div`
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.25rem;
-  margin-top: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
   z-index: 1;
+`;
+
+const HoleCards = styled.div`
+  display: flex;
+  gap: -10px;
   
-  .poker-card-wrapper {
-    margin: 0 !important;
-    animation: none !important;
-    opacity: 1 !important;
+  img {
+    width: 50px !important;
+    max-width: 50px !important;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s;
   }
+  
+  img:hover {
+    transform: translateY(-5px);
+  }
+`;
+
+const BoardCards = styled.div`
+  display: flex;
+  gap: 4px;
+  margin-top: 0.5rem;
   
   img {
     width: 40px !important;
     max-width: 40px !important;
-    min-width: 40px !important;
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    height: auto;
     border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 `;
 
-const HoleCardsContainer = styled.div`
+const CardLabel = styled.div`
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+`;
+
+const AchievementBadge = styled.div`
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
   display: flex;
-  gap: -8px;
-  margin-bottom: 0.25rem;
-  z-index: 1;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 2;
   
-  img {
-    width: 45px !important;
-    max-width: 45px !important;
-    min-width: 45px !important;
-    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.4);
+  span:first-child {
+    font-size: 1rem;
+  }
+  
+  span:last-child {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: ${props => {
+      switch(props.rarity) {
+        case 1: return '#FFD700';
+        case 2: return '#E040FB';
+        case 3: return '#42A5F5';
+        case 4: return '#66BB6A';
+        default: return '#90A4AE';
+      }
+    }};
   }
 `;
 
-const BoardCardsContainer = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px;
-  z-index: 1;
-  
-  img {
-    width: 35px !important;
-    max-width: 35px !important;
-    min-width: 35px !important;
-  }
-`;
-
-const NFTInfo = styled.div`
+const CollectionInfo = styled.div`
   padding: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
 `;
 
-const RarityBadge = styled.span`
+const CollectionRarityBadge = styled.span`
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.7rem;
@@ -152,22 +291,15 @@ const RarityBadge = styled.span`
   text-transform: uppercase;
   background: ${props => {
     switch(props.rarity) {
-      case 'LEGENDARY': return 'linear-gradient(135deg, #FFD700, #FFA500)';
-      case 'EPIC': return 'linear-gradient(135deg, #9C27B0, #7B1FA2)';
-      case 'RARE': return 'linear-gradient(135deg, #2196F3, #1976D2)';
-      case 'UNCOMMON': return 'linear-gradient(135deg, #4CAF50, #388E3C)';
-      default: return 'linear-gradient(135deg, #607D8B, #455A64)';
+      case 1: return 'linear-gradient(135deg, #FFD700, #FFA500)';
+      case 2: return 'linear-gradient(135deg, #E040FB, #9C27B0)';
+      case 3: return 'linear-gradient(135deg, #42A5F5, #2196F3)';
+      case 4: return 'linear-gradient(135deg, #66BB6A, #4CAF50)';
+      default: return 'linear-gradient(135deg, #90A4AE, #607D8B)';
     }
   }};
   color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-`;
-
-const CardLabel = styled.div`
-  font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 0.25rem;
-  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 `;
 
 const AchievementType = styled.div`
@@ -213,6 +345,7 @@ const NFTGallery = () => {
   const [tab, setTab] = useState('collection');
   const [mintingStatus, setMintingStatus] = useState(null);
   const [monthlyLimits, setMonthlyLimits] = useState({});
+  const [enlargedScreenshot, setEnlargedScreenshot] = useState(null);
   
   // Get wallet address from context, URL params, or localStorage
   const walletAddress = useMemo(() => {
@@ -221,20 +354,31 @@ const NFTGallery = () => {
     return urlParams.get('address') || localStorage.getItem('testWalletAddress');
   }, [contextWalletAddress]);
 
+  // Achievement types with numeric rarity
   const achievementTypes = {
-    ROYAL_FLUSH: { name: 'Royal Flush', rarity: 'LEGENDARY', icon: '👑' },
-    STRAIGHT_FLUSH: { name: 'Straight Flush', rarity: 'EPIC', icon: '🔥' },
-    FOUR_OF_A_KIND: { name: 'Four of a Kind', rarity: 'RARE', icon: '💎' },
-    FULL_HOUSE: { name: 'Full House', rarity: 'RARE', icon: '🏠' },
-    FLUSH: { name: 'Flush', rarity: 'COMMON', icon: '♠️' },
-    STRAIGHT: { name: 'Straight', rarity: 'COMMON', icon: '📊' },
+    ROYAL_FLUSH: { name: 'Royal Flush', rarity: 1, icon: '👑' },
+    STRAIGHT_FLUSH: { name: 'Straight Flush', rarity: 2, icon: '🔥' },
+    FOUR_OF_A_KIND: { name: 'Four of a Kind', rarity: 3, icon: '💎' },
+    FULL_HOUSE: { name: 'Full House', rarity: 4, icon: '🏠' },
+    FLUSH: { name: 'Flush', rarity: 5, icon: '♠️' },
+    STRAIGHT: { name: 'Straight', rarity: 6, icon: '📊' },
     // Also support numeric keys from database
-    1: { name: 'Royal Flush', rarity: 'LEGENDARY', icon: '👑' },
-    2: { name: 'Straight Flush', rarity: 'EPIC', icon: '🔥' },
-    3: { name: 'Four of a Kind', rarity: 'RARE', icon: '💎' },
-    4: { name: 'Full House', rarity: 'RARE', icon: '🏠' },
-    5: { name: 'Flush', rarity: 'COMMON', icon: '♠️' },
-    6: { name: 'Straight', rarity: 'COMMON', icon: '📊' }
+    1: { name: 'Royal Flush', rarity: 1, icon: '👑' },
+    2: { name: 'Straight Flush', rarity: 2, icon: '🔥' },
+    3: { name: 'Four of a Kind', rarity: 3, icon: '💎' },
+    4: { name: 'Full House', rarity: 4, icon: '🏠' },
+    5: { name: 'Flush', rarity: 5, icon: '♠️' },
+    6: { name: 'Straight', rarity: 6, icon: '📊' }
+  };
+
+  // Rarity name mapping
+  const rarityNames = {
+    1: 'LEGENDARY',
+    2: 'EPIC',
+    3: 'RARE',
+    4: 'UNCOMMON',
+    5: 'COMMON',
+    6: 'COMMON'
   };
 
   useEffect(() => {
@@ -393,7 +537,7 @@ const NFTGallery = () => {
     setLoading(false);
   };
 
-  // Convert card data to PokerCard format
+  // Convert card data to PokerCard formats
   const toPokerCard = (card) => {
     if (!card) return null;
     // Handle both {rank, suit} and string format
@@ -417,8 +561,8 @@ const NFTGallery = () => {
     return { suit: normalizedSuit, rank: normalizedRank };
   };
 
-  // Render cards in NFT display
-  const renderCards = (cards) => {
+  // Render cards in NFT display (game screenshot style)
+  const renderGameCards = (cards) => {
     if (!cards || cards.length === 0) return null;
     
     // Separate hole cards (first 2) and board cards (rest)
@@ -426,30 +570,30 @@ const NFTGallery = () => {
     const boardCards = cards.slice(2);
     
     return (
-      <>
+      <CardsArea>
         {holeCards.length > 0 && (
           <>
-            <HoleCardsContainer>
+            <HoleCards>
               {holeCards.map((card, i) => {
                 const pokerCard = toPokerCard(card);
                 return pokerCard ? <PokerCard key={i} card={pokerCard} /> : null;
               })}
-            </HoleCardsContainer>
+            </HoleCards>
             <CardLabel>Your Hand</CardLabel>
           </>
         )}
         {boardCards.length > 0 && (
           <>
-            <BoardCardsContainer>
+            <BoardCards>
               {boardCards.map((card, i) => {
                 const pokerCard = toPokerCard(card);
                 return pokerCard ? <PokerCard key={i} card={pokerCard} /> : null;
               })}
-            </BoardCardsContainer>
+            </BoardCards>
             <CardLabel>Board</CardLabel>
           </>
         )}
-      </>
+      </CardsArea>
     );
   };
 
@@ -514,18 +658,40 @@ const NFTGallery = () => {
           <NFTGrid>
             {nfts.map((nft) => {
               const achievement = achievementTypes[nft.achievementType] || achievementTypes[nft.achievementTypeId] || {};
+              const rarity = nft.achievementTypeId || achievement.rarity || 6;
+              const hasScreenshot = nft.gameScreenshot && nft.gameScreenshot.length > 100;
+              
               return (
-                <NFTCard key={nft.tokenId} rarity={achievement.rarity}>
-                  <NFTImage rarity={nft.rarity || achievement.rarity}>
-                    <AchievementIcon>{achievement.icon || '🃏'}</AchievementIcon>
-                    {nft.cards && renderCards(nft.cards)}
-                  </NFTImage>
-                  <NFTInfo>
+                <CollectionCard key={nft.tokenId} rarity={rarity}>
+                  <GameScreenshotWrapper>
+                    {hasScreenshot ? (
+                      <>
+                        <ScreenshotImage 
+                          src={`data:image/${nft.screenshotFormat || 'png'};base64,${nft.gameScreenshot}`} 
+                          alt={`${achievement.name || 'NFT'} game screenshot`}
+                          onClick={() => setEnlargedScreenshot(`data:image/${nft.screenshotFormat || 'png'};base64,${nft.gameScreenshot}`)}
+                        />
+                        <AchievementBadge rarity={rarity}>
+                          <span>{achievement.icon || '🃏'}</span>
+                          <span>{achievement.name || nft.displayName}</span>
+                        </AchievementBadge>
+                      </>
+                    ) : (
+                      <GameScreenshot rarity={rarity}>
+                        <AchievementBadge rarity={rarity}>
+                          <span>{achievement.icon || '🃏'}</span>
+                          <span>{achievement.name || nft.displayName}</span>
+                        </AchievementBadge>
+                        {nft.cards && renderGameCards(nft.cards)}
+                      </GameScreenshot>
+                    )}
+                  </GameScreenshotWrapper>
+                  <CollectionInfo>
                     <Container flexDirection="row" justifyContent="space-between" alignItems="center">
                       <Heading as="h4" color="#fff">{achievement.name || nft.displayName || `NFT #${nft.tokenId}`}</Heading>
-                      <RarityBadge rarity={nft.rarity || achievement.rarity}>
-                        {nft.rarity || achievement.rarity || 'COMMON'}
-                      </RarityBadge>
+                      <CollectionRarityBadge rarity={rarity}>
+                        {rarityNames[rarity] || nft.rarity || 'COMMON'}
+                      </CollectionRarityBadge>
                     </Container>
                     {nft.handDescription && (
                       <Text size="0.85rem" color="rgba(255,255,255,0.7)" marginTop="0.5rem">
@@ -541,34 +707,46 @@ const NFTGallery = () => {
                         Game: {nft.gameId}
                       </Text>
                     )}
-                  </NFTInfo>
-                </NFTCard>
+                  </CollectionInfo>
+                </CollectionCard>
               );
             })}
           </NFTGrid>
         )
       ) : (
+        // Achievement Types tab - simple colorful cards
         <NFTGrid>
           {Object.entries(achievementTypes).filter(([k]) => isNaN(k)).map(([type, info]) => (
-            <NFTCard key={type} rarity={info.rarity}>
-              <NFTImage rarity={info.rarity}>
-                <AchievementIcon>{info.icon}</AchievementIcon>
-                <Text color="rgba(255,255,255,0.7)" marginTop="0.5rem">{info.name}</Text>
-              </NFTImage>
-              <NFTInfo>
+            <TypeCard key={type} rarity={info.rarity}>
+              <TypeImage rarity={info.rarity}>
+                <TypeIcon>{info.icon}</TypeIcon>
+                <TypeName>{info.name}</TypeName>
+              </TypeImage>
+              <TypeInfo>
                 <Container flexDirection="row" justifyContent="space-between" alignItems="center">
                   <Heading as="h4" color="#fff">{info.name}</Heading>
-                  <RarityBadge rarity={info.rarity}>
-                    {info.rarity}
-                  </RarityBadge>
+                  <TypeRarityBadge rarity={info.rarity}>
+                    {rarityNames[info.rarity]}
+                  </TypeRarityBadge>
                 </Container>
                 <AchievementType>
                   Rare hand achievement • Limited minting
                 </AchievementType>
-              </NFTInfo>
-            </NFTCard>
+              </TypeInfo>
+            </TypeCard>
           ))}
         </NFTGrid>
+      )}
+      
+      {/* Enlarged Screenshot Modal */}
+      {enlargedScreenshot && (
+        <ModalOverlay onClick={() => setEnlargedScreenshot(null)}>
+          <EnlargedImage 
+            src={enlargedScreenshot} 
+            alt="Enlarged game screenshot"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </ModalOverlay>
       )}
     </Container>
   );

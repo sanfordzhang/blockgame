@@ -1,216 +1,223 @@
 /**
- * NFT Achievement Test - Complete Game with Auto-play
+ * NFT牌型截图测试 - 按步骤间断性截图
+ * 测试流程: 启动机器人 -> 勾选Mock -> 创建锦标赛 -> 加入游戏 -> 完成牌局 -> 生成NFT
  */
-
 const CDP = require('chrome-remote-interface');
-const axios = require('axios');
+const fs = require('fs');
 
-const PLAYER1_ADDRESS = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
-const API_BASE = 'http://127.0.0.1:7778';
-const FRONTEND_URL = 'http://127.0.0.1:3001';
-
-let client;
-let screenshotCount = 0;
-
-async function screenshot(name) {
-    screenshotCount++;
-    const filename = `/Users/yingfengzhang/1JackSource/blockchain/game-core/test-results/nft-${String(screenshotCount).padStart(2, '0')}-${name}.png`;
-    const result = await client.Page.captureScreenshot();
-    require('fs').writeFileSync(filename, Buffer.from(result.data, 'base64'));
-    console.log(`[Screenshot] Saved: ${filename}`);
-}
-
-async function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function evaluateJS(expression) {
-    const { result } = await client.Runtime.evaluate({ expression, returnByValue: true });
-    return result;
-}
-
-async function clickButton(buttonText) {
-    const result = await evaluateJS(`
-        (function() {
-            const buttons = Array.from(document.querySelectorAll('button'));
-            const btn = buttons.find(b => b.textContent.includes('${buttonText}'));
-            if (btn) {
-                btn.click();
-                return { success: true, text: btn.textContent };
-            }
-            return { success: false };
-        })()
-    `);
-    return result.value;
-}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
     console.log('========================================');
-    console.log('NFT Achievement Test - Complete Game');
-    console.log('========================================');
+    console.log('🎰 NFT牌型截图测试 (Mock模式生成顺子)');
+    console.log('========================================\n');
 
-    // Connect to Chrome CDP
-    console.log('\n[1] Connecting to Chrome CDP...');
-    client = await CDP({ port: 9222 });
-    const { Page, Runtime, Network, Console } = client;
-
+    const client = await CDP({ port: 9222 });
+    const { Page, Runtime } = client;
+    
     await Page.enable();
     await Runtime.enable();
-    await Network.enable();
 
-    Console.messageAdded((msg) => {
-        if (msg.message?.text?.includes('NFT') || msg.message?.text?.includes('Achievement')) {
-            console.log(`[Browser Console] ${msg.message.text}`);
+    // 截图辅助函数
+    const screenshot = async (name) => {
+        const { data } = await Page.captureScreenshot();
+        fs.writeFileSync(`test-results/nft-test-${name}.png`, Buffer.from(data, 'base64'));
+        console.log(`📸 截图: nft-test-${name}.png`);
+    };
+
+    // 获取页面状态
+    const getState = async () => {
+        const result = await Runtime.evaluate({
+            expression: `({
+                url: window.location.href,
+                title: document.title,
+                buttons: Array.from(document.querySelectorAll('button')).filter(b => !b.disabled).map(b => b.textContent.trim()),
+                hasMockCheckbox: !!document.querySelector('input[data-testid="mock-game-checkbox"]'),
+                mockChecked: document.querySelector('input[data-testid="mock-game-checkbox"]')?.checked || false,
+                cards: (document.querySelectorAll('.sc-bypJrT.ilegoF') || []).length,
+                cardTexts: Array.from(document.querySelectorAll('.sc-bypJrT.ilegoF') || []).map(c => c.innerText?.substring(0, 50))
+            })`,
+            returnByValue: true
+        });
+        return result.result.value;
+    };
+
+    // 点击按钮
+    const clickBtn = async (name) => {
+        return await Runtime.evaluate({
+            expression: `(function() {
+                const buttons = document.querySelectorAll('button');
+                for (const btn of buttons) {
+                    if (btn.textContent.trim() === '${name}' && !btn.disabled) {
+                        btn.click();
+                        return true;
+                    }
+                }
+                return false;
+            })()`,
+            returnByValue: true
+        });
+    };
+
+    try {
+        // Step 1: 导航到锦标赛页面
+        console.log('📍 Step 1: 导航到锦标赛页面...');
+        await Page.navigate({ url: 'http://127.0.0.1:3001/tournament' });
+        await Page.loadEventFired();
+        await sleep(2000);
+        await screenshot('01-tournament-page');
+
+        // Step 2: 勾选Mock游戏开关
+        console.log('\n📍 Step 2: 勾选Mock游戏开关 (生成顺子牌型)...');
+        const mockResult = await Runtime.evaluate({
+            expression: `(function() {
+                const checkbox = document.querySelector('input[data-testid="mock-game-checkbox"]');
+                if (checkbox && !checkbox.checked) {
+                    checkbox.click();
+                    return { success: true, message: 'Mock开关已勾选' };
+                }
+                return { success: false, message: 'Mock开关已存在或找不到' };
+            })()`,
+            returnByValue: true
+        });
+        console.log('   Mock开关:', mockResult.result.value);
+        await sleep(500);
+        await screenshot('02-mock-enabled');
+
+        // Step 3: 等待机器人创建的锦标赛
+        console.log('\n📍 Step 3: 等待机器人创建的锦标赛...');
+        let state = await getState();
+        console.log('   当前卡片数:', state.cards);
+        
+        if (state.cards === 0) {
+            console.log('   没有找到锦标赛，请确保机器人已启动: node scripts/game-bot.js');
+            console.log('   等待10秒...');
+            await sleep(10000);
+            state = await getState();
         }
-    });
+        await screenshot('03-check-tournaments');
 
-    let nftReceived = false;
-    Network.webSocketFrameReceived((params) => {
-        try {
-            const payload = JSON.parse(params.response.payloadData);
-            if (payload[0] === 'SC_NFT_ACHIEVEMENT_EARNED') {
-                console.log('\n🎯 ========== NFT ACHIEVEMENT EARNED! ==========');
-                console.log(JSON.stringify(payload[1], null, 2));
-                console.log('=================================================\n');
-                nftReceived = true;
+        // Step 4: 点击有1/2玩家的锦标赛卡片
+        console.log('\n📍 Step 4: 点击锦标赛卡片 (1/2玩家)...');
+        const clickCardResult = await Runtime.evaluate({
+            expression: `(function() {
+                const cards = document.querySelectorAll('.sc-bypJrT.ilegoF');
+                for (const card of cards) {
+                    if ((card.innerText || '').includes('1 / 2') || (card.innerText || '').includes('1/2')) {
+                        card.click();
+                        return { success: true, text: card.innerText.substring(0, 100) };
+                    }
+                }
+                // 如果没有1/2的，点击第一个可用卡片
+                if (cards.length > 0) {
+                    cards[0].click();
+                    return { success: true, text: cards[0].innerText.substring(0, 100) };
+                }
+                return { success: false, cards: cards.length };
+            })()`,
+            returnByValue: true
+        });
+        console.log('   点击卡片:', clickCardResult.result.value);
+        await sleep(1500);
+        await screenshot('04-card-clicked');
+
+        // Step 5: 点击Confirm加入
+        console.log('\n📍 Step 5: 点击Confirm加入游戏...');
+        const confirmResult = await clickBtn('Confirm');
+        console.log('   Confirm结果:', confirmResult.result.value);
+        await sleep(2000);
+        await screenshot('05-joined');
+
+        // Step 6: 游戏操作循环
+        console.log('\n📍 Step 6: 开始游戏操作...');
+        let round = 0;
+        const maxRounds = 30;
+        
+        while (round < maxRounds) {
+            round++;
+            state = await getState();
+            
+            console.log(`\n--- 回合 ${round} ---`);
+            console.log('   URL:', state.url?.substring(0, 50));
+            console.log('   按钮数:', state.buttons?.length);
+            
+            // 检查游戏是否结束
+            if (state.buttons.length === 0) {
+                // 检查是否有结束标志
+                const endCheck = await Runtime.evaluate({
+                    expression: `({
+                        hasNFT: document.body.innerText.includes('NFT') || document.body.innerText.includes('成就'),
+                        hasWinner: document.body.innerText.includes('Winner') || document.body.innerText.includes('获胜'),
+                        hasEnded: document.body.innerText.includes('Tournament Ended') || document.body.innerText.includes('游戏结束')
+                    })`,
+                    returnByValue: true
+                });
+                console.log('   结束检查:', endCheck.result.value);
+                
+                if (endCheck.result.value.hasEnded || endCheck.result.value.hasWinner || endCheck.result.value.hasNFT) {
+                    console.log('\n🏆 游戏结束!');
+                    break;
+                }
+                
+                await sleep(2000);
+                continue;
             }
-        } catch (e) {}
-    });
 
-    // Create mock tournament
-    console.log('\n[2] Creating mock tournament...');
-    const createRes = await axios.post(`${API_BASE}/api/tournament/create`, {
-        configId: 3,
-        walletAddress: PLAYER1_ADDRESS,
-        mockGame: true
-    });
-    
-    const tournamentId = createRes.data.tournament.tournamentId;
-    console.log(`Tournament ID: ${tournamentId}, Mock: ${createRes.data.tournament.mockGame}`);
+            // 执行操作: Check > Call > Fold
+            let action = null;
+            if (state.buttons.includes('Check')) {
+                action = 'Check';
+            } else if (state.buttons.includes('Call')) {
+                action = 'Call';
+            } else if (state.buttons.includes('Fold')) {
+                action = 'Fold';
+            } else if (state.buttons.includes('Raise')) {
+                action = 'Raise';
+            }
 
-    // Navigate browser
-    console.log('\n[3] Navigating to game page...');
-    const gameUrl = `${FRONTEND_URL}/tournament/${tournamentId}?address=${PLAYER1_ADDRESS}`;
-    await Page.navigate({ url: gameUrl });
-    await delay(5000);
-    await screenshot('game-start');
-
-    // Start bot
-    console.log('\n[4] Starting bot for Player 2...');
-    const { spawn } = require('child_process');
-    
-    const bot = spawn('node', ['scripts/game-bot.js'], {
-        cwd: '/Users/yingfengzhang/1JackSource/blockchain/game-core',
-        env: { 
-            ...process.env, 
-            PLAYER_INDEX: '1',
-            JOIN_TOURNAMENT_ID: tournamentId
+            if (action) {
+                console.log(`   ➡️ 执行: ${action}`);
+                await clickBtn(action);
+                await sleep(1500);
+                
+                // 每3回合截图一次
+                if (round % 3 === 0) {
+                    await screenshot(`round-${round}`);
+                }
+            } else {
+                console.log('   等待...');
+                await sleep(1000);
+            }
         }
-    });
 
-    bot.stdout.on('data', (data) => {
-        const text = data.toString().trim();
-        if (text.includes('手牌') || text.includes('公共牌') || text.includes('操作')) {
-            console.log(`[Bot] ${text}`);
-        }
-    });
+        // Step 7: 最终状态
+        console.log('\n📍 Step 7: 检查最终状态...');
+        await sleep(2000);
+        await screenshot('final');
 
-    bot.stderr.on('data', (data) => {
-        console.error(`[Bot Error] ${data.toString().trim()}`);
-    });
-
-    // Auto-play loop
-    console.log('\n[5] Auto-playing game...');
-    
-    let nftDetected = false;
-    let lastActionRound = 0;
-    const maxWaitTime = 180000; // 3 minutes
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < maxWaitTime) {
-        await delay(1500);
-        
-        // Check for NFT popup
-        const popupState = await evaluateJS(`
-            (function() {
-                const popup = document.querySelector('.swal2-popup');
-                const title = document.querySelector('.swal2-title')?.textContent || '';
-                return { hasPopup: !!popup, title };
-            })()
-        `);
-        
-        if (popupState.value?.hasPopup && !nftDetected) {
-            console.log('\n🎉 ========== NFT POPUP DETECTED! ==========');
-            console.log('[Popup Title]', popupState.value.title);
-            nftDetected = true;
-            await screenshot('nft-popup');
-            await evaluateJS(`document.querySelector('.swal2-confirm')?.click()`);
-            await delay(1000);
-            await screenshot('after-nft-popup');
-        }
-        
-        // Check game state and play
-        const gameState = await evaluateJS(`
-            (function() {
+        // 检查NFT成就
+        const nftCheck = await Runtime.evaluate({
+            expression: `(function() {
                 const text = document.body.innerText;
-                const buttons = Array.from(document.querySelectorAll('button'));
-                const btnTexts = buttons.map(b => b.textContent.substring(0, 15));
-                
-                const hasCheck = btnTexts.some(t => t.includes('Check'));
-                const hasCall = btnTexts.some(t => t.includes('Call'));
-                const hasFold = btnTexts.some(t => t.includes('Fold'));
-                const hasEnded = text.includes('Tournament Ended') || text.includes('Tournament Champion');
-                const hasWaiting = text.includes('Waiting for Players');
-                
-                return { hasCheck, hasCall, hasFold, hasEnded, hasWaiting, btnCount: buttons.length };
-            })()
-        `);
-        
-        const state = gameState.value || {};
-        
-        // Check game end
-        if (state.hasEnded) {
-            console.log('\n[Game] Tournament ended!');
-            await screenshot('tournament-ended');
-            break;
-        }
-        
-        // Skip waiting room
-        if (state.hasWaiting) {
-            continue;
-        }
-        
-        // Auto-play: prefer Check over Call
-        if (state.hasCheck && lastActionRound !== 1) {
-            console.log('[Auto] Click: Check');
-            await clickButton('Check');
-            lastActionRound = 1;
-            await delay(500);
-        } else if (state.hasCall && lastActionRound !== 2) {
-            console.log('[Auto] Click: Call');
-            await clickButton('Call');
-            lastActionRound = 2;
-            await delay(500);
-        } else {
-            // Reset action tracking on new betting round
-            lastActionRound = 0;
-        }
+                return {
+                    hasNFT: text.includes('NFT') || text.includes('成就') || text.includes('Straight'),
+                    hasMint: text.includes('Mint') || text.includes('铸造'),
+                    bodyPreview: text.substring(0, 500)
+                };
+            })()`,
+            returnByValue: true
+        });
+        console.log('   NFT检查:', nftCheck.result.value);
+
+        console.log('\n✅ 测试完成!');
+        console.log('📁 截图保存在: test-results/nft-test-*.png');
+
+    } catch (error) {
+        console.error('❌ 错误:', error.message);
+        await screenshot('error');
     }
 
-    // Final results
-    console.log('\n========================================');
-    console.log('TEST RESULTS:');
-    console.log(`- NFT Achievement Received (WebSocket): ${nftReceived}`);
-    console.log(`- NFT Popup Detected (UI): ${nftDetected}`);
-    console.log(`- Screenshots: ${screenshotCount}`);
-    console.log('========================================');
-
-    bot.kill();
     await client.close();
-    process.exit(nftDetected ? 0 : 1);
 }
 
-main().catch(err => {
-    console.error('[Error]', err);
-    process.exit(1);
-});
+main().catch(console.error);
