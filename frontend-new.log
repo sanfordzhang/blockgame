@@ -4,7 +4,7 @@
 
 [32m✔[0m [33mConsole Ninja[0m extension is connected to [33mWebpack[0m, see [36mhttps://tinyurl.com/2vt8jxzw[0m
 [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
-(node:41606) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+(node:46272) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
 (Use `node --trace-deprecation ...` to show where the warning was created)
 [34mℹ[39m [90m｢wds｣[39m: Project is running at http://192.168.44.5/
 [34mℹ[39m [90m｢wds｣[39m: webpack output is served from 

@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -93,7 +93,7 @@ contract Governance is Ownable, Pausable {
         uint256 _votingPeriod,
         uint256 _proposalThreshold,
         uint256 _quorumNumerator
-    ) Ownable(msg.sender) {
+    )  {
         require(_chipToken != address(0), "Governance: invalid token");
         
         chipToken = IERC20(_chipToken);

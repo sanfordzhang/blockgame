@@ -1,9 +1,27 @@
 {
   "network": "nile",
-  "address": "41a1b62fb6b123a0efd9195537f91e4a07c0f5def4",
-  "deployTx": "7156b2d9668d5d5ee867011f9e2d5c8633cba97228ba543f264f6f95d186f426",
-  "initialRakeRate": 250,
   "deployer": "TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA",
+  "deployedAt": "2026-03-28T21:43:29.742Z",
+
+  "bridgeGameContract": "TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c",
+  "bridgeGameDeployedAt": "2026-03-17T14:21:02.026Z",
+  "initialRakeRate": 250,
   "rakeRecipient": "TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA",
-  "deployedAt": "2026-03-17T14:21:02.026Z"
+
+  "nftContract": "TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC",
+  "nftContractType": "AchievementNFTSimple",
+  "nftDeployedAt": "2026-03-28T21:22:07.955Z",
+  "nftSigner": "TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA",
+
+  "chipTokenContract": "TXD7DT9uY5gg4LpdMcatzKGa7GFfSD64uK",
+  "chipTokenDeployedAt": "2026-03-28T21:42:40.601Z",
+
+  "tournamentContract": "TTy6EhNKbEfzkQRndvegT5hE5LUWZQVyCb",
+  "tournamentDeployedAt": "2026-03-28T21:43:18.427Z",
+
+  "stakingContract": "TBrmQ4pGBYYKrRv8SYaLACkBodwA7f1RGW",
+  "stakingDeployedAt": "2026-03-28T21:43:24.028Z",
+
+  "governanceContract": "TE1Uq2osH49cSBV1vkCtBsDHYVVhR3hqr5",
+  "governanceDeployedAt": "2026-03-28T21:43:29.742Z"
 }

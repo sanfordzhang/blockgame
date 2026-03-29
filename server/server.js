@@ -17,6 +17,7 @@ const { TronService, ContractService } = require("./blockchain");
 const EventListener = require("./blockchain/EventListener");
 const GameSettlementService = require("./services/GameSettlementService");
 const gameFlowIntegration = require("./services/GameFlowIntegration");
+const { initNFTService, getNFTService } = require("./services/NFTService");
 // Connect and get reference to mongodb instance
 let db;
 
@@ -51,6 +52,29 @@ async function initializeBlockchainServices() {
 
             // Initialize GameFlowIntegration
             gameFlowIntegration.init(TronService);
+
+            // Initialize NFT Service
+            if (process.env.NFT_CONTRACT_ADDRESS) {
+                try {
+                    console.log('[Server] Initializing NFT Service...');
+                    initNFTService({
+                        tronWeb: TronService.tronWeb,
+                        nftContractAddress: process.env.NFT_CONTRACT_ADDRESS,
+                        signerPrivateKey: process.env.SERVER_PRIVATE_KEY || config.TESTNET_PRIVATE_KEY,
+                        signerAddress: process.env.NFT_SIGNER_ADDRESS,
+                        signatureValidity: 7 * 24 * 60 * 60 // 7 days
+                    });
+                    
+                    const nftService = getNFTService();
+                    await nftService.init();
+                    console.log('[Server] ✅ NFT Service initialized with contract:', process.env.NFT_CONTRACT_ADDRESS);
+                } catch (nftError) {
+                    console.error('[Server] ⚠️ NFT Service initialization failed:', nftError.message);
+                    console.log('[Server] Continuing without NFT blockchain integration...');
+                }
+            } else {
+                console.log('[Server] ℹ️ NFT_CONTRACT_ADDRESS not set, NFT blockchain integration disabled');
+            }
 
             // Initialize and start EventListener
             EventListener.init(TronService, ContractService);

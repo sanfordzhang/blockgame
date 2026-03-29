@@ -111,6 +111,7 @@ const CHIPWallet = () => {
   const [vipStatus, setVipStatus] = useState({ level: 'BRONZE', discount: 0, requiredStake: 0 });
   const [stakes, setStakes] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTo, setTransferTo] = useState('');
@@ -126,17 +127,19 @@ const CHIPWallet = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [balanceRes, vipRes, stakesRes, txRes] = await Promise.all([
+      const [balanceRes, vipRes, stakesRes, txRes, nftRes] = await Promise.all([
         fetch(`/api/chip/balance/${walletAddress}`),
         fetch(`/api/chip/vip-status/${walletAddress}`),
         fetch(`/api/stake/history/${walletAddress}`),
-        fetch(`/api/chip/transactions/${walletAddress}`) // Task 18.7
+        fetch(`/api/chip/transactions/${walletAddress}`),
+        fetch(`/api/nft/collection/${walletAddress}`)
       ]);
 
       const balanceData = await balanceRes.json();
       const vipData = await vipRes.json();
       const stakesData = await stakesRes.json();
       const txData = await txRes.json();
+      const nftData = await nftRes.json();
 
       if (balanceData.success) {
         setBalance(balanceData);
@@ -147,8 +150,11 @@ const CHIPWallet = () => {
       if (stakesData.success) {
         setStakes(stakesData.stakes);
       }
-      if (txData.success) { // Task 18.7
+      if (txData.success) {
         setTransactions(txData.transactions || []);
+      }
+      if (nftData.success) {
+        setNfts(nftData.nfts || []);
       }
     } catch (error) {
       console.error('Failed to fetch wallet data:', error);
@@ -253,6 +259,7 @@ const CHIPWallet = () => {
       <Tabs>
         <Tab active={tab === 'wallet'} onClick={() => setTab('wallet')}>Balance</Tab>
         <Tab active={tab === 'stake'} onClick={() => setTab('stake')}>Staking</Tab>
+        <Tab active={tab === 'nft'} onClick={() => setTab('nft')}>Collection</Tab>
         <Tab active={tab === 'vip'} onClick={() => setTab('vip')}>VIP Status</Tab>
         <Tab active={tab === 'history'} onClick={() => setTab('history')}>History</Tab>
       </Tabs>
@@ -320,6 +327,49 @@ const CHIPWallet = () => {
                 </Container>
               </StakingCard>
             ))
+          )}
+        </>
+      ) : tab === 'nft' ? (
+        <>
+          <WalletCard>
+            <Container flexDirection="row" justifyContent="space-between" alignItems="center">
+              <div>
+                <Text color="textSecondary">NFT Collection</Text>
+                <BalanceDisplay style={{ fontSize: '2rem' }}>{nfts.length} Items</BalanceDisplay>
+              </div>
+            </Container>
+          </WalletCard>
+
+          {nfts.length === 0 ? (
+            <Text textCentered color="textSecondary">No NFTs collected yet. Play games to earn achievements!</Text>
+          ) : (
+            <Container flexDirection="column" gap="1rem">
+              {nfts.map((nft, index) => (
+                <StakingCard key={nft._id || index} style={{ borderLeftColor: nft.rarity === 'LEGENDARY' ? '#FFD700' : nft.rarity === 'EPIC' ? '#9C27B0' : nft.rarity === 'RARE' ? '#2196F3' : '#4CAF50' }}>
+                  <Container flexDirection="row" justifyContent="space-between" alignItems="center">
+                    <div>
+                      <Text fontWeight="bold" style={{ color: nft.rarity === 'LEGENDARY' ? '#FFD700' : nft.rarity === 'EPIC' ? '#9C27B0' : nft.rarity === 'RARE' ? '#2196F3' : '#4CAF50' }}>
+                        {nft.displayName || nft.achievementType}
+                      </Text>
+                      <Text size="0.8rem" color="textSecondary">
+                        {nft.handDescription || nft.achievementType}
+                      </Text>
+                      <Text size="0.7rem" color="textSecondary">
+                        Token ID: {nft.tokenId} • {new Date(nft.claimedAt).toLocaleDateString()}
+                      </Text>
+                      {nft.cards && nft.cards.length > 0 && (
+                        <Text size="0.7rem" color="textSecondary">
+                          Cards: {nft.cards.map(c => `${c.rank}${c.suit}`).join(' ')}
+                        </Text>
+                      )}
+                    </div>
+                    <Text fontWeight="bold" style={{ color: nft.rarity === 'LEGENDARY' ? '#FFD700' : nft.rarity === 'EPIC' ? '#9C27B0' : nft.rarity === 'RARE' ? '#2196F3' : '#4CAF50' }}>
+                      {nft.rarity}
+                    </Text>
+                  </Container>
+                </StakingCard>
+              ))}
+            </Container>
           )}
         </>
       ) : tab === 'vip' ? (

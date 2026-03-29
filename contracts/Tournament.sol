@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -92,7 +92,7 @@ contract Tournament is ReentrancyGuard, Ownable, Pausable {
     
     // ============ Constructor ============
     
-    constructor(address _serverWallet, address _chipToken) Ownable(msg.sender) {
+    constructor(address _serverWallet, address _chipToken)  {
         require(_serverWallet != address(0), "Tournament: invalid server wallet");
         serverWallet = _serverWallet;
         chipToken = _chipToken;

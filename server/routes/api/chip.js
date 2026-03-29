@@ -11,23 +11,32 @@ const { authMiddleware } = require('../../middleware/auth');
 router.get('/balance/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
-        const info = await ChipService.getUserInfo(walletAddress);
+        const Stake = require('../../models/Stake');
         
-        // Calculate chip balance from transactions (for testing without blockchain)
-        const ChipTransaction = require('../../models/ChipTransaction');
+        // Calculate chip balance from transactions
         const txResult = await ChipTransaction.aggregate([
             { $match: { walletAddress: walletAddress.toLowerCase() } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
         ]);
         const chipBalance = txResult.length > 0 ? txResult[0].total : 0;
         
+        // Calculate staked amount from active stakes
+        const stakeResult = await Stake.aggregate([
+            { $match: { playerAddress: walletAddress.toLowerCase(), isActive: true } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const stakedAmount = stakeResult.length > 0 ? stakeResult[0].total : 0;
+        
+        // Get VIP status from ChipService if available
+        const info = await ChipService.getUserInfo(walletAddress);
+        
         // Return format matching frontend expectations
         res.json({ 
             success: true, 
-            chip: chipBalance > 0 ? chipBalance : (info.balance || 0),
-            staked: info.stakedAmount || 0,
+            chip: chipBalance,
+            staked: stakedAmount,
             pendingReward: info.pendingReward || 0,
-            totalValue: chipBalance + (info.stakedAmount || 0),
+            totalValue: chipBalance + stakedAmount,
             isVip: info.isVip || false,
             discount: info.discount || 0
         });

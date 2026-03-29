@@ -3,18 +3,16 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title AchievementNFT
  * @dev NFT Achievement system for Texas Hold'em Poker
  * Players earn NFTs by achieving specific hand types
  */
-contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, Pausable {
+contract AchievementNFT is ERC721, ERC721URIStorage, Ownable, Pausable {
     using ECDSA for bytes32;
     
     // ============ Enums ============
@@ -205,8 +203,8 @@ contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, 
             gameId
         ));
         
-        bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(hash);
-        address recoveredSigner = ecrecover(ethSignedHash, v, r, s);
+        bytes32 ethSignedHash = ECDSA.toEthSignedMessageHash(hash);
+        address recoveredSigner = ECDSA.recover(ethSignedHash, v, r, s);
         
         require(recoveredSigner == signer, "AchievementNFT: invalid signature");
         
@@ -304,13 +302,20 @@ contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, 
     
     /**
      * @dev Get all achievements for a player
+     * Note: This is gas-intensive for large collections
      */
     function getPlayerAchievements(address player) external view returns (uint256[] memory) {
         uint256 balance = balanceOf(player);
         uint256[] memory tokens = new uint256[](balance);
         
-        for (uint256 i = 0; i < balance; i++) {
-            tokens[i] = tokenOfOwnerByIndex(player, i);
+        // Note: In a production system, consider using a separate mapping or enumerable pattern
+        // This is a simplified version that works for small collections
+        uint256 count = 0;
+        for (uint256 i = 1; i <= _tokenIdCounter && count < balance; i++) {
+            if (ownerOf(i) == player) {
+                tokens[count] = i;
+                count++;
+            }
         }
         
         return tokens;
@@ -399,19 +404,8 @@ contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, 
     
     // ============ ERC721 Overrides ============
     
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override(ERC721, ERC721Enumerable)
-        returns (address)
-    {
-        return super._update(to, tokenId, auth);
-    }
-    
-    function _increaseBalance(address account, uint128 value)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
-        super._increaseBalance(account, value);
+    function _burn(uint256 tokenId) internal virtual override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
     }
     
     function _baseURI() internal view override returns (string memory) {
@@ -424,7 +418,7 @@ contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, 
         override(ERC721, ERC721URIStorage) 
         returns (string memory) 
     {
-        _requireOwned(tokenId);
+        require(_exists(tokenId), "ERC721URIStorage: URI query for nonexistent token");
         
         uint256 achievementType = tokenAchievementType[tokenId];
         string memory base = _baseURI();
@@ -456,7 +450,7 @@ contract AchievementNFT is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable, 
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, ERC721URIStorage, ERC721Enumerable)
+        override(ERC721, ERC721URIStorage)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
