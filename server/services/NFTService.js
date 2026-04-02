@@ -227,25 +227,25 @@ class NFTService {
      */
     async generateMintSignature(playerAddress, achievementTypeId, gameId) {
         const timestamp = Math.floor(Date.now() / 1000);
-        
-        // Create message hash
-        const message = this.tronWeb.utils.crypto.bytesToString(
-            this.tronWeb.utils.crypto.keccak256(
-                JSON.stringify({
-                    player: playerAddress,
-                    achievementTypeId,
-                    timestamp,
-                    gameId
-                })
-            )
-        );
-        
+
+        // Create message hash using Node.js crypto instead of TronWeb
+        const messageData = JSON.stringify({
+            player: playerAddress,
+            achievementTypeId,
+            timestamp,
+            gameId
+        });
+
+        // Use Node.js crypto for hashing
+        const hash = crypto.createHash('sha256').update(messageData).digest('hex');
+        const message = '0x' + hash;
+
         // Sign with server private key
         const signature = await this.tronWeb.trx.sign(
             message,
             this.signerPrivateKey
         );
-        
+
         return {
             player: playerAddress,
             achievementTypeId,
@@ -579,15 +579,42 @@ module.exports = {
     },
     getNFTMetadata: async (tokenId) => {
         const nft = await NFTClaim.findOne({ tokenId: parseInt(tokenId) });
-        if (!nft) return { name: 'NFT', description: 'Poker Achievement NFT' };
+        if (!nft) return { 
+            name: 'Poker Achievement NFT', 
+            description: 'Poker Achievement NFT',
+            image: 'https://via.placeholder.com/400x400?text=Poker+NFT'
+        };
+        
+        // 构建cards属性
+        const cardsAttribute = nft.cards && nft.cards.length > 0 
+            ? { trait_type: 'Cards', value: nft.cards.map(c => `${c.rank}${c.suit}`).join(' ') }
+            : null;
+        
+        // 构建attributes
+        const attributes = [
+            { trait_type: 'Achievement', value: nft.achievementType },
+            { trait_type: 'Rarity', value: nft.rarity },
+            { trait_type: 'Game ID', value: nft.gameId },
+            { trait_type: 'Token ID', value: nft.tokenId, display_type: 'number' }
+        ];
+        
+        if (cardsAttribute) {
+            attributes.push(cardsAttribute);
+        }
+        
+        // 如果有screenshot，使用它作为image
+        let imageUrl = `https://via.placeholder.com/400x400?text=${encodeURIComponent(nft.achievementType)}`;
+        if (nft.gameScreenshot) {
+            // 使用data URI
+            imageUrl = `data:image/${nft.screenshotFormat || 'png'};base64,${nft.gameScreenshot}`;
+        }
+        
         return {
-            name: `${nft.achievementType} #${nft.tokenId}`,
-            description: nft.handDescription,
-            attributes: [
-                { trait_type: 'Achievement', value: nft.achievementType },
-                { trait_type: 'Rarity', value: nft.rarity },
-                { trait_type: 'Game ID', value: nft.gameId }
-            ]
+            name: `${nft.displayName || nft.achievementType} #${nft.tokenId}`,
+            description: nft.handDescription || `${nft.achievementType} achievement earned in poker game`,
+            image: imageUrl,
+            external_url: `http://localhost:3001/nft/${nft.tokenId}`,
+            attributes: attributes
         };
     },
     // Check achievement from hand cards - static method for game flow

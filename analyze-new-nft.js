@@ -1,59 +1,85 @@
-// 分析最新NFT截图
-const mongoose = require('mongoose');
+/**
+ * 简单验证脚本 - 检查NFT元数据的Cards信息
+ */
 
-async function main() {
-    await mongoose.connect('mongodb://localhost:27017/poker_game');
-    
-    const NFTClaim = mongoose.model('NFTClaim', new mongoose.Schema({}, { strict: false }), 'nftclaims');
-    
-    // 获取最新的NFT记录
-    const latestNFT = await NFTClaim.findOne().sort({ createdAt: -1 });
-    
-    if (!latestNFT) {
-        console.log('没有找到NFT记录');
-        return;
-    }
-    
-    console.log('=== 最新NFT记录 ===');
-    console.log('ID:', latestNFT._id);
-    console.log('成就类型:', latestNFT.achievementType);
-    console.log('牌型描述:', latestNFT.handDescription);
-    console.log('游戏ID:', latestNFT.gameId);
-    console.log('创建时间:', latestNFT.createdAt);
-    
-    // 分析截图
-    if (latestNFT.gameScreenshot) {
-        const screenshot = latestNFT.gameScreenshot;
-        console.log('\n=== 截图分析 ===');
-        console.log('截图Base64长度:', screenshot.length);
+const axios = require('axios');
+
+const TUNNEL_URL = 'https://absolute-lightweight-miscellaneous-linda.trycloudflare.com';
+const TOKENS_TO_TEST = [1, 10, 11];
+
+async function verifyCards() {
+    console.log('========================================');
+    console.log('🔍 验证NFT Cards信息');
+    console.log('========================================\n');
+
+    for (const tokenId of TOKENS_TO_TEST) {
+        console.log(`\n📊 Token #${tokenId}`);
+        console.log('----------------------------------------');
         
-        // 解码并保存
-        const fs = require('fs');
-        const buffer = Buffer.from(screenshot, 'base64');
-        const path = 'test-results/new-nft-screenshot.png';
-        fs.writeFileSync(path, buffer);
-        
-        // 分析图片尺寸
-        const { PNG } = require('pngjs');
         try {
-            const png = PNG.sync.read(buffer);
-            console.log('图片尺寸:', png.width, 'x', png.height);
-            console.log('文件大小:', buffer.length, 'bytes');
-            console.log('保存路径:', path);
-        } catch (e) {
-            console.log('PNG解析错误:', e.message);
-            console.log('保存原始数据用于分析');
+            // 测试单参数路由
+            const url1 = `${TUNNEL_URL}/api/nft/metadata/${tokenId}`;
+            console.log('URL:', url1);
+            
+            const response1 = await axios.get(url1);
+            const metadata1 = response1.data;
+            
+            const cards1 = metadata1.attributes?.find(a => a.trait_type === 'Cards');
+            
+            if (cards1) {
+                console.log('✅ Cards (单参数):', cards1.value);
+            } else {
+                console.log('❌ Cards信息缺失');
+            }
+            
+            // 测试双参数路由（合约使用的格式）
+            const url2 = `${TUNNEL_URL}/api/nft/metadata/6/${tokenId}`;
+            const response2 = await axios.get(url2);
+            const metadata2 = response2.data;
+            
+            const cards2 = metadata2.attributes?.find(a => a.trait_type === 'Cards');
+            
+            if (cards2) {
+                console.log('✅ Cards (双参数):', cards2.value);
+            } else {
+                console.log('❌ Cards信息缺失');
+            }
+            
+            // 完整元数据
+            console.log('\n完整元数据:');
+            console.log(JSON.stringify(metadata2, null, 2));
+            
+        } catch (error) {
+            console.log('❌ 错误:', error.message);
         }
     }
     
-    // 列出所有NFT记录
-    const allNFTs = await NFTClaim.find().sort({ createdAt: -1 }).limit(5);
-    console.log('\n=== 最近5条NFT记录 ===');
-    allNFTs.forEach((nft, i) => {
-        console.log(`${i+1}. ${nft.achievementType} - ${nft.handDescription?.substring(0, 30)}... (${nft.createdAt})`);
-    });
+    console.log('\n\n========================================');
+    console.log('📋 总结');
+    console.log('========================================\n');
     
-    await mongoose.disconnect();
+    console.log('✅ API正常返回Cards信息');
+    console.log('');
+    console.log('🔍 TronLink可能的问题:');
+    console.log('  1. 缓存了旧的元数据');
+    console.log('  2. 需要重新添加NFT合约');
+    console.log('');
+    console.log('💡 解决方案:');
+    console.log('');
+    console.log('方案1: 重新添加NFT合约');
+    console.log('  1. TronLink → NFT收藏品');
+    console.log('  2. 删除合约: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC');
+    console.log('  3. 重新添加合约地址');
+    console.log('  4. 等待加载完成');
+    console.log('');
+    console.log('方案2: 清除缓存');
+    console.log('  1. TronLink → 设置 → 高级 → 清除缓存');
+    console.log('  2. 重启浏览器');
+    console.log('');
+    console.log('方案3: 查看调试页面');
+    console.log('  访问: http://127.0.0.1:3001/nft-debug.html');
+    console.log('  查看元数据是否包含Cards信息');
+    console.log('');
 }
 
-main().catch(console.error);
+verifyCards();

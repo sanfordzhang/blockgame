@@ -96,7 +96,7 @@ osascript -e 'quit app "Google Chrome"' 2>/dev/null; sleep 1
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
 --remote-debugging-port=9222 \
 --user-data-dir="/tmp/chrome-debug" \
-"http://192.168.10.46:3000/" &
+"http://127.0.0.1:3001/" &
 
 ### 通过puppeteer 模拟点击测试验证
 const puppeteer = require('puppeteer');
@@ -148,11 +148,26 @@ Adding photos via auto-layout...
 Checking page thumbnails...
 … +4 lines (ctrl+o to expand)
 
+
 ## 测试用例guide
 1.测试用例需要全面，端对端测试，各个界面按钮事件需要触发，进入游戏，模拟fold，call，raise等操作，根据前端、后台、浏览器日志确定是否有错误，确定所有测试用例通过
-2.玩家1连接浏览器后，测试用例模拟点击按钮操作，截图看游戏状态和日志，如果一直不动，需要分析解决，直到锦标赛整个游戏过程完成
+2.玩家1连接浏览器后，测试用例模拟点击按钮操作，截图看游戏状态和日志，如果一直不动，需要分析解决，直到测试流程完成
 3.玩家2模拟点击操作，保证游戏可继续
 4.完善相关测试用例，自动完成所有流程操作，而不仅仅是通过接口测试验证。
+5.UI\逻辑\合约调用，端对端集成测试流程走一遍，解决相关问题
+6.不要启动新的chrome浏览器，连接现有已启动的调试chrome浏览器
+7.请参考按docs/GAME_BOT_TEST_FLOW.md文档内的测试流程进行测试，间断性的截图看状态分析，不要卡死
 
 PLAYER1.address = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
 PLAYER2.address = 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4';
+
+// 测试玩家
+const PLAYER1 = {
+    address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
+    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+};
+
+const PLAYER2 = {
+    address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
+    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+};

@@ -35,6 +35,74 @@ const RARITY_MAP = {
     'STRAIGHT': 'COMMON'
 };
 
+// 牌型描述映射
+const HAND_DESCRIPTIONS = {
+    'ROYAL_FLUSH': 'Royal Flush - A-K-Q-J-10 of same suit',
+    'STRAIGHT_FLUSH': 'Straight Flush - 5 consecutive cards of same suit',
+    'FOUR_OF_A_KIND': 'Four of a Kind - 4 cards of same rank',
+    'FULL_HOUSE': 'Full House - 3 of a kind + a pair',
+    'FLUSH': 'Flush - 5 cards of same suit',
+    'STRAIGHT': 'Straight - 5 consecutive cards'
+};
+
+// 生成随机牌型数据（用于展示）
+function generateCards(achievementType) {
+    const suits = ['h', 'd', 'c', 's']; // hearts, diamonds, clubs, spades
+    const ranks = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+    
+    switch (achievementType) {
+        case 'ROYAL_FLUSH':
+            return [
+                { rank: 'A', suit: 'h' },
+                { rank: 'K', suit: 'h' },
+                { rank: 'Q', suit: 'h' },
+                { rank: 'J', suit: 'h' },
+                { rank: '10', suit: 'h' }
+            ];
+        case 'STRAIGHT_FLUSH':
+            return [
+                { rank: '9', suit: 's' },
+                { rank: '8', suit: 's' },
+                { rank: '7', suit: 's' },
+                { rank: '6', suit: 's' },
+                { rank: '5', suit: 's' }
+            ];
+        case 'FOUR_OF_A_KIND':
+            return [
+                { rank: 'K', suit: 'h' },
+                { rank: 'K', suit: 'd' },
+                { rank: 'K', suit: 'c' },
+                { rank: 'K', suit: 's' },
+                { rank: 'A', suit: 'h' }
+            ];
+        case 'FULL_HOUSE':
+            return [
+                { rank: 'Q', suit: 'h' },
+                { rank: 'Q', suit: 'd' },
+                { rank: 'Q', suit: 'c' },
+                { rank: 'J', suit: 's' },
+                { rank: 'J', suit: 'h' }
+            ];
+        case 'FLUSH':
+            return [
+                { rank: 'A', suit: 'd' },
+                { rank: 'J', suit: 'd' },
+                { rank: '9', suit: 'd' },
+                { rank: '7', suit: 'd' },
+                { rank: '3', suit: 'd' }
+            ];
+        case 'STRAIGHT':
+        default:
+            return [
+                { rank: '10', suit: 'h' },
+                { rank: '9', suit: 'd' },
+                { rank: '8', suit: 'c' },
+                { rank: '7', suit: 's' },
+                { rank: '6', suit: 'h' }
+            ];
+    }
+}
+
 // 已知的NFT分布 (从check-all-nfts.js获取)
 const KNOWN_NFTS = [
     { tokenId: 1, owner: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv' },
@@ -53,7 +121,7 @@ async function main() {
     console.log('🔄 链上NFT同步到数据库');
     console.log('========================================\n');
     
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/bridge_poker');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/bridge-poker');
     console.log('✅ 数据库连接成功');
     
     const contract = await tronWeb.contract().at(NFT_CONTRACT);
@@ -89,6 +157,7 @@ async function main() {
             const achievementType = ACHIEVEMENT_TYPES[typeId] || 'UNKNOWN';
             
             // 创建数据库记录
+            const cards = generateCards(achievementType);
             const nft = new NFTClaim({
                 playerAddress: nftInfo.owner.toLowerCase(),
                 achievementTypeId: typeId,
@@ -97,6 +166,8 @@ async function main() {
                 tokenId: nftInfo.tokenId,
                 txHash: 'synced_from_chain',
                 gameId: `synced-${nftInfo.tokenId}`,
+                handDescription: HAND_DESCRIPTIONS[achievementType] || achievementType,
+                cards: cards,
                 yearMonth: 202603,
                 claimedAt: new Date()
             });

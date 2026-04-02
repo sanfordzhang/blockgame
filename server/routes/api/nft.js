@@ -196,15 +196,39 @@ router.get('/stats/:walletAddress', async (req, res) => {
 });
 
 /**
+ * @route GET /api/nft/metadata/:achievementType/:tokenId
+ * @desc Get NFT metadata with achievementType (for contract tokenURI format)
+ * Contract returns: baseURI + achievementType + "/" + tokenId
+ */
+router.get('/metadata/:achievementType/:tokenId', async (req, res) => {
+    try {
+        const { achievementType, tokenId } = req.params;
+        console.log('[NFT API] ========== METADATA REQUEST ==========');
+        console.log('[NFT API] Type:', achievementType, 'Token:', tokenId);
+        console.log('[NFT API] Headers:', JSON.stringify(req.headers));
+
+        const metadata = await NFTService.getNFTMetadata(tokenId);
+        console.log('[NFT API] Metadata attributes:', JSON.stringify(metadata.attributes));
+        res.json(metadata);
+    } catch (error) {
+        console.error('[NFT API] Metadata error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * @route GET /api/nft/metadata/:tokenId
- * @desc Get NFT metadata (for external platforms)
+ * @desc Get NFT metadata (for external platforms and direct access)
  */
 router.get('/metadata/:tokenId', async (req, res) => {
     try {
         const { tokenId } = req.params;
+        console.log('[NFT API] Metadata request for tokenId:', tokenId);
         const metadata = await NFTService.getNFTMetadata(tokenId);
+        console.log('[NFT API] Metadata generated:', JSON.stringify(metadata).substring(0, 100));
         res.json(metadata);
     } catch (error) {
+        console.error('[NFT API] Metadata error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

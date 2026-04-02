@@ -1,0 +1,1384 @@
+[Config] ========== BLOCKCHAIN CONFIG ==========
+[Config] BLOCKCHAIN_ENABLED: true
+[Config] TRON_NETWORK: testnet
+[Config] CONTRACT_ADDRESS: TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[Config] =======================================
+[Server] Initializing blockchain services...
+[TronService] Initialized for testnet at https://nile.trongrid.io
+[TronService] Server wallet address: TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA
+Server is running in development mode and is listening on port 7778...
+[ContractService] ABI loaded from BridgeGameV2 build artifacts
+[ContractService] Contract loaded at TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ContractService] Initialized for testnet
+[GameSettlementService] Initialized
+[GameFlowIntegration] Initialized
+[Server] Initializing NFT Service...
+Successfully connected to MongoDB!
+[TournamentService] Test mode: Socket.IO instance set
+[NFTService] Contract loaded: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC
+[Server] ✅ NFT Service initialized with contract: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC
+[EventListener] Initialized
+[EventListener] Started polling for events
+[Server] Server address: TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA
+[TournamentService] Test mode: Socket.IO instance set
+[TournamentService] Test mode: Socket.IO instance set
+SC_LOBBY_CONNECTED TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 IQv7H5MAp8evrxkbAAAF
+[Server] Current table 1 owner: 41dbf2e4b885e6de39190e15723abcfaa1d91b93b3
+[Server] Setting server as table owner for table 1...
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66022573,
+  block_timestamp: 1774540461000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1',
+    '2': '100000000',
+    amount: '100000000',
+    tableId: '1',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: '0190bf39b55c0c86d91717050b60d198ad5e6d5b7a2bbadb5601754f3942520c'
+}
+[EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1, refunded 100000000 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66022570,
+  block_timestamp: 1774540452000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'e32f106816ea01b05b65cf72a016a69aea942d231eb7373d73350a938c5984b8'
+}
+[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1
+[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+[EventListener] Event: LeftTable {
+  block_number: 65956220,
+  block_timestamp: 1774340736000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae',
+    '1': '1',
+    '2': '55013100',
+    amount: '55013100',
+    tableId: '1',
+    player: '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: '94e6938fc9889f343243001c81f8d7bf7bcb0c58ba97c38137fcfcb2584f4a75'
+}
+[EventListener] 0xa2a479a5d25e4ec650d8dc9792d6c440109edfae left table 1, refunded 55013100 SUN
+[EventListener] Event: LeftTable {
+  block_number: 65956217,
+  block_timestamp: 1774340727000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 2,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1',
+    '2': '140488210',
+    amount: '140488210',
+    tableId: '1',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'c5a99fa950fc48562f196e0077777c1dc3506b11df1128b639ca7b226049e1e9'
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1, refunded 140488210 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 65956184,
+  block_timestamp: 1774340628000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae',
+    '1': '1',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1',
+    player: '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'c310ea61555f884b0e7c1c2eadd69dcce2b22b68c4edb361dbfef62e4955089d'
+}
+[EventListener] JoinedTableFor: 0xa2a479a5d25e4ec650d8dc9792d6c440109edfae joined table 1
+[GameFlowIntegration] Syncing balance for TQoBW57tXChSTrD22c6qfUnbE1M3kmnCsd
+[EventListener] Event: DelegateSet {
+  block_number: 65956179,
+  block_timestamp: 1774340613000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'DelegateSet',
+  result: {
+    '0': '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae',
+    '1': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    player: '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae'
+  },
+  result_type: { delegate: 'address', player: 'address' },
+  event: 'DelegateSet(address indexed player, address indexed delegate)',
+  transaction_id: 'e0709d42688d562a00d4f40c3aa7c17ead55a3b525f69a3697804d17f4f1afdd'
+}
+[EventListener] Event: Deposited {
+  block_number: 65956166,
+  block_timestamp: 1774340574000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'Deposited',
+  result: {
+    '0': '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae',
+    '1': '100000000',
+    amount: '100000000',
+    player: '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae'
+  },
+  result_type: { amount: 'uint256', player: 'address' },
+  event: 'Deposited(address indexed player, uint256 amount)',
+  transaction_id: '12a4709a42e38139859c3a85625e74ddf388dcf677615be1dcf342d40c449f37'
+}
+[EventListener] ✅ DEPOSIT EVENT: 0xa2a479a5d25e4ec650d8dc9792d6c440109edfae deposited 100000000 SUN (100 TRX)
+[EventListener] Event details: {
+  "0": "0xa2a479a5d25e4ec650d8dc9792d6c440109edfae",
+  "1": "100000000",
+  "amount": "100000000",
+  "player": "0xa2a479a5d25e4ec650d8dc9792d6c440109edfae"
+}
+[EventListener] Event: PlayerRegistered {
+  block_number: 65956163,
+  block_timestamp: 1774340565000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'PlayerRegistered',
+  result: {
+    '0': '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae',
+    player: '0xa2a479a5d25e4ec650d8dc9792d6c440109edfae'
+  },
+  result_type: { player: 'address' },
+  event: 'PlayerRegistered(address indexed player)',
+  transaction_id: '9ab740933084c7f671f19e23ecd8390f07e9d330bd1cc92498c04439f8462de3'
+}
+[EventListener] Player registered: 0xa2a479a5d25e4ec650d8dc9792d6c440109edfae at undefined
+[EventListener] Event: JoinedTableFor {
+  block_number: 65956111,
+  block_timestamp: 1774340409000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'b9f787ad01cbb24a878feb216b4430dc36434842dd34e96cbb6883fb395e00d6'
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Event: LeftTable {
+  block_number: 65956108,
+  block_timestamp: 1774340400000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1',
+    '2': '100000000',
+    amount: '100000000',
+    tableId: '1',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: '82733ec470da43388aba3f20d861b08e49594ad512ed158b6cf99a71e29d0b9f'
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1, refunded 100000000 SUN
+[EventListener] Event: Deposited {
+  block_number: 65956081,
+  block_timestamp: 1774340319000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'Deposited',
+  result: {
+    '0': '0x341f5c261c98f11e76d8cb65fda9604382af98cd',
+    '1': '100000000',
+    amount: '100000000',
+    player: '0x341f5c261c98f11e76d8cb65fda9604382af98cd'
+  },
+  result_type: { amount: 'uint256', player: 'address' },
+  event: 'Deposited(address indexed player, uint256 amount)',
+  transaction_id: 'e2026fce46f534d326bdd6ff19b38b842f456f5c6ecf01c4e48b9c01d87eaa52'
+}
+[EventListener] ✅ DEPOSIT EVENT: 0x341f5c261c98f11e76d8cb65fda9604382af98cd deposited 100000000 SUN (100 TRX)
+[EventListener] Event details: {
+  "0": "0x341f5c261c98f11e76d8cb65fda9604382af98cd",
+  "1": "100000000",
+  "amount": "100000000",
+  "player": "0x341f5c261c98f11e76d8cb65fda9604382af98cd"
+}
+[EventListener] Event: JoinedTableFor {
+  block_number: 65955748,
+  block_timestamp: 1774339314000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: '31e5ce6e989fde5cef39639a2d9ede93443d5ff6be98d9ace1967407101b4e07'
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Event: Deposited {
+  block_number: 65908822,
+  block_timestamp: 1774198068000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'Deposited',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '100000000',
+    amount: '100000000',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', player: 'address' },
+  event: 'Deposited(address indexed player, uint256 amount)',
+  transaction_id: '6d4a7c4bc145299ef050badeaf42182ec184ba1f3e0f9d4a1bc4c0f09ad5c85f'
+}
+[EventListener] ✅ DEPOSIT EVENT: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 deposited 100000000 SUN (100 TRX)
+[EventListener] Event details: {
+  "0": "0xc7457b452780a641ff4c5c922034accd6e6b9b79",
+  "1": "100000000",
+  "amount": "100000000",
+  "player": "0xc7457b452780a641ff4c5c922034accd6e6b9b79"
+}
+[EventListener] Event: Deposited {
+  block_number: 65908821,
+  block_timestamp: 1774198065000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'Deposited',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '100000000',
+    amount: '100000000',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', player: 'address' },
+  event: 'Deposited(address indexed player, uint256 amount)',
+  transaction_id: 'c20640f2b0a930b2bab93604f907d43815b160265c06844c137dd0c3ac9c4213'
+}
+[EventListener] ✅ DEPOSIT EVENT: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 deposited 100000000 SUN (100 TRX)
+[EventListener] Event details: {
+  "0": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527",
+  "1": "100000000",
+  "amount": "100000000",
+  "player": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527"
+}
+[EventListener] Event: Withdrawn {
+  block_number: 65908812,
+  block_timestamp: 1774198038000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'Withdrawn',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '200000000',
+    amount: '200000000',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', player: 'address' },
+  event: 'Withdrawn(address indexed player, uint256 amount)',
+  transaction_id: 'f552850c69ea0d89c562dce7c7f54d7c9a0b9adf9448d5a48bdc557738653be2'
+}
+[EventListener] Withdrawal: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 withdrew 200000000 SUN
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[Server] 💰 Server wallet balance: 1709.18 TRX
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ContractService] Error setting table owner: Request failed with status code 502
+[Server] ⚠️ Could not set table owner: Request failed with status code 502
+[Server] This may affect game settlement. Make sure server wallet is contract owner.
+[Server] Blockchain services initialized successfully
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/1
+[NFT API] Metadata request - Type: 6 Token: 1
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/1
+[NFT API] Metadata request - Type: 6 Token: 1
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/2
+[NFT API] Metadata request - Type: 6 Token: 2
+[NFT API] Metadata generated: {"name":"Straight #2","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/3
+[NFT API] Metadata request - Type: 6 Token: 3
+[NFT API] Metadata generated: {"name":"Straight #3","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/4
+[NFT API] Metadata request - Type: 6 Token: 4
+[NFT API] Metadata generated: {"name":"Straight #4","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/5
+[NFT API] Metadata request - Type: 6 Token: 5
+[NFT API] Metadata generated: {"name":"Straight #5","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/6
+[NFT API] Metadata request - Type: 6 Token: 6
+[NFT API] Metadata generated: {"name":"Straight #6","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/7
+[NFT API] Metadata request - Type: 6 Token: 7
+[NFT API] Metadata generated: {"name":"Straight #7","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/8
+[NFT API] Metadata request - Type: 6 Token: 8
+[NFT API] Metadata generated: {"name":"Straight #8","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/9
+[NFT API] Metadata request - Type: 6 Token: 9
+[NFT API] Metadata generated: {"name":"Straight #9","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/11
+[NFT API] Metadata request - Type: 6 Token: 11
+[NFT API] Metadata generated: {"name":"Straight #11","description":"Synced Token #11 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/1774788248313
+[NFT API] Metadata request - Type: 6 Token: 1774788248313
+[NFT API] Metadata generated: {"name":"Royal Flush #1774788248313","description":"Royal Flush - Ah Kh Qh Jh 10h","image":"https://
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/1
+[NFT API] Metadata request - Type: 6 Token: 1
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/11
+[NFT API] Metadata request - Type: 6 Token: 11
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/2
+[NFT API] Metadata request - Type: 6 Token: 2
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/7
+[NFT API] Metadata request - Type: 6 Token: 7
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[NFT API] Metadata generated: {"name":"Straight #11","description":"Synced Token #11 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/8
+[NFT API] Metadata request - Type: 6 Token: 8
+[NFT API] Metadata generated: {"name":"Straight #2","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[NFT API] Metadata generated: {"name":"Straight #7","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[NFT API] Metadata generated: {"name":"Straight #8","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/9
+[NFT API] Metadata request - Type: 6 Token: 9
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/4
+[NFT API] Metadata request - Type: 6 Token: 4
+[NFT API] Metadata generated: {"name":"Straight #9","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/16
+[NFT API] Metadata request - Type: 6 Token: 16
+[NFT API] Metadata generated: {"name":"Straight #4","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[NFT API] Metadata generated: {"name":"Poker Achievement NFT","description":"Poker Achievement NFT","image":"https://via.placehold
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/6
+[NFT API] Metadata request - Type: 6 Token: 6
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/3
+[NFT API] Metadata request - Type: 6 Token: 3
+[NFT API] Metadata generated: {"name":"Straight #6","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/13
+[NFT API] Metadata request - Type: 6 Token: 13
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/5
+[NFT API] Metadata request - Type: 6 Token: 5
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/14
+[NFT API] Metadata request - Type: 6 Token: 14
+[NFT API] Metadata generated: {"name":"Straight #3","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[NFT API] Metadata generated: {"name":"Poker Achievement NFT","description":"Poker Achievement NFT","image":"https://via.placehold
+[NFT API] Metadata generated: {"name":"Straight #5","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[NFT API] Metadata generated: {"name":"Poker Achievement NFT","description":"Poker Achievement NFT","image":"https://via.placehold
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/12
+[NFT API] Metadata request - Type: 6 Token: 12
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/15
+[NFT API] Metadata request - Type: 6 Token: 15
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Poker Achievement NFT","description":"Poker Achievement NFT","image":"https://via.placehold
+[NFT API] Metadata generated: {"name":"Poker Achievement NFT","description":"Poker Achievement NFT","image":"https://via.placehold
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://localhost:7778/api/nft/metadata/1774788248313
+[NFT API] Metadata request for tokenId: 1774788248313
+[NFT API] Metadata generated: {"name":"Royal Flush #1774788248313","description":"Royal Flush - Ah Kh Qh Jh 10h","image":"https://
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/1774788248313
+[NFT API] Metadata request for tokenId: 1774788248313
+[NFT API] Metadata generated: {"name":"Royal Flush #1774788248313","description":"Royal Flush - Ah Kh Qh Jh 10h","image":"https://
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/10
+[NFT API] Metadata request for tokenId: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/blockchain/config
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[Socket] CS_CHECK_DELEGATE: { player: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv', isAuthorized: true }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Poll error: Request failed with status code 502
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/1
+[NFT API] Metadata request for tokenId: 1
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/1
+[NFT API] Metadata request - Type: 6 Token: 1
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/10
+[NFT API] Metadata request for tokenId: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/11
+[NFT API] Metadata request for tokenId: 11
+[NFT API] Metadata generated: {"name":"Straight #11","description":"Synced Token #11 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/11
+[NFT API] Metadata request - Type: 6 Token: 11
+[NFT API] Metadata generated: {"name":"Straight #11","description":"Synced Token #11 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Socket disconnected: WbZfGlOv04bLMp9DAAAH, wallet: undefined...
+GET http://localhost:7778/api/blockchain/config
+[TournamentService] Test mode: Socket.IO instance set
+[Socket] CS_CHECK_DELEGATE: { player: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv', isAuthorized: true }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Socket disconnected: 9qaKpvIJPFY9C00jAAAJ, wallet: undefined...
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://localhost:7778/api/blockchain/config
+[TournamentService] Test mode: Socket.IO instance set
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[Socket] CS_CHECK_DELEGATE: { player: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv', isAuthorized: true }
+[TournamentHandler] Socket disconnected: TGKP3e5KuHOraiqhAAAL, wallet: undefined...
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/1
+[NFT API] Metadata request for tokenId: 1
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/1
+[NFT API] Metadata request - Type: 6 Token: 1
+[NFT API] Metadata generated: {"name":"Straight #1","description":"Straight - 5 consecutive cards","image":"https://via.placeholde
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/10
+[NFT API] Metadata request for tokenId: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/11
+[NFT API] Metadata request for tokenId: 11
+[NFT API] Metadata generated: {"name":"Straight #11","description":"Synced Token #11 - Straight hand","image":"https://via.placeho
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/11
+[NFT API] Metadata request - Type: 6 Token: 11
+[NFT API] Metadata generated: {"name":"Straight #11","description":"Synced Token #11 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Poll error: Request failed with status code 502
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Poll error: Request failed with status code 502
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Socket disconnected: pjL4FtROvl_yUDrvAAAD, wallet: undefined...
+[TournamentHandler] Socket disconnected: DorR3_gogdVOOC6KAAAB, wallet: undefined...
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://localhost:7778/favicon.ico
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Poll error: Request failed with status code 502
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://localhost:7778/api/nft/types
+GET http://localhost:7778/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+GET http://localhost:7778/api/nft/metadata/10
+[NFT API] Metadata request for tokenId: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://absolute-lightweight-miscellaneous-linda.trycloudflare.com/api/nft/metadata/6/10
+[NFT API] Metadata request - Type: 6 Token: 10
+[NFT API] Metadata generated: {"name":"Straight #10","description":"Synced Token #10 - Straight hand","image":"https://via.placeho
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c

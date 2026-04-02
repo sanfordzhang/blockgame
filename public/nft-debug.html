@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT元数据查看器 - Token #10</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .nft-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .attribute {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .attribute-name {
+            font-weight: bold;
+            color: #667eea;
+        }
+        .attribute-value {
+            color: #333;
+        }
+        .cards-attribute {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .cards-attribute .attribute-name {
+            color: #f57c00;
+            font-size: 18px;
+        }
+        .cards-attribute .attribute-value {
+            color: #e65100;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .success {
+            color: #4caf50;
+            font-weight: bold;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .raw-json {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+        }
+        .button:hover {
+            background: #5568d3;
+        }
+        .tronlink-note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .tronlink-note h3 {
+            margin-top: 0;
+            color: #f57c00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎴 NFT元数据查看器</h1>
+        
+        <div class="nft-card" id="nft-card">
+            <p style="text-align: center; color: #999;">加载中...</p>
+        </div>
+        
+        <div class="tronlink-note">
+            <h3>💡 TronLink显示问题？</h3>
+            <p><strong>如果TronLink钱包没有显示Cards信息，请尝试：</strong></p>
+            <ol>
+                <li>在TronLink中<strong>删除</strong>此NFT合约</li>
+                <li>重新<strong>添加</strong>合约地址: <code>TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC</code></li>
+                <li>等待加载完成</li>
+                <li>点击NFT查看详情 → 应该能看到Cards属性</li>
+            </ol>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="http://127.0.0.1:3001/nft" class="button">返回NFT页面</a>
+            <button class="button" onclick="location.reload()">刷新元数据</button>
+        </div>
+        
+        <div class="raw-json" id="raw-json">
+            加载原始JSON...
+        </div>
+    </div>
+
+    <script>
+        const TUNNEL_URL = 'https://absolute-lightweight-miscellaneous-linda.trycloudflare.com';
+        const TOKEN_ID = 10;
+
+        async function loadNFTMetadata() {
+            try {
+                const response = await fetch(`${TUNNEL_URL}/api/nft/metadata/6/${TOKEN_ID}`);
+                const metadata = await response.json();
+                
+                // 渲染NFT卡片
+                let html = `
+                    <h2 style="margin-top: 0; color: #333;">${metadata.name}</h2>
+                    <p style="color: #666;">${metadata.description}</p>
+                    <h3 style="color: #667eea; margin-top: 20px;">📋 属性 (Attributes)</h3>
+                `;
+                
+                let hasCards = false;
+                
+                metadata.attributes.forEach(attr => {
+                    const isCards = attr.trait_type === 'Cards';
+                    hasCards = hasCards || isCards;
+                    
+                    html += `
+                        <div class="${isCards ? 'cards-attribute' : 'attribute'}">
+                            <span class="attribute-name">${attr.trait_type}</span>
+                            <span class="attribute-value">${attr.value}</span>
+                        </div>
+                    `;
+                });
+                
+                if (hasCards) {
+                    html += `
+                        <div class="success">
+                            ✅ Cards信息已正确加载！
+                            <br>
+                            <small>TronLink应该能够显示这个信息</small>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div style="background: #ffebee; padding: 10px; border-radius: 5px; color: #c62828; margin-top: 20px;">
+                            ❌ Cards信息未找到
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('nft-card').innerHTML = html;
+                
+                // 显示原始JSON
+                document.getElementById('raw-json').textContent = JSON.stringify(metadata, null, 2);
+                
+            } catch (error) {
+                document.getElementById('nft-card').innerHTML = `
+                    <div style="color: #c62828; padding: 20px; text-align: center;">
+                        ❌ 加载失败: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载时获取元数据
+        loadNFTMetadata();
+    </script>
+</body>
+</html>
