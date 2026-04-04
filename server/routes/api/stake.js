@@ -1,19 +1,91 @@
 const express = require('express');
 const router = express.Router();
-const Stake = require('../../models/Stake');
-const ChipTransaction = require('../../models/ChipTransaction');
 const ChipService = require('../../services/ChipService');
-const { authMiddleware } = require('../../middleware/auth');
+const ChipTransaction = require('../../models/ChipTransaction');
 
 /**
  * @route GET /api/stake/info/:walletAddress
- * @desc Get user's staking info
+ * @desc Get user's on-chain staking info
  */
 router.get('/info/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
-        const stakeInfo = await ChipService.getStakeInfo(walletAddress);
-        res.json({ success: true, ...stakeInfo });
+        const stakeInfo = await ChipService.getOnChainStakeInfo(walletAddress);
+        const pendingReward = await ChipService.getPendingStakeReward(walletAddress);
+        
+        res.json({ 
+            success: true, 
+            stake: stakeInfo,
+            pendingReward
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route GET /api/stake/history/:walletAddress
+ * @desc Get user's staking info (on-chain) + transaction history
+ */
+router.get('/history/:walletAddress', async (req, res) => {
+    try {
+        const { walletAddress } = req.params;
+        
+        // Get on-chain stake info
+        const onChainStake = await ChipService.getOnChainStakeInfo(walletAddress);
+        
+        // Build stakes array for frontend
+        let stakes = [];
+        if (onChainStake && onChainStake.isActive && onChainStake.amount > 0) {
+            stakes.push({
+                _id: 'on-chain',
+                amount: onChainStake.amount,
+                lockDays: onChainStake.remainingLockDays || 0,
+                startTime: onChainStake.startTime,
+                unlockAt: onChainStake.lockedUntil,
+                pendingReward: await ChipService.getPendingStakeReward(walletAddress),
+                isActive: true,
+                isLocked: onChainStake.isLocked
+            });
+        }
+        
+        res.json({ 
+            success: true, 
+            stakes,
+            onChainStake: onChainStake && onChainStake.isActive ? onChainStake : null
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route GET /api/stake/prepare/:walletAddress
+ * @desc Prepare stake transaction data for frontend to sign
+ */
+router.get('/prepare/:walletAddress', async (req, res) => {
+    try {
+        const { amount, lockDays } = req.query;
+        
+        if (!amount || !lockDays) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing amount or lockDays' 
+            });
+        }
+        
+        const lockDurationSeconds = parseInt(lockDays) * 24 * 60 * 60;
+        const stakeData = ChipService.prepareStakeData(parseFloat(amount), lockDurationSeconds);
+        
+        res.json({ 
+            success: true, 
+            ...stakeData,
+            instructions: [
+                '1. First call approve on CHIP token contract',
+                '2. Then call stake on staking contract',
+                'Frontend should handle this via TronLink'
+            ]
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -21,41 +93,33 @@ router.get('/info/:walletAddress', async (req, res) => {
 
 /**
  * @route POST /api/stake/create
- * @desc Create a new stake
+ * @desc Log stake transaction (called after user successfully stakes on-chain)
+ * This only records the transaction in history, doesn't create database stake
  */
 router.post('/create', async (req, res) => {
     try {
         const walletAddress = req.headers['x-wallet-address'] || req.body.walletAddress;
-        const { amount, lockDays } = req.body;
+        const { amount, lockDays, txHash } = req.body;
         
-        if (!walletAddress || !amount || !lockDays) {
+        if (!walletAddress || !amount) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
         }
         
-        const startTime = new Date();
-        const lockedUntil = new Date(startTime.getTime() + lockDays * 24 * 60 * 60 * 1000);
-        
-        const stake = new Stake({
-            playerAddress: walletAddress.toLowerCase(),
-            amount,
-            lockDuration: lockDays,
-            startTime,
-            lockedUntil,
-            isActive: true
-        });
-        await stake.save();
-        
-        // Create stake transaction
+        // Just log the transaction (no database stake record)
         await ChipTransaction.createTransaction({
             walletAddress,
             type: 'stake',
             amount: -amount,
-            stakeId: stake._id,
             lockDays,
-            description: `Staked ${amount} CHIP for ${lockDays} days`
+            txHash,
+            description: `Staked ${amount} CHIP for ${lockDays} days (on-chain)`
         });
         
-        res.json({ success: true, stake });
+        res.json({ 
+            success: true, 
+            message: 'Stake transaction logged',
+            note: 'Actual stake data is on blockchain'
+        });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
@@ -63,55 +127,87 @@ router.post('/create', async (req, res) => {
 
 /**
  * @route POST /api/stake/unstake
- * @desc Unstake tokens (with penalty if early)
+ * @desc Prepare unstake transaction data
  */
 router.post('/unstake', async (req, res) => {
     try {
-        const walletAddress = req.headers['x-wallet-address'] || req.body.walletAddress;
-        const { stakeId } = req.body;
+        const { amount } = req.body;
         
-        const stake = await Stake.findById(stakeId);
-        if (!stake || stake.playerAddress !== walletAddress.toLowerCase()) {
-            return res.status(404).json({ success: false, error: 'Stake not found' });
+        if (!amount) {
+            return res.status(400).json({ success: false, error: 'Missing amount' });
         }
         
-        stake.unstake(0.1);
-        await stake.save();
+        const unstakeData = ChipService.prepareUnstakeData(parseFloat(amount));
         
-        // Create unstake transaction
-        await ChipTransaction.createTransaction({
-            walletAddress,
-            type: 'unstake',
-            amount: stake.unstakeAmount,
-            stakeId: stake._id,
-            description: `Unstaked ${stake.unstakeAmount} CHIP`
+        res.json({ 
+            success: true, 
+            ...unstakeData,
+            note: 'Call unstake on staking contract via TronLink'
         });
-        
-        res.json({ success: true, stake });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
 });
 
 /**
+ * @route POST /api/stake/log-unstake
+ * @desc Log unstake transaction (called after user successfully unstakes on-chain)
+ */
+router.post('/log-unstake', async (req, res) => {
+    try {
+        const walletAddress = req.headers['x-wallet-address'] || req.body.walletAddress;
+        const { amount, txHash, penalty } = req.body;
+        
+        await ChipTransaction.createTransaction({
+            walletAddress,
+            type: 'unstake',
+            amount: amount,
+            txHash,
+            description: `Unstaked ${amount} CHIP (penalty: ${penalty || 0})`
+        });
+        
+        res.json({ success: true, message: 'Unstake logged' });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route GET /api/stake/claim-prepare
+ * @desc Prepare claim reward transaction data
+ */
+router.get('/claim-prepare', async (req, res) => {
+    try {
+        const claimData = ChipService.prepareClaimRewardData();
+        
+        res.json({ 
+            success: true, 
+            ...claimData,
+            note: 'Call claimReward on staking contract via TronLink'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * @route POST /api/stake/claim-reward
- * @desc Claim staking rewards
+ * @desc Log claim transaction (called after user successfully claims on-chain)
  */
 router.post('/claim-reward', async (req, res) => {
     try {
         const walletAddress = req.headers['x-wallet-address'] || req.body.walletAddress;
-        const { stakeId, amount } = req.body;
+        const { amount, txHash } = req.body;
         
-        // Create claim transaction
         await ChipTransaction.createTransaction({
             walletAddress,
             type: 'claim',
-            amount: amount || 10,
-            stakeId,
+            amount: amount,
+            txHash,
             description: 'Claimed staking reward'
         });
         
-        res.json({ success: true, claimedAmount: amount || 10 });
+        res.json({ success: true, message: 'Claim logged' });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
@@ -132,37 +228,6 @@ router.get('/pending-reward/:walletAddress', async (req, res) => {
 });
 
 /**
- * @route GET /api/stake/history/:walletAddress
- * @desc Get user's staking history
- */
-router.get('/history/:walletAddress', async (req, res) => {
-    try {
-        const { walletAddress } = req.params;
-        const { page = 1, limit = 20 } = req.query;
-        
-        const stakes = await Stake.find({ playerAddress: walletAddress.toLowerCase() })
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
-            
-        const total = await Stake.countDocuments({ playerAddress: walletAddress.toLowerCase() });
-        
-        res.json({ 
-            success: true, 
-            stakes,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages: Math.ceil(total / limit)
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-/**
  * @route GET /api/stake/stats
  * @desc Get global staking statistics
  */
@@ -173,6 +238,18 @@ router.get('/stats', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+/**
+ * @route GET /api/stake/contracts
+ * @desc Get staking contract addresses
+ */
+router.get('/contracts', (req, res) => {
+    res.json({
+        success: true,
+        stakingContract: process.env.STAKING_CONTRACT_ADDRESS,
+        chipToken: process.env.CHIP_TOKEN_ADDRESS
+    });
 });
 
 module.exports = router;

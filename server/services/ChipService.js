@@ -1,9 +1,10 @@
 /**
  * ChipService
  * Manages CHIP token rewards, VIP status, and staking integration
+ * 
+ * Note: Staking data is read directly from blockchain (on-chain source of truth)
+ * Database (ChipTransaction) is only used for operation history/logs
  */
-
-const Stake = require('../models/Stake');
 
 class ChipService {
     constructor(config) {
@@ -36,7 +37,7 @@ class ChipService {
     // ============ Balance & Info ============
     
     /**
-     * Get CHIP balance for address
+     * Get CHIP balance for address (on-chain)
      */
     async getBalance(address) {
         if (!this.tokenContract) return 0;
@@ -46,20 +47,20 @@ class ChipService {
     }
     
     /**
-     * Get user info (balance, staked, VIP status)
+     * Get user info (balance, staked, VIP status) - all from on-chain
      */
     async getUserInfo(address) {
         const balance = await this.getBalance(address);
-        const stakedAmount = await this.getStakedAmount(address);
+        const stakeInfo = await this.getOnChainStakeInfo(address);
         const pendingReward = await this.getPendingReward(address);
         const vipStatus = this.getVipStatus(balance);
         
         return {
             address,
             balance,
-            stakedAmount,
+            stakedAmount: stakeInfo.amount,
             pendingReward,
-            totalValue: balance + stakedAmount,
+            totalValue: balance + stakeInfo.amount,
             isVip: vipStatus.isVip,
             isSuperVip: vipStatus.isSuperVip,
             discount: vipStatus.discount
@@ -67,155 +68,148 @@ class ChipService {
     }
     
     /**
-     * Get VIP status
+     * Get VIP status based on balance
      */
     getVipStatus(balance) {
         const vipThreshold = 10000 * 1e6;     // 10,000 CHIP
         const superVipThreshold = 100000 * 1e6; // 100,000 CHIP
         
         if (balance >= superVipThreshold) {
-            return { isVip: true, isSuperVip: true, discount: 10 }; // 10%
+            return { isVip: true, isSuperVip: true, discount: 10, level: 'PLATINUM' };
         } else if (balance >= vipThreshold) {
-            return { isVip: true, isSuperVip: false, discount: 5 }; // 5%
+            return { isVip: true, isSuperVip: false, discount: 5, level: 'GOLD' };
         }
         
-        return { isVip: false, isSuperVip: false, discount: 0 };
+        return { isVip: false, isSuperVip: false, discount: 0, level: 'BRONZE' };
     }
     
-    /**
-     * Calculate VIP discount for an amount
-     */
-    calculateVipDiscount(address, originalAmount) {
-        // This would check balance in production
-        // For now, return original amount
-        return originalAmount;
-    }
-    
-    // ============ Rewards ============
+    // ============ Staking (On-chain only) ============
     
     /**
-     * Reward player for gameplay
-     */
-    async rewardGameplay(playerAddress, rakeAmount) {
-        if (!this.tokenContract) return null;
-        
-        const reward = Math.floor(rakeAmount * this.gameRewardRate);
-        
-        if (reward > 0) {
-            // Mint reward tokens (requires minter permission)
-            // await this.tokenContract.mint(playerAddress, reward).send({ from: serverWallet });
-            console.log(`[ChipService] Rewarding ${reward} CHIP to ${playerAddress}`);
-        }
-        
-        return reward;
-    }
-    
-    /**
-     * Reward player for tournament
-     */
-    async rewardTournament(playerAddress, rakeAmount) {
-        if (!this.tokenContract) return null;
-        
-        const reward = Math.floor(rakeAmount * this.tournamentRewardRate);
-        
-        if (reward > 0) {
-            console.log(`[ChipService] Tournament reward: ${reward} CHIP to ${playerAddress}`);
-        }
-        
-        return reward;
-    }
-    
-    // ============ Staking ============
-    
-    /**
-     * Get staked amount for address
+     * Get staked amount for address (from on-chain)
      */
     async getStakedAmount(address) {
-        const stakes = await Stake.findActiveByPlayer(address);
-        return stakes.reduce((sum, s) => sum + s.amount, 0);
+        const stakeInfo = await this.getOnChainStakeInfo(address);
+        return stakeInfo && stakeInfo.amount > 0 ? stakeInfo.amount : 0;
     }
     
     /**
-     * Get pending reward for address
+     * Get on-chain stake info from staking contract
+     */
+    async getOnChainStakeInfo(address) {
+        if (!this.stakingContract) {
+            return { amount: 0, startTime: null, lockedUntil: null, isActive: false };
+        }
+        
+        try {
+            const result = await this.stakingContract.stakes(address).call();
+            
+            const amount = Number(result.amount) / 1e6; // Convert from SUN to CHIP
+            const startTime = Number(result.startTime) * 1000;
+            const lockedUntil = Number(result.lockedUntil) * 1000;
+            const isActive = result.isActive;
+            
+            return {
+                amount,
+                startTime: startTime > 0 ? new Date(startTime) : null,
+                lockedUntil: lockedUntil > 0 ? new Date(lockedUntil) : null,
+                isActive,
+                isLocked: Date.now() < lockedUntil,
+                remainingLockMs: Math.max(0, lockedUntil - Date.now()),
+                remainingLockDays: Math.max(0, Math.floor((lockedUntil - Date.now()) / (1000 * 60 * 60 * 24)))
+            };
+        } catch (error) {
+            console.error('[ChipService] Error getting on-chain stake info:', error.message);
+            return { amount: 0, startTime: null, lockedUntil: null, isActive: false };
+        }
+    }
+    
+    /**
+     * Get pending reward from staking contract
      */
     async getPendingReward(address) {
         if (!this.stakingContract) return 0;
         
-        const reward = await this.stakingContract.getPendingReward(address).call();
-        return this.tronWeb.toDecimal(reward);
+        try {
+            const reward = await this.stakingContract.getPendingReward(address).call();
+            return Number(reward) / 1e6;
+        } catch (error) {
+            console.error('[ChipService] Error getting pending reward:', error.message);
+            return 0;
+        }
     }
     
     /**
-     * Get stake info for address
+     * Get total staked in contract
      */
-    async getStakeInfo(address) {
-        const stakes = await Stake.findActiveByPlayer(address);
-        const pendingReward = await this.getPendingReward(address);
+    async getTotalStaked() {
+        if (!this.stakingContract) return 0;
+        
+        try {
+            const total = await this.stakingContract.totalStaked().call();
+            return Number(total) / 1e6;
+        } catch (error) {
+            console.error('[ChipService] Error getting total staked:', error.message);
+            return 0;
+        }
+    }
+    
+    /**
+     * Prepare stake transaction data for frontend to sign
+     * User calls contract directly via TronLink
+     */
+    prepareStakeData(amount, lockDurationSeconds) {
+        if (!this.stakingAddress) {
+            throw new Error('Staking contract not configured');
+        }
+        
+        const amountInSun = Math.floor(amount * 1e6);
         
         return {
-            stakes: stakes.map(s => ({
-                amount: s.amount,
-                startTime: s.startTime,
-                lockedUntil: s.lockedUntil,
-                isLocked: s.isLocked(),
-                remainingLockDays: s.getRemainingLockDays()
-            })),
-            totalStaked: stakes.reduce((sum, s) => sum + s.amount, 0),
-            pendingReward
+            stakingContract: this.stakingAddress,
+            chipToken: this.tokenAddress,
+            method: 'stake(uint256,uint256)',
+            params: {
+                amount: amountInSun,
+                lockDuration: lockDurationSeconds
+            },
+            // User needs to approve CHIP token first
+            needsApproval: true,
+            approveSpender: this.stakingAddress,
+            approveAmount: amountInSun
         };
     }
     
     /**
-     * Stake CHIP tokens
+     * Prepare unstake transaction data for frontend to sign
      */
-    async stake(address, amount, lockDuration) {
-        // User initiates stake through contract directly
-        // This method tracks in database
-        
-        const stake = new Stake({
-            playerAddress: address,
-            amount,
-            lockDuration,
-            isActive: true
-        });
-        
-        await stake.save();
-        
-        console.log(`[ChipService] Staked ${amount} CHIP for ${lockDuration} days by ${address}`);
-        
-        return stake;
-    }
-    
-    /**
-     * Unstake CHIP tokens
-     */
-    async unstake(address) {
-        const activeStakes = await Stake.findActiveByPlayer(address);
-        
-        for (const stake of activeStakes) {
-            stake.unstake(0.1); // 10% penalty
-            await stake.save();
+    prepareUnstakeData(amount) {
+        if (!this.stakingAddress) {
+            throw new Error('Staking contract not configured');
         }
         
-        console.log(`[ChipService] Unstaked all CHIP for ${address}`);
+        const amountInSun = Math.floor(amount * 1e6);
         
-        return activeStakes;
+        return {
+            stakingContract: this.stakingAddress,
+            method: 'unstake(uint256)',
+            params: { amount: amountInSun }
+        };
     }
     
     /**
-     * Claim staking rewards
+     * Prepare claim reward transaction data for frontend to sign
      */
-    async claimReward(address) {
-        if (!this.stakingContract) return 0;
+    prepareClaimRewardData() {
+        if (!this.stakingAddress) {
+            throw new Error('Staking contract not configured');
+        }
         
-        // User calls contract directly
-        // Update database
-        
-        const pendingReward = await this.getPendingReward(address);
-        
-        console.log(`[ChipService] Claimed ${pendingReward} CHIP reward for ${address}`);
-        
-        return pendingReward;
+        return {
+            stakingContract: this.stakingAddress,
+            method: 'claimReward()',
+            params: {}
+        };
     }
     
     // ============ On-chain Operations ============
@@ -228,8 +222,7 @@ class ChipService {
         
         try {
             const balance = await this.tokenContract.balanceOf(address).call();
-            const balanceNum = this.tronWeb.toDecimal(balance);
-            return balanceNum / 1e6; // Convert from SUN to CHIP
+            return Number(balance) / 1e6;
         } catch (error) {
             console.error('[ChipService] Error getting on-chain balance:', error.message);
             return 0;
@@ -238,7 +231,6 @@ class ChipService {
     
     /**
      * Withdraw CHIP from treasury to user's wallet
-     * This transfers real tokens from treasury (deployer) to user
      */
     async withdrawToWallet(userAddress, amount) {
         if (!this.tokenContract) {
@@ -250,42 +242,30 @@ class ChipService {
             throw new Error('No private key configured for withdrawals');
         }
         
-        // Create TronWeb instance with private key
-        const TronWeb = require('tronweb').TronWeb;
+        const { TronWeb } = require('tronweb');
         const tronWebWithPK = new TronWeb({
             fullHost: this.tronWeb.fullNode.host,
             privateKey: privateKey
         });
         
-        // Get treasury address (deployer)
         const treasuryResult = await tronWebWithPK.address.fromPrivateKey(privateKey);
         const treasuryAddress = typeof treasuryResult === 'string' ? treasuryResult : treasuryResult.address;
-        console.log(`[ChipService] Treasury address: ${treasuryAddress}`);
         
-        // Convert amount to SUN (smallest unit)
         const amountInSun = Math.floor(amount * 1e6);
         
-        // Check treasury balance
         const treasuryBalance = await this.tokenContract.balanceOf(treasuryAddress).call();
         const treasuryBalanceNum = this.tronWeb.toDecimal(treasuryBalance);
         
         if (treasuryBalanceNum < amountInSun) {
-            throw new Error(`Insufficient treasury balance. Has ${treasuryBalanceNum / 1e6} CHIP, needs ${amount}`);
+            throw new Error(`Insufficient treasury balance. Has ${treasuryBalanceNum / 1e6} CHIP`);
         }
         
-        console.log(`[ChipService] Withdrawing ${amount} CHIP from treasury to ${userAddress}`);
-        
-        // Get contract instance with private key
         const contractWithPK = await tronWebWithPK.contract().at(this.tokenAddress);
         
-        // Execute transfer
         const tx = await contractWithPK.transfer(userAddress, amountInSun).send({
             feeLimit: 100_000_000
         });
         
-        console.log(`[ChipService] Transfer tx: ${tx}`);
-        
-        // Get new balance
         const newBalance = await this.getOnChainBalance(userAddress);
         
         return {
@@ -297,39 +277,32 @@ class ChipService {
         };
     }
     
-    // ============ Distribute Rake ============
+    // ============ Rewards ============
     
     /**
-     * Distribute rake to stakers
+     * Reward player for gameplay
      */
-    async distributeRakeToStakers(rakeAmount) {
-        if (!this.stakingContract || rakeAmount === 0) return;
-        
-        // Convert rake (TRX) to CHIP equivalent
-        // In production, this would use an oracle or fixed rate
-        const chipAmount = Math.floor(rakeAmount * 0.1); // Example rate
-        
-        // Add reward to staking contract
-        // await this.stakingContract.addReward(chipAmount).send({ from: serverWallet });
-        
-        console.log(`[ChipService] Distributed ${chipAmount} CHIP to stakers from ${rakeAmount} TRX rake`);
-        
-        return chipAmount;
+    async rewardGameplay(playerAddress, rakeAmount) {
+        const reward = Math.floor(rakeAmount * this.gameRewardRate);
+        if (reward > 0) {
+            console.log(`[ChipService] Gameplay reward: ${reward} CHIP to ${playerAddress}`);
+        }
+        return reward;
     }
     
-    // ============ VIP Discount ============
-    
     /**
-     * Apply VIP discount to rake
+     * Reward player for tournament
      */
-    applyVipDiscount(playerAddress, originalRake) {
-        // Get VIP status from token balance
-        // For now, simplified version
-        return originalRake;
+    async rewardTournament(playerAddress, rakeAmount) {
+        const reward = Math.floor(rakeAmount * this.tournamentRewardRate);
+        if (reward > 0) {
+            console.log(`[ChipService] Tournament reward: ${reward} CHIP to ${playerAddress}`);
+        }
+        return reward;
     }
 }
 
-// Create singleton instance with TronService
+// Singleton instance
 let chipServiceInstance = null;
 
 /**
@@ -355,94 +328,102 @@ async function initChipService(tronWeb, config = {}) {
     return chipServiceInstance;
 }
 
-// For backward compatibility, export both class and instance methods
+// Export
 module.exports = {
-    // Class for creating new instances
     ChipService,
-    
-    // Initialize singleton
     initChipService,
-    
-    // Get singleton instance
     getChipService: () => chipServiceInstance,
     
-    // Proxy methods to instance (for backward compatibility)
-    getBalance: async (...args) => {
+    // Proxy methods
+    getBalance: async (address) => {
         if (!chipServiceInstance) return 0;
-        return chipServiceInstance.getBalance(...args);
+        return chipServiceInstance.getBalance(address);
     },
-    getUserInfo: async (...args) => {
+    getUserInfo: async (address) => {
         if (!chipServiceInstance) return { balance: 0, stakedAmount: 0, pendingReward: 0, isVip: false };
-        return chipServiceInstance.getUserInfo(...args);
+        return chipServiceInstance.getUserInfo(address);
     },
-    getVIPStatus: (...args) => {
-        if (!chipServiceInstance) return { isVip: false, isSuperVip: false, discount: 0, level: 0 };
-        return chipServiceInstance.getVipStatus(...args);
+    getVIPStatus: (balance) => {
+        if (!chipServiceInstance) return { isVip: false, isSuperVip: false, discount: 0 };
+        return chipServiceInstance.getVipStatus(balance);
     },
-    getStakeInfo: async (...args) => {
-        if (!chipServiceInstance) return { stakes: [], pendingReward: 0 };
-        return chipServiceInstance.getStakeInfo(...args);
+    getOnChainStakeInfo: async (address) => {
+        if (!chipServiceInstance) return { amount: 0, startTime: null, lockedUntil: null, isActive: false };
+        return chipServiceInstance.getOnChainStakeInfo(address);
     },
-    getPendingRewards: async (...args) => {
+    getPendingRewards: async (address) => {
         if (!chipServiceInstance) return 0;
-        return chipServiceInstance.getPendingReward(...args);
+        return chipServiceInstance.getPendingReward(address);
     },
-    getSupplyInfo: async () => {
-        if (!chipServiceInstance) return { totalSupply: 0, stakedSupply: 0, circulatingSupply: 0 };
-        // Return mock supply info for now
-        return { 
-            totalSupply: 1000000000000000, 
-            stakedSupply: 50000000000000,
-            circulatingSupply: 950000000000000 
-        };
-    },
-    getTransactionHistory: async (address, page = 1, limit = 20) => {
-        if (!chipServiceInstance) return { history: [], total: 0, page, limit };
-        return { history: [], total: 0, page, limit };
-    },
-    claimRewards: async (...args) => {
-        if (!chipServiceInstance) return { claimedAmount: 0 };
-        return chipServiceInstance.claimReward(...args);
-    },
-    // Stake methods
-    createStake: async (walletAddress, amount, lockDays) => {
-        if (!chipServiceInstance) return { success: false, error: 'Service not initialized' };
-        return chipServiceInstance.stake(walletAddress, amount, lockDays);
-    },
-    unstake: async (...args) => {
-        if (!chipServiceInstance) return { success: false, error: 'Service not initialized' };
-        return chipServiceInstance.unstake(...args);
-    },
-    claimStakeReward: async (...args) => {
-        if (!chipServiceInstance) return { claimedAmount: 0 };
-        return chipServiceInstance.claimReward(...args);
-    },
-    getPendingStakeReward: async (...args) => {
+    getPendingStakeReward: async (address) => {
         if (!chipServiceInstance) return 0;
-        return chipServiceInstance.getPendingReward(...args);
+        return chipServiceInstance.getPendingReward(address);
     },
-    getStakingStats: async () => {
-        if (!chipServiceInstance) return { totalStaked: 0, totalStakers: 0, avgLockDuration: 0 };
-        return { totalStaked: 0, totalStakers: 0, avgLockDuration: 0 };
+    getTotalStaked: async () => {
+        if (!chipServiceInstance) return 0;
+        return chipServiceInstance.getTotalStaked();
     },
-    // Transfer method
-    transfer: async (from, to, amount) => {
-        if (!chipServiceInstance || !chipServiceInstance.tokenContract) {
-            return { success: false, error: 'Service not initialized' };
-        }
-        // This would call the contract - simplified for now
-        return { success: true, txHash: 'pending' };
-    },
-    // On-chain balance
     getOnChainBalance: async (address) => {
         if (!chipServiceInstance) return 0;
         return chipServiceInstance.getOnChainBalance(address);
     },
-    // Withdraw to wallet
     withdrawToWallet: async (userAddress, amount) => {
-        if (!chipServiceInstance) {
-            throw new Error('ChipService not initialized');
-        }
+        if (!chipServiceInstance) throw new Error('ChipService not initialized');
         return chipServiceInstance.withdrawToWallet(userAddress, amount);
+    },
+    prepareStakeData: (amount, lockDuration) => {
+        if (!chipServiceInstance) throw new Error('ChipService not initialized');
+        return chipServiceInstance.prepareStakeData(amount, lockDuration);
+    },
+    prepareUnstakeData: (amount) => {
+        if (!chipServiceInstance) throw new Error('ChipService not initialized');
+        return chipServiceInstance.prepareUnstakeData(amount);
+    },
+    prepareClaimRewardData: () => {
+        if (!chipServiceInstance) throw new Error('ChipService not initialized');
+        return chipServiceInstance.prepareClaimRewardData();
+    },
+    getStakeInfo: async (address) => {
+        if (!chipServiceInstance) return { stakes: [], pendingReward: 0 };
+        const info = await chipServiceInstance.getOnChainStakeInfo(address);
+        const pendingReward = await chipServiceInstance.getPendingReward(address);
+        return {
+            stakes: info.isActive ? [info] : [],
+            totalStaked: info.amount,
+            pendingReward
+        };
+    },
+    getSupplyInfo: async () => {
+        return { totalSupply: 0, stakedSupply: 0, circulatingSupply: 0 };
+    },
+    getTransactionHistory: async () => {
+        return { history: [], total: 0 };
+    },
+    claimRewards: async (address) => {
+        if (!chipServiceInstance) return { claimedAmount: 0 };
+        const reward = await chipServiceInstance.getPendingReward(address);
+        return { claimedAmount: reward };
+    },
+    // Legacy methods (no longer write to database)
+    createStake: async () => {
+        console.log('[ChipService] createStake: Use frontend to call contract directly');
+        return { success: true, message: 'Use prepareStakeData and call contract from frontend' };
+    },
+    unstake: async () => {
+        console.log('[ChipService] unstake: Use frontend to call contract directly');
+        return { success: true, message: 'Use prepareUnstakeData and call contract from frontend' };
+    },
+    claimStakeReward: async (address) => {
+        if (!chipServiceInstance) return { claimedAmount: 0 };
+        const reward = await chipServiceInstance.getPendingReward(address);
+        return { claimedAmount: reward };
+    },
+    getStakingStats: async () => {
+        if (!chipServiceInstance) return { totalStaked: 0, totalStakers: 0 };
+        const totalStaked = await chipServiceInstance.getTotalStaked();
+        return { totalStaked, totalStakers: 0 };
+    },
+    transfer: async () => {
+        return { success: true, txHash: 'pending' };
     }
 };

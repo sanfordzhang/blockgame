@@ -11,34 +11,34 @@ const { authMiddleware } = require('../../middleware/auth');
 router.get('/balance/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
-        const Stake = require('../../models/Stake');
         
-        // Calculate chip balance from transactions
+        // Calculate game chip balance from transactions
         const txResult = await ChipTransaction.aggregate([
             { $match: { walletAddress: walletAddress.toLowerCase() } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
         ]);
-        const chipBalance = txResult.length > 0 ? txResult[0].total : 0;
+        const gameBalance = txResult.length > 0 ? txResult[0].total : 0;
         
-        // Calculate staked amount from active stakes
-        const stakeResult = await Stake.aggregate([
-            { $match: { playerAddress: walletAddress.toLowerCase(), isActive: true } },
-            { $group: { _id: null, total: { $sum: '$amount' } } }
-        ]);
-        const stakedAmount = stakeResult.length > 0 ? stakeResult[0].total : 0;
+        // Get on-chain stake info (source of truth)
+        const onChainStake = await ChipService.getOnChainStakeInfo(walletAddress);
+        const stakedAmount = onChainStake && onChainStake.isActive ? onChainStake.amount : 0;
         
-        // Get VIP status from ChipService if available
+        // Get on-chain balance
+        const onChainBalance = await ChipService.getOnChainBalance(walletAddress);
+        
+        // Get VIP status
         const info = await ChipService.getUserInfo(walletAddress);
         
-        // Return format matching frontend expectations
         res.json({ 
             success: true, 
-            chip: chipBalance,
+            chip: gameBalance,
             staked: stakedAmount,
+            onChainBalance,
             pendingReward: info.pendingReward || 0,
-            totalValue: chipBalance + stakedAmount,
+            totalValue: gameBalance + stakedAmount,
             isVip: info.isVip || false,
-            discount: info.discount || 0
+            discount: info.discount || 0,
+            onChainStake: onChainStake && onChainStake.isActive ? onChainStake : null
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
