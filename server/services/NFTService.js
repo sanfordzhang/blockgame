@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const NFTClaim = require('../models/NFTClaim');
+const { generateMetadata } = require('../../utils/metadata-generator');
 
 class NFTService {
     constructor(config) {
@@ -547,6 +548,8 @@ module.exports = {
         if (!nftServiceInstance) {
             // 返回模拟签名用于测试
             const timestamp = Math.floor(Date.now() / 1000);
+            const cardsStr = parsedCards.map(c => `${c.rank}${c.suit}`).join(' ');
+            const metadata = generateMetadata(achievementTypeName, tokenId, cardsStr);
             return {
                 success: true,
                 signature: {
@@ -557,16 +560,22 @@ module.exports = {
                     mockMode: true
                 },
                 tokenId,
-                achievementType: achievementTypeName
+                achievementType: achievementTypeName,
+                metadata,
+                onchainContractAddress: process.env.NFT_CONTRACT_ONCHAIN
             };
         }
-        
+
         const sig = await nftServiceInstance.generateCompactSignature?.(walletAddress, achievementTypeId, gameId);
+        const cardsStr = parsedCards.map(c => `${c.rank}${c.suit}`).join(' ');
+        const metadata = generateMetadata(achievementTypeName, tokenId, cardsStr);
         return {
             success: true,
             signature: sig,
             tokenId,
-            achievementType: achievementTypeName
+            achievementType: achievementTypeName,
+            metadata,
+            onchainContractAddress: process.env.NFT_CONTRACT_ONCHAIN
         };
     },
     getNFTStats: async (walletAddress) => {
@@ -578,7 +587,8 @@ module.exports = {
         return { total: nfts.length, byType };
     },
     getNFTMetadata: async (tokenId) => {
-        const nft = await NFTClaim.findOne({ tokenId: parseInt(tokenId) });
+        const idNum = parseInt(tokenId);
+        const nft = await NFTClaim.findOne({ $or: [{ tokenId: idNum }, { onchainTokenId: idNum }] });
         if (!nft) return { 
             name: 'Poker Achievement NFT', 
             description: 'Poker Achievement NFT',
@@ -602,16 +612,24 @@ module.exports = {
             attributes.push(cardsAttribute);
         }
         
-        // 如果有screenshot，使用它作为image
-        let imageUrl = `https://via.placeholder.com/400x400?text=${encodeURIComponent(nft.achievementType)}`;
+        // 生成图片 - 内嵌 SVG base64，不依赖外部 URL
+        let imageUrl;
         if (nft.gameScreenshot) {
-            // 使用data URI
             imageUrl = `data:image/${nft.screenshotFormat || 'png'};base64,${nft.gameScreenshot}`;
+        } else {
+            const cards = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+            const svg = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="#1a1a2e"/><rect x="20" y="20" width="360" height="360" rx="16" fill="#16213e" stroke="#4ecca3" stroke-width="2"/><text x="200" y="100" font-size="22" fill="#4ecca3" text-anchor="middle" font-weight="bold" font-family="Arial">${nft.achievementType}</text><text x="200" y="210" font-size="28" fill="#ffffff" text-anchor="middle" font-family="monospace">${cards}</text><text x="200" y="330" font-size="16" fill="#888888" text-anchor="middle" font-family="Arial">#${nft.tokenId}</text></svg>`;
+            imageUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
         }
         
+        const cardsStr = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+        const description = cardsStr
+            ? `${nft.achievementType} | Cards: ${cardsStr}`
+            : (nft.handDescription || `${nft.achievementType} achievement`);
+
         return {
             name: `${nft.displayName || nft.achievementType} #${nft.tokenId}`,
-            description: nft.handDescription || `${nft.achievementType} achievement earned in poker game`,
+            description,
             image: imageUrl,
             external_url: `http://localhost:3001/nft/${nft.tokenId}`,
             attributes: attributes

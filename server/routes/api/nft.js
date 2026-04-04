@@ -144,38 +144,22 @@ router.get('/limit/:walletAddress/:achievementType', async (req, res) => {
 router.post('/prepare-mint', async (req, res) => {
     try {
         const { walletAddress, achievementType, gameSessionId, handData } = req.body;
-        
+
         if (!walletAddress) {
             return res.status(400).json({ success: false, error: 'walletAddress required' });
         }
-        
+
         if (!achievementType) {
             return res.status(400).json({ success: false, error: 'achievementType required' });
         }
-        
-        // 生成模拟签名（测试模式）
-        const timestamp = Math.floor(Date.now() / 1000);
-        const gameId = gameSessionId || `game-${Date.now()}`;
-        
-        // 在生产环境中需要真实的签名，测试模式返回模拟数据
-        const mockSignature = {
-            player: walletAddress,
-            achievementTypeId: parseInt(achievementType),
-            timestamp,
-            gameId,
-            v: 27,
-            r: '0x' + '0'.repeat(64),
-            s: '0x' + '0'.repeat(64),
-            deadline: timestamp + 7 * 24 * 60 * 60,
-            mockMode: true
-        };
-        
-        res.json({ 
-            success: true, 
-            signature: mockSignature,
-            achievementType: parseInt(achievementType),
-            message: 'Mock signature generated for testing'
+
+        const result = await NFTService.prepareMint(walletAddress, {
+            achievementType,
+            gameSessionId,
+            handData
         });
+
+        res.json(result);
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }

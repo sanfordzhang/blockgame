@@ -476,11 +476,53 @@ const NFTGallery = () => {
       true
     );
     
-    // Here you would call the contract with the signature
-    // For now, we'll just show success after a delay
-    setTimeout(() => {
-      handleMintSuccess(data);
-    }, 2000);
+    // Call on-chain contract with signature + metadata
+    (async () => {
+      try {
+        const { signature, metadata, onchainContractAddress } = data;
+        const contractAddress = onchainContractAddress || process.env.REACT_APP_NFT_CONTRACT_ONCHAIN || window.__NFT_CONTRACT_ONCHAIN;
+
+        if (!contractAddress || !window.tronWeb) {
+          console.warn('[NFT] No on-chain contract or tronWeb, simulating success');
+          setTimeout(() => handleMintSuccess(data), 1000);
+          return;
+        }
+
+        const abi = [
+          { "inputs": [
+              { "name": "achievementTypeId", "type": "uint256" },
+              { "name": "timestamp", "type": "uint256" },
+              { "name": "gameId", "type": "string" },
+              { "name": "metadata", "type": "string" },
+              { "name": "v", "type": "uint8" },
+              { "name": "r", "type": "bytes32" },
+              { "name": "s", "type": "bytes32" }
+            ],
+            "name": "claimNFT", "outputs": [{ "type": "uint256" }],
+            "stateMutability": "payable", "type": "function"
+          }
+        ];
+
+        const contract = await window.tronWeb.contract(abi, contractAddress);
+        const price = 5000000; // 5 TRX in SUN
+
+        const tx = await contract.claimNFT(
+          signature.achievementTypeId,
+          signature.timestamp,
+          signature.gameId,
+          metadata,
+          signature.v,
+          signature.r,
+          signature.s
+        ).send({ callValue: price, feeLimit: 100000000 });
+
+        console.log('[NFT] ✅ On-chain mint tx:', tx);
+        handleMintSuccess({ ...data, txHash: tx });
+      } catch (err) {
+        console.error('[NFT] On-chain mint error:', err);
+        handleMintError({ error: err.message || 'Mint failed' });
+      }
+    })();
   }, [openModal]);
 
   const handleMintSuccess = (data) => {

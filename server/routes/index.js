@@ -8,6 +8,7 @@ const configureRoutes = (app) => {
   
   // NFT Achievement System API
   app.use('/api/nft', require('./api/nft'));
+  app.use('/api/nft-image', require('./api/nft-image'));
   
   // CHIP Token API
   app.use('/api/chip', require('./api/chip'));

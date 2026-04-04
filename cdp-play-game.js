@@ -1,201 +1,188 @@
 const CDP = require('chrome-remote-interface');
+const http = require('http');
+const WebSocket = require('ws');
+const { execSync } = require('child_process');
 const fs = require('fs');
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const API_URL = 'http://127.0.0.1:7778';
+const BASE_URL = 'http://127.0.0.1:3001';
+
+const PLAYER1 = { address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv' };
+const BOT = { address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4' };
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const log = msg => console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+
+function httpPost(url, data) {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify(data);
+        const opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } };
+        const u = new URL(url);
+        const req = http.request({ ...opts, hostname: u.hostname, port: u.port, path: u.pathname }, res => {
+            let d = ''; res.on('data', c => d += c); res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(d); } });
+        });
+        req.on('error', reject); req.write(body); req.end();
+    });
+}
+
+async function startBot(tournamentId) {
+    const botState = { tournamentId, lastTurnKey: '', lastActionTime: 0 };
+    return new Promise((resolve) => {
+        const ws = new WebSocket(`ws://127.0.0.1:7778/socket.io/?EIO=4&transport=websocket`);
+        ws.on('open', () => { ws.send('40'); });
+        ws.on('message', raw => {
+            const data = raw.toString();
+            if (data === '2') { ws.send('3'); return; }
+            if (data.startsWith('40')) {
+                setTimeout(() => {
+                    ws.send('42' + JSON.stringify(['CS_LOBBY_CONNECT', { walletAddress: BOT.address }]));
+                    setTimeout(() => {
+                        ws.send('42' + JSON.stringify(['CS_TOURNAMENT_JOIN', { tournamentId, walletAddress: BOT.address }]));
+                        setTimeout(() => {
+                            ws.send('42' + JSON.stringify(['CS_TOURNAMENT_ROOM_JOIN', { tournamentId, walletAddress: BOT.address }]));
+                            resolve(ws);
+                        }, 800);
+                    }, 1000);
+                }, 500);
+            }
+            if (data.startsWith('42[')) {
+                try {
+                    const [event, state] = JSON.parse(data.slice(2));
+                    if (['tournament_game_state', 'SC_GAME_STATE', 'game_state'].includes(event)) {
+                        handleBotTurn(ws, state, botState);
+                    }
+                } catch (_) {}
+            }
+        });
+        ws.on('error', e => log('Bot error: ' + e.message));
+    });
+}
+
+function handleBotTurn(ws, state, botState) {
+    if (!state?.seats) return;
+    for (const [seatId, seat] of Object.entries(state.seats)) {
+        if (!seat?.player) continue;
+        const addr = (typeof seat.player === 'string' ? seat.player : seat.player.id || '').toLowerCase();
+        if (addr !== BOT.address.toLowerCase()) continue;
+        if (state.turn !== parseInt(seatId) || seat.folded) continue;
+        const key = `${state.turn}-${state.street}`;
+        const now = Date.now();
+        if (botState.lastTurnKey !== key) { botState.lastTurnKey = key; botState.lastActionTime = 0; }
+        if (now - botState.lastActionTime > 2000) {
+            botState.lastActionTime = now;
+            setTimeout(() => {
+                const action = state.callAmount > 0 ? 'CALL' : 'CHECK';
+                ws.send('42' + JSON.stringify([`CS_TOURNAMENT_${action}`, { tournamentId: botState.tournamentId }]));
+                log(`Bot: ${action}`);
+            }, 1200);
+        }
+    }
+}
 
 async function test() {
+    if (!fs.existsSync('test-results')) fs.mkdirSync('test-results');
+
     const client = await CDP({ port: 9222 });
     const { Page, Runtime } = client;
-    
     await Page.enable();
     await Runtime.enable();
-    
+
     const screenshot = async (name) => {
         const { data } = await Page.captureScreenshot();
         fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
-        console.log(`📸 ${name}`);
+        log(`📸 ${name}`);
     };
-    
-    const getState = async () => {
-        const result = await Runtime.evaluate({
-            expression: `({
-                url: window.location.href,
-                buttons: Array.from(document.querySelectorAll('button')).filter(b => !b.disabled).map(b => b.textContent.trim()),
-                text: document.body.innerText.substring(0, 800)
-            })`,
-            returnByValue: true
-        });
-        return result.result.value;
+
+    const eval_ = async (expr) => {
+        const r = await Runtime.evaluate({ expression: expr, returnByValue: true, awaitPromise: true });
+        return r.result?.value;
     };
-    
-    const clickBtn = async (name) => {
-        return await Runtime.evaluate({
-            expression: `
-                (function() {
-                    const buttons = document.querySelectorAll('button');
-                    for (const btn of buttons) {
-                        if (btn.textContent.trim() === '${name}' && !btn.disabled) {
-                            btn.click();
-                            return true;
-                        }
-                    }
-                    return false;
-                })()
-            `,
-            returnByValue: true
-        });
-    };
-    
-    console.log('========================================');
-    console.log('🎮 CDP游戏测试 (支持Mock模式)');
-    console.log('========================================\n');
-    
-    // 导航到锦标赛页面
-    await Page.navigate({ url: 'http://127.0.0.1:3001/tournament' });
+
+    log('=== CDP游戏测试 Mock顺子NFT ===');
+
+    // Step 1: PLAYER1 创建 mock 锦标赛
+    log('[1] 创建 Mock 锦标赛');
+    const createRes = await httpPost(`${API_URL}/api/tournament/create`, {
+        configId: 3, walletAddress: PLAYER1.address, mockGame: true
+    });
+    if (!createRes.success) { log('创建失败: ' + JSON.stringify(createRes)); process.exit(1); }
+    const tournamentId = createRes.tournament?.tournamentId || createRes.tournament?.id;
+    log(`锦标赛ID: ${tournamentId}`);
+
+    // Step 2: 导航到游戏页面
+    log('[2] 导航到游戏页面');
+    await Page.navigate({ url: `${BASE_URL}/tournament/${tournamentId}/play?address=${PLAYER1.address}` });
     await Page.loadEventFired();
     await sleep(3000);
-    await screenshot('cdp-game-01-initial');
-    
-    // 勾选 Mock 游戏开关
-    console.log('\n--- 勾选 Mock 游戏开关 ---');
-    const mockResult = await Runtime.evaluate({
-        expression: `
-            (function() {
-                const checkbox = document.querySelector('input[data-testid="mock-game-checkbox"]');
-                if (checkbox && !checkbox.checked) {
-                    checkbox.click();
-                    return { success: true, checked: checkbox.checked };
-                }
-                return { success: false, message: 'Checkbox not found or already checked' };
-            })()
-        `,
-        returnByValue: true
-    });
-    console.log('Mock开关:', mockResult.result.value);
-    
-    await sleep(1000);
-    await screenshot('cdp-game-02-mock-enabled');
-    
-    // 创建新的带 mock 模式的锦标赛
-    console.log('\n--- 创建 Mock 锦标赛 ---');
-    const createResult = await Runtime.evaluate({
-        expression: `
-            (function() {
-                // 点击"双人赛 (10 TRX)"按钮创建锦标赛
-                const buttons = document.querySelectorAll('button');
-                for (const btn of buttons) {
-                    const text = btn.textContent.trim();
-                    if (text.includes('双人赛') || text.includes('2人赛')) {
-                        btn.click();
-                        return { success: true, text: text };
-                    }
-                }
-                return { success: false, message: '创建按钮未找到' };
-            })()
-        `,
-        returnByValue: true
-    });
-    console.log('创建锦标赛:', createResult.result.value);
-    
+    await screenshot('01-play-page');
+
+    // Step 3: Bot 加入（坐座位2）
+    log('[3] Bot 加入锦标赛');
+    const botWs = await startBot(tournamentId);
     await sleep(3000);
-    await screenshot('cdp-game-03-tournament-created');
-    
-    // 等待机器人加入
-    console.log('\n--- 等待机器人加入... ---');
-    await sleep(5000);
-    
-    // 点击锦标赛卡片
-    console.log('\n--- 点击锦标赛卡片 ---');
-    const clickCard = await Runtime.evaluate({
-        expression: `
-            (function() {
-                const cards = document.querySelectorAll('.sc-bypJrT.ilegoF');
-                for (const card of cards) {
-                    if ((card.innerText || '').includes('1 / 2')) {
-                        card.click();
-                        return { success: true };
-                    }
-                }
-                return { success: false };
-            })()
-        `,
-        returnByValue: true
-    });
-    console.log('点击卡片:', clickCard.result.value);
-    
-    await sleep(2000);
-    await screenshot('cdp-game-04-after-click-card');
-    
-    // 点击 Confirm 加入
-    console.log('\n--- 点击Confirm ---');
-    await clickBtn('Confirm');
-    await sleep(3000);
-    await screenshot('cdp-game-05-joined');
-    
-    let state = await getState();
-    console.log('游戏按钮:', state.buttons);
-    
-    // 游戏循环
-    let round = 1;
-    const maxRounds = 20;
-    
-    while (round <= maxRounds) {
-        await sleep(2500);
-        state = await getState();
-        
-        console.log(`\n=== 回合 ${round} ===`);
-        console.log('按钮:', state.buttons.filter(b => ['Fold', 'Check', 'Call', 'Raise'].includes(b)));
-        
-        // 检查是否有操作按钮
-        const gameButtons = state.buttons.filter(b => ['Fold', 'Check', 'Call', 'Raise'].includes(b));
-        
-        if (gameButtons.length > 0) {
-            let action = gameButtons.includes('Check') ? 'Check' : 
-                         gameButtons.includes('Call') ? 'Call' : 
-                         gameButtons.includes('Fold') ? 'Fold' : null;
-            
-            if (action) {
-                console.log(`➡️ 执行: ${action}`);
-                await clickBtn(action);
-                await sleep(1500);
-                await screenshot(`cdp-game-round-${round}`);
-            }
-        } else if (state.text.includes('Winner') || state.text.includes('Game Over') || 
-                   state.text.includes('Ranking') || state.text.includes('NFT')) {
-            console.log('\n🏆 游戏结束!');
-            
-            // 检查是否有 NFT 成就提示
-            if (state.text.includes('NFT') || state.text.includes('Straight') || state.text.includes('顺子')) {
-                console.log('🎉 检测到 NFT 成就!');
-            }
+
+    // Step 4: 游戏循环
+    log('[4] 游戏循环开始');
+    let nftDetected = false;
+    for (let round = 1; round <= 40; round++) {
+        await sleep(1000);
+        const state = await eval_(`({
+            buttons: Array.from(document.querySelectorAll('button')).filter(b=>!b.disabled).map(b=>b.textContent.trim()),
+            url: window.location.href
+        })`);
+        const btns = state?.buttons || [];
+        log(`Round ${round}: [${btns.join(',')}]`);
+
+        if (round % 5 === 0) await screenshot(`round-${round}`);
+
+        // 检测铸造NFT按钮
+        if (btns.some(b => b.includes('铸造 NFT') || b.includes('Mint NFT'))) {
+            log('🎉 检测到铸造NFT按钮！');
+            await screenshot('nft-button-detected');
+            nftDetected = true;
             break;
         }
-        
-        round++;
+
+        // 游戏操作
+        if (btns.includes('Check')) {
+            await eval_(`document.querySelectorAll('button')[Array.from(document.querySelectorAll('button')).findIndex(b=>b.textContent.trim()==='Check' && !b.disabled)].click()`);
+            log('Clicked: Check');
+        } else if (btns.includes('Call')) {
+            await eval_(`document.querySelectorAll('button')[Array.from(document.querySelectorAll('button')).findIndex(b=>b.textContent.trim()==='Call' && !b.disabled)].click()`);
+            log('Clicked: Call');
+        }
     }
-    
-    await screenshot('cdp-game-final');
-    console.log('\n✅ 测试完成!');
-    
-    // 检查最终页面是否有 NFT 相关内容
-    const nftCheck = await Runtime.evaluate({
-        expression: `
-            (function() {
-                const text = document.body.innerText;
-                return {
-                    hasNFT: text.includes('NFT') || text.includes('Achievement') || text.includes('Straight'),
-                    bodyText: text.substring(0, 500)
-                };
-            })()
-        `,
-        returnByValue: true
-    });
-    
-    if (nftCheck.result.value.hasNFT) {
-        console.log('\n🎉 NFT 成就检测成功!');
+
+    await screenshot('final-game');
+    botWs.close();
+
+    if (!nftDetected) {
+        log('❌ 未检测到NFT铸造按钮');
+        await client.close();
+        process.exit(1);
     }
-    
+
+    // Step 5: 链上铸造
+    log('[5] 执行链上铸造');
+    try {
+        const result = execSync('node mint-onchain-latest.js', { encoding: 'utf8', timeout: 60000 });
+        log(result);
+    } catch (e) {
+        log('铸造错误: ' + e.message);
+    }
+
+    // Step 6: 验证
+    log('[6] 验证NFT');
+    await Page.navigate({ url: `${BASE_URL}/nft?address=${PLAYER1.address}` });
+    await Page.loadEventFired();
+    await sleep(3000);
+    await screenshot('nft-gallery');
+
+    const galleryText = await eval_(`document.body.innerText.substring(0, 300)`);
+    log('NFT画廊: ' + galleryText);
+
     await client.close();
+    log('✅ 测试完成');
 }
 
-test().catch(console.error);
+test().catch(e => { console.error(e); process.exit(1); });

@@ -171,3 +171,44 @@ const PLAYER2 = {
     address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
     privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
 };
+
+
+tests/e2e/nft-straight-e2e.js  NFT顺子牌型端对端完整测试
+TUNNEL_TEST_REPORT.md 云隧道方案测试报告
+
+1.重启mongoDB
+brew services restart mongodb-community    
+
+2.杀掉现有服务,并重启后端服务
+kill -9 $(lsof -ti:7777)
+kill -9 $(lsof -ti:7778)
+kill -9 $(lsof -ti:3000)
+kill -9 $(lsof -ti:3001)
+
+ENV_FILE=.env.testnet node server/server.js
+
+3.重启前端服务
+REACT_APP_NETWORK=testnet REACT_APP_SERVER_PORT=7778 PORT=3001 npm run start:client
+
+4.重启调试chrome：
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+--remote-debugging-port=9222 \
+--user-data-dir="/tmp/chrome-debug" \
+"http://127.0.0.1:3001/"
+
+5.启动云隧道
+./quick-start-tunnel.sh - 快速启动脚本
+
+cloudflared tunnel --url http://localhost:7778
+
+
+https://lil-query-starring-determination.trycloudflare.com
+
+node set-nft-baseuri-public.js https://para-give-wonder-wed.trycloudflare.com/api/nft/metadata/
+
+  元数据验证通过：
+  - name: Straight #18
+  - description: Hello world cards 10h 9d 8c 7s 6h  ✅
+  - Cards: 10h 9d 8c 7s 6h ✅
+
+  TronLink 刷新方法：打开 TronLink → NFT → 找到 #18 → 下拉刷新（或删除后重新导入合约地址 TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC）。
