@@ -61,7 +61,7 @@ router.get('/vip-status/:walletAddress', async (req, res) => {
 
 /**
  * @route POST /api/chip/transfer
- * @desc Transfer CHIP tokens (requires auth)
+ * @desc Transfer CHIP tokens in database (game internal)
  */
 router.post('/transfer', async (req, res) => {
     try {
@@ -93,6 +93,104 @@ router.post('/transfer', async (req, res) => {
         res.json({ success: true, from: walletAddress, to, amount });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route GET /api/chip/onchain/balance/:walletAddress
+ * @desc Get user's on-chain CHIP balance from contract
+ */
+router.get('/onchain/balance/:walletAddress', async (req, res) => {
+    try {
+        const { walletAddress } = req.params;
+        const balance = await ChipService.getOnChainBalance(walletAddress);
+        res.json({ success: true, balance });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route POST /api/chip/onchain/transfer
+ * @desc Prepare on-chain transfer data for frontend to sign
+ */
+router.post('/onchain/transfer', async (req, res) => {
+    try {
+        const { to, amount } = req.body;
+        
+        if (!to || !amount) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        
+        // Return contract info for frontend to sign
+        res.json({ 
+            success: true, 
+            contractAddress: process.env.CHIP_TOKEN_ADDRESS || 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n',
+            to,
+            amount: parseFloat(amount) * 1e6, // Convert to smallest unit
+            method: 'transfer(address,uint256)'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route POST /api/chip/withdraw
+ * @desc Withdraw CHIP from game balance to blockchain wallet
+ * This will deduct from database and transfer real tokens to user's wallet
+ */
+router.post('/withdraw', async (req, res) => {
+    try {
+        const { amount } = req.body;
+        const walletAddress = req.headers['x-wallet-address'];
+        
+        if (!walletAddress || !amount) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        
+        const withdrawAmount = parseFloat(amount);
+        if (withdrawAmount <= 0) {
+            return res.status(400).json({ success: false, error: 'Amount must be positive' });
+        }
+        
+        // Check user's game balance (case-insensitive)
+        const txResult = await ChipTransaction.aggregate([
+            { $match: { walletAddress: walletAddress.toLowerCase() } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const gameBalance = txResult.length > 0 ? txResult[0].total : 0;
+        
+        if (gameBalance < withdrawAmount) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `Insufficient game balance. You have ${gameBalance} CHIP` 
+            });
+        }
+        
+        // Execute on-chain transfer from treasury (deployer account)
+        const result = await ChipService.withdrawToWallet(walletAddress, withdrawAmount);
+        
+        // Deduct from game balance
+        await ChipTransaction.createTransaction({
+            walletAddress,
+            type: 'withdraw',
+            amount: -withdrawAmount,
+            description: `Withdrawn to blockchain wallet`,
+            txHash: result.txid
+        });
+        
+        res.json({ 
+            success: true, 
+            message: `Successfully withdrawn ${withdrawAmount} CHIP to your wallet`,
+            txid: result.txid,
+            gameBalance: gameBalance - withdrawAmount,
+            onChainBalance: result.newBalance
+        });
+        
+    } catch (error) {
+        console.error('[Chip API] Withdraw error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

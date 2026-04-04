@@ -108,12 +108,16 @@ const CHIPWallet = () => {
   
   const [tab, setTab] = useState('wallet');
   const [balance, setBalance] = useState({ chip: 0, staked: 0, pendingReward: 0 });
+  const [onChainBalance, setOnChainBalance] = useState(0);
   const [vipStatus, setVipStatus] = useState({ level: 'BRONZE', discount: 0, requiredStake: 0 });
   const [stakes, setStakes] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferring, setTransferring] = useState(false);
@@ -127,12 +131,13 @@ const CHIPWallet = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [balanceRes, vipRes, stakesRes, txRes, nftRes] = await Promise.all([
+      const [balanceRes, vipRes, stakesRes, txRes, nftRes, onChainRes] = await Promise.all([
         fetch(`/api/chip/balance/${walletAddress}`),
         fetch(`/api/chip/vip-status/${walletAddress}`),
         fetch(`/api/stake/history/${walletAddress}`),
         fetch(`/api/chip/transactions/${walletAddress}`),
-        fetch(`/api/nft/collection/${walletAddress}`)
+        fetch(`/api/nft/collection/${walletAddress}`),
+        fetch(`/api/chip/onchain/balance/${walletAddress}`)
       ]);
 
       const balanceData = await balanceRes.json();
@@ -140,6 +145,7 @@ const CHIPWallet = () => {
       const stakesData = await stakesRes.json();
       const txData = await txRes.json();
       const nftData = await nftRes.json();
+      const onChainData = await onChainRes.json();
 
       if (balanceData.success) {
         setBalance(balanceData);
@@ -155,6 +161,9 @@ const CHIPWallet = () => {
       }
       if (nftData.success) {
         setNfts(nftData.nfts || []);
+      }
+      if (onChainData.success) {
+        setOnChainBalance(onChainData.balance);
       }
     } catch (error) {
       console.error('Failed to fetch wallet data:', error);
@@ -210,6 +219,92 @@ const CHIPWallet = () => {
     }
   };
 
+  // 提现到区块链钱包
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      alert('请输入有效的提现金额');
+      return;
+    }
+
+    const amount = parseFloat(withdrawAmount);
+    if (amount > balance.chip) {
+      alert(`余额不足。您只有 ${balance.chip} CHIP 可提现`);
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const response = await fetch('/api/chip/withdraw', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-wallet-address': walletAddress
+        },
+        body: JSON.stringify({ amount })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setShowWithdrawModal(false);
+        setWithdrawAmount('');
+        fetchData();
+        alert(`✅ 提现成功！\n\n交易: ${data.txid}\n\n查看: https://nile.tronscan.org/#/transaction/${data.txid}`);
+      } else {
+        alert('提现失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Failed to withdraw:', error);
+      alert('提现失败: ' + error.message);
+    }
+    setWithdrawing(false);
+  };
+
+  // 链上转账（通过TronLink签名）
+  const handleOnChainTransfer = async () => {
+    if (!transferTo || !transferAmount) {
+      alert('Please enter recipient address and amount');
+      return;
+    }
+
+    // 检查TronLink是否可用
+    if (!window.tronWeb) {
+      alert('TronLink wallet not detected! Please install TronLink extension.');
+      return;
+    }
+
+    setTransferring(true);
+    try {
+      const CHIP_CONTRACT = 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n';
+      const amount = parseFloat(transferAmount) * 1e6; // 转换为最小单位
+
+      console.log('On-chain transfer:', { to: transferTo, amount: transferAmount });
+
+      // 获取合约实例
+      const contract = await window.tronWeb.contract().at(CHIP_CONTRACT);
+
+      // 调用transfer函数
+      const tx = await contract.transfer(transferTo, amount.toString()).send({
+        feeLimit: 100_000_000
+      });
+
+      console.log('Transaction:', tx);
+
+      setShowTransferModal(false);
+      setTransferTo('');
+      setTransferAmount('');
+      fetchData();
+
+      alert(`✅ On-chain transfer successful!\n\nTransaction: ${tx}\n\nView on TronScan: https://nile.tronscan.org/#/transaction/${tx}`);
+
+    } catch (error) {
+      console.error('Failed to transfer on-chain:', error);
+      alert('Transfer failed: ' + (error.message || 'Unknown error'));
+    }
+    setTransferring(false);
+  };
+
+  // 游戏内转账（数据库）
   const handleTransfer = async () => {
     if (!transferTo || !transferAmount) {
       alert('Please enter recipient address and amount');
@@ -271,12 +366,28 @@ const CHIPWallet = () => {
       ) : tab === 'wallet' ? (
         <>
           <WalletCard data-testid="wallet-card">
-            <Text color="textSecondary">CHIP Balance</Text>
+            <Text color="textSecondary">游戏内余额 (Game Balance)</Text>
             <BalanceDisplay data-testid="chip-balance">{balance.chip?.toLocaleString() || 0} CHIP</BalanceDisplay>
             <Container flexDirection="row" gap="1rem" marginTop="1rem">
               <ActionButton primary data-testid="transfer-btn" onClick={() => setShowTransferModal(true)}>Transfer</ActionButton>
               <ActionButton data-testid="history-btn" onClick={handleShowHistory}>History</ActionButton>
+              <ActionButton 
+                style={{ background: '#4CAF50', color: 'white', border: 'none' }}
+                onClick={() => setShowWithdrawModal(true)}
+              >
+                提现到钱包
+              </ActionButton>
             </Container>
+          </WalletCard>
+
+          <WalletCard>
+            <Text color="textSecondary">区块链余额 (On-Chain Balance)</Text>
+            <BalanceDisplay style={{ color: '#4CAF50' }} data-testid="onchain-balance">
+              {onChainBalance?.toLocaleString() || 0} CHIP
+            </BalanceDisplay>
+            <Text size="0.8rem" color="textSecondary">
+              TronLink钱包余额 • 合约: TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n
+            </Text>
           </WalletCard>
 
           {balance.pendingReward > 0 && (
@@ -481,12 +592,78 @@ const CHIPWallet = () => {
                 style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
               />
             </div>
-            <Text size="0.8rem" color="textSecondary">Available: {balance.chip?.toLocaleString() || 0} CHIP</Text>
+            <Text size="0.8rem" color="textSecondary">Available: {balance.chip?.toLocaleString() || 0} CHIP (Game)</Text>
+            
+            {/* 提示信息 */}
+            <div style={{ background: '#fff3cd', padding: '0.75rem', borderRadius: '4px', fontSize: '0.85rem' }}>
+              <Text size="0.8rem" color="#856404">
+                ⚠️ Note: Game Transfer only updates database balance, not blockchain.
+              </Text>
+            </div>
+
             <Container flexDirection="row" gap="1rem" marginTop="1rem">
               <ActionButton primary onClick={handleTransfer} disabled={transferring}>
-                {transferring ? 'Transferring...' : 'Confirm Transfer'}
+                {transferring ? 'Transferring...' : 'Game Transfer'}
               </ActionButton>
-              <ActionButton onClick={() => setShowTransferModal(false)}>Cancel</ActionButton>
+              <ActionButton 
+                onClick={handleOnChainTransfer} 
+                disabled={transferring}
+                style={{ background: '#4CAF50', color: 'white' }}
+              >
+                {transferring ? 'Transferring...' : 'On-Chain Transfer'}
+              </ActionButton>
+            </Container>
+            <ActionButton onClick={() => setShowTransferModal(false)} style={{ marginTop: '0.5rem' }}>
+              Cancel
+            </ActionButton>
+          </Container>
+        </WalletCard>
+      )}
+
+      {/* Withdraw Modal */}
+      {showWithdrawModal && (
+        <WalletCard style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, minWidth: '400px' }}>
+          <Heading as="h3">提现 CHIP 到区块链钱包</Heading>
+          <Container flexDirection="column" gap="1rem" marginTop="1rem">
+            <div>
+              <Text size="0.8rem" color="textSecondary">提现金额</Text>
+              <input
+                type="number"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                placeholder="输入提现金额"
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+            
+            <Container flexDirection="row" gap="0.5rem">
+              <Text size="0.8rem" color="textSecondary">游戏内余额: {balance.chip?.toLocaleString() || 0} CHIP</Text>
+              <button 
+                onClick={() => setWithdrawAmount(balance.chip?.toString() || '0')}
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+              >
+                全部
+              </button>
+            </Container>
+            
+            <div style={{ background: '#d4edda', padding: '0.75rem', borderRadius: '4px', fontSize: '0.85rem' }}>
+              <Text size="0.8rem" color="#155724">
+                ✅ 提现将把游戏内CHIP转到您的TronLink钱包（区块链）
+              </Text>
+            </div>
+
+            <Container flexDirection="row" gap="1rem" marginTop="1rem">
+              <ActionButton 
+                primary 
+                onClick={handleWithdraw} 
+                disabled={withdrawing}
+                style={{ background: '#4CAF50', border: 'none' }}
+              >
+                {withdrawing ? '提现中...' : '确认提现'}
+              </ActionButton>
+              <ActionButton onClick={() => setShowWithdrawModal(false)}>
+                取消
+              </ActionButton>
             </Container>
           </Container>
         </WalletCard>

@@ -12,13 +12,71 @@ Server is running in development mode and is listening on port 7778...
 [ContractService] Initialized for testnet
 [GameSettlementService] Initialized
 [GameFlowIntegration] Initialized
+[Server] Initializing NFT Service...
+Successfully connected to MongoDB!
+[TournamentService] Test mode: Socket.IO instance set
+[NFTService] Contract loaded: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC
+[Server] ✅ NFT Service initialized with contract: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC
+[Server] Initializing CHIP Token Service...
+[TournamentService] Test mode: Socket.IO instance set
+[ChipService] Token contract loaded: TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n
+[ChipService] Initialized successfully
+[Server] ✅ CHIP Token Service initialized with contract: TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n
 [EventListener] Initialized
 [EventListener] Started polling for events
 [Server] Server address: TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA
-Successfully connected to MongoDB!
+[TournamentService] Test mode: Socket.IO instance set
 [Server] Current table 1 owner: 41dbf2e4b885e6de39190e15723abcfaa1d91b93b3
 [Server] Setting server as table owner for table 1...
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66189895,
+  block_timestamp: 1775044107000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1',
+    '2': '100000000',
+    amount: '100000000',
+    tableId: '1',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: '3d601ecca98a710e2cf65f4bb072b3e7e101aa62ae25ceb072922717f0791d6d'
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1, refunded 100000000 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66189892,
+  block_timestamp: 1775044098000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: '3c4fbf0e8af5716a62539b6d055716fe3795477793f9c9c72f44b099dab084c1'
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
 [EventListener] Event: LeftTable {
   block_number: 66022573,
   block_timestamp: 1774540461000,
@@ -292,78 +350,20 @@ Successfully connected to MongoDB!
 }
 [EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1
 [GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
-[EventListener] Event: Deposited {
-  block_number: 65908822,
-  block_timestamp: 1774198068000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'Deposited',
-  result: {
-    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
-    '1': '100000000',
-    amount: '100000000',
-    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
-  },
-  result_type: { amount: 'uint256', player: 'address' },
-  event: 'Deposited(address indexed player, uint256 amount)',
-  transaction_id: '6d4a7c4bc145299ef050badeaf42182ec184ba1f3e0f9d4a1bc4c0f09ad5c85f'
-}
-[EventListener] ✅ DEPOSIT EVENT: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 deposited 100000000 SUN (100 TRX)
-[EventListener] Event details: {
-  "0": "0xc7457b452780a641ff4c5c922034accd6e6b9b79",
-  "1": "100000000",
-  "amount": "100000000",
-  "player": "0xc7457b452780a641ff4c5c922034accd6e6b9b79"
-}
-[EventListener] Event: Deposited {
-  block_number: 65908821,
-  block_timestamp: 1774198065000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'Deposited',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '100000000',
-    amount: '100000000',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: { amount: 'uint256', player: 'address' },
-  event: 'Deposited(address indexed player, uint256 amount)',
-  transaction_id: 'c20640f2b0a930b2bab93604f907d43815b160265c06844c137dd0c3ac9c4213'
-}
-[EventListener] ✅ DEPOSIT EVENT: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 deposited 100000000 SUN (100 TRX)
-[EventListener] Event details: {
-  "0": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527",
-  "1": "100000000",
-  "amount": "100000000",
-  "player": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527"
-}
-[EventListener] Event: Withdrawn {
-  block_number: 65908812,
-  block_timestamp: 1774198038000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'Withdrawn',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '200000000',
-    amount: '200000000',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: { amount: 'uint256', player: 'address' },
-  event: 'Withdrawn(address indexed player, uint256 amount)',
-  transaction_id: 'f552850c69ea0d89c562dce7c7f54d7c9a0b9adf9448d5a48bdc557738653be2'
-}
-[EventListener] Withdrawal: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 withdrew 200000000 SUN
+POST http://localhost:7778/api/chip/withdraw
+(node:51906) [DEP0044] DeprecationWarning: The `util.isArray` API is deprecated. Please use `Array.isArray()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ChipService] Treasury address: TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[ChipService] Withdrawing 1000 CHIP from treasury to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[Server] 💰 Server wallet balance: 421.85 TRX
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[Server] 💰 Server wallet balance: 972.77 TRX
+[ChipService] Transfer tx: 2497581fa6b7e7ea89f1b451d9ae85ae9dc69f53e873cf248eafb66a53b8b9b7
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
@@ -388,8 +388,91 @@ Successfully connected to MongoDB!
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Socket disconnected: FsImsS70DwT1684DAAAF, wallet: undefined...
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/chip/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/vip-status/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/stake/history/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/transactions/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/nft/collection/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[NFT API] Collection query for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv found 16 NFTs
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+POST http://localhost:7778/api/chip/withdraw
+[ChipService] Treasury address: TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ChipService] Withdrawing 1000 CHIP from treasury to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ChipService] Transfer tx: efe27f895505f07466b4a9a0da12e4174c6d43252a2db86acdcf02166b60e63c
+GET http://localhost:7778/api/chip/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/transactions/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/vip-status/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/stake/history/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/nft/collection/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[NFT API] Collection query for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv found 16 NFTs
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Socket disconnected: 4EsW56xQ8mJjRkBeAAAH, wallet: undefined...
+[TournamentHandler] Socket disconnected: bYdrkiT1NRDLmq9hAAAD, wallet: undefined...
+GET http://localhost:7778/api/chip/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/vip-status/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/stake/history/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/transactions/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/nft/collection/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[NFT API] Collection query for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv found 16 NFTs
+GET http://localhost:7778/api/blockchain/config
+[TournamentService] Test mode: Socket.IO instance set
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://localhost:7778/wallet
+GET http://localhost:7778/wallet
+[Socket] CS_CHECK_DELEGATE: { player: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv', isAuthorized: true }
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c

@@ -218,6 +218,85 @@ class ChipService {
         return pendingReward;
     }
     
+    // ============ On-chain Operations ============
+    
+    /**
+     * Get on-chain CHIP balance for address
+     */
+    async getOnChainBalance(address) {
+        if (!this.tokenContract) return 0;
+        
+        try {
+            const balance = await this.tokenContract.balanceOf(address).call();
+            const balanceNum = this.tronWeb.toDecimal(balance);
+            return balanceNum / 1e6; // Convert from SUN to CHIP
+        } catch (error) {
+            console.error('[ChipService] Error getting on-chain balance:', error.message);
+            return 0;
+        }
+    }
+    
+    /**
+     * Withdraw CHIP from treasury to user's wallet
+     * This transfers real tokens from treasury (deployer) to user
+     */
+    async withdrawToWallet(userAddress, amount) {
+        if (!this.tokenContract) {
+            throw new Error('CHIP token contract not initialized');
+        }
+        
+        const privateKey = process.env.TESTNET_PRIVATE_KEY || process.env.MAINNET_PRIVATE_KEY;
+        if (!privateKey) {
+            throw new Error('No private key configured for withdrawals');
+        }
+        
+        // Create TronWeb instance with private key
+        const TronWeb = require('tronweb').TronWeb;
+        const tronWebWithPK = new TronWeb({
+            fullHost: this.tronWeb.fullNode.host,
+            privateKey: privateKey
+        });
+        
+        // Get treasury address (deployer)
+        const treasuryResult = await tronWebWithPK.address.fromPrivateKey(privateKey);
+        const treasuryAddress = typeof treasuryResult === 'string' ? treasuryResult : treasuryResult.address;
+        console.log(`[ChipService] Treasury address: ${treasuryAddress}`);
+        
+        // Convert amount to SUN (smallest unit)
+        const amountInSun = Math.floor(amount * 1e6);
+        
+        // Check treasury balance
+        const treasuryBalance = await this.tokenContract.balanceOf(treasuryAddress).call();
+        const treasuryBalanceNum = this.tronWeb.toDecimal(treasuryBalance);
+        
+        if (treasuryBalanceNum < amountInSun) {
+            throw new Error(`Insufficient treasury balance. Has ${treasuryBalanceNum / 1e6} CHIP, needs ${amount}`);
+        }
+        
+        console.log(`[ChipService] Withdrawing ${amount} CHIP from treasury to ${userAddress}`);
+        
+        // Get contract instance with private key
+        const contractWithPK = await tronWebWithPK.contract().at(this.tokenAddress);
+        
+        // Execute transfer
+        const tx = await contractWithPK.transfer(userAddress, amountInSun).send({
+            feeLimit: 100_000_000
+        });
+        
+        console.log(`[ChipService] Transfer tx: ${tx}`);
+        
+        // Get new balance
+        const newBalance = await this.getOnChainBalance(userAddress);
+        
+        return {
+            txid: tx,
+            from: treasuryAddress,
+            to: userAddress,
+            amount: amount,
+            newBalance: newBalance
+        };
+    }
+    
     // ============ Distribute Rake ============
     
     /**
@@ -353,5 +432,17 @@ module.exports = {
         }
         // This would call the contract - simplified for now
         return { success: true, txHash: 'pending' };
+    },
+    // On-chain balance
+    getOnChainBalance: async (address) => {
+        if (!chipServiceInstance) return 0;
+        return chipServiceInstance.getOnChainBalance(address);
+    },
+    // Withdraw to wallet
+    withdrawToWallet: async (userAddress, amount) => {
+        if (!chipServiceInstance) {
+            throw new Error('ChipService not initialized');
+        }
+        return chipServiceInstance.withdrawToWallet(userAddress, amount);
     }
 };

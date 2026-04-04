@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>检查TronLink账户</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .info { background: #f0f0f0; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .warning { background: #fff3cd; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .success { background: #d4edda; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .error { background: #f8d7da; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>TronLink 账户检查</h1>
+    
+    <div class="info">
+        <h3>您的游戏账户（应该是这个）:</h3>
+        <code>TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv</code>
+    </div>
+    
+    <div class="info">
+        <h3>部署者账户（不应该用这个玩游戏）:</h3>
+        <code>TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA</code>
+    </div>
+    
+    <button onclick="checkTronLink()">检查当前TronLink账户</button>
+    <button onclick="window.location.href='/wallet'">返回钱包页面</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function checkTronLink() {
+            const result = document.getElementById('result');
+            
+            if (!window.tronLink) {
+                result.innerHTML = '<div class="error">❌ TronLink 未检测到！请安装 TronLink 扩展。</div>';
+                return;
+            }
+            
+            if (!window.tronLink.ready) {
+                result.innerHTML = '<div class="warning">⏳ TronLink 正在加载，请稍候...</div>';
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            
+            try {
+                const tronWeb = window.tronLink.tronWeb;
+                if (!tronWeb) {
+                    result.innerHTML = '<div class="error">❌ TronWeb 不可用</div>';
+                    return;
+                }
+                
+                const currentAccount = tronWeb.defaultAddress.base58;
+                const expectedAccount = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
+                
+                let html = '<div class="info">';
+                html += '<h3>当前TronLink连接的账户:</h3>';
+                html += '<code style="font-size: 18px;">' + currentAccount + '</code>';
+                html += '</div>';
+                
+                if (currentAccount === expectedAccount) {
+                    html += '<div class="success">';
+                    html += '<h3>✅ 正确！</h3>';
+                    html += '<p>TronLink 连接的是您的游戏账户。</p>';
+                    html += '<p>您可以在钱包页面进行转账操作。</p>';
+                    html += '</div>';
+                } else if (currentAccount === 'TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA') {
+                    html += '<div class="warning">';
+                    html += '<h3>⚠️ 警告！连接了部署者账户</h3>';
+                    html += '<p>TronLink 当前连接的是部署者账户，不是您的游戏账户！</p>';
+                    html += '<p><strong>请切换账户到:</strong> <code>' + expectedAccount + '</code></p>';
+                    html += '<p>或者，如果您确实要用部署者账户转账，请确保接收地址正确。</p>';
+                    html += '</div>';
+                } else {
+                    html += '<div class="warning">';
+                    html += '<h3>⚠️ 未知账户</h3>';
+                    html += '<p>TronLink 连接的账户不是您的游戏账户。</p>';
+                    html += '<p><strong>请切换账户到:</strong> <code>' + expectedAccount + '</code></p>';
+                    html += '</div>';
+                }
+                
+                result.innerHTML = html;
+                
+            } catch (error) {
+                result.innerHTML = '<div class="error">❌ 错误: ' + error.message + '</div>';
+            }
+        }
+        
+        // 页面加载时自动检查
+        setTimeout(checkTronLink, 1000);
+    </script>
+</body>
+</html>

@@ -18,6 +18,7 @@ const EventListener = require("./blockchain/EventListener");
 const GameSettlementService = require("./services/GameSettlementService");
 const gameFlowIntegration = require("./services/GameFlowIntegration");
 const { initNFTService, getNFTService } = require("./services/NFTService");
+const { initChipService } = require("./services/ChipService");
 // Connect and get reference to mongodb instance
 let db;
 
@@ -74,6 +75,20 @@ async function initializeBlockchainServices() {
                 }
             } else {
                 console.log('[Server] ℹ️ NFT_CONTRACT_ADDRESS not set, NFT blockchain integration disabled');
+            }
+
+            // Initialize CHIP Token Service
+            const chipTokenAddress = process.env.CHIP_TOKEN_ADDRESS || 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n';
+            try {
+                console.log('[Server] Initializing CHIP Token Service...');
+                await initChipService(TronService.tronWeb, {
+                    chipTokenAddress: chipTokenAddress,
+                    stakingAddress: process.env.STAKING_CONTRACT_ADDRESS
+                });
+                console.log('[Server] ✅ CHIP Token Service initialized with contract:', chipTokenAddress);
+            } catch (chipError) {
+                console.error('[Server] ⚠️ CHIP Token Service initialization failed:', chipError.message);
+                console.log('[Server] Continuing without CHIP blockchain integration...');
             }
 
             // Initialize and start EventListener
