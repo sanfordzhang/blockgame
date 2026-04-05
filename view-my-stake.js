@@ -46,9 +46,29 @@ const tronWeb = new TronWeb({
         console.log('暂无质押');
     }
     
-    // 总质押
+    // 总质押和奖励池
     const total = await staking.totalStaked().call();
+    const rewardPool = await staking.totalRewardPool().call();
     console.log('\n平台总质押:', Number(total) / 1e6, 'CHIP');
+    console.log('奖励池总额:', Number(rewardPool) / 1e6, 'CHIP');
+    
+    // 计算您的待领取奖励
+    if (stakeData.isActive && Number(stakeData.amount) > 0) {
+        const myStake = Number(stakeData.amount);
+        const totalStake = Number(total);
+        const myShare = myStake / totalStake;
+        const myReward = myShare * Number(rewardPool);
+        
+        console.log('\n========================================');
+        console.log('💰 您的奖励');
+        console.log('========================================');
+        console.log('质押占比:', (myShare * 100).toFixed(2), '%');
+        console.log('待领取奖励:', (myReward / 1e6).toFixed(2), 'CHIP');
+        console.log('');
+        console.log('领取方式:');
+        console.log('  1. TronScan: 调用 claimReward() 函数');
+        console.log('  2. 前端钱包页面: 点击 "Claim" 按钮');
+    }
     
     console.log('\n========================================');
     console.log('查看质押的其他方式');

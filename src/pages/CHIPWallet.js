@@ -121,6 +121,11 @@ const CHIPWallet = () => {
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [stakingContractAddress, setStakingContractAddress] = useState(null);
+  const [showStakeModal, setShowStakeModal] = useState(false);
+  const [stakeAmount, setStakeAmount] = useState('');
+  const [stakeLockDays, setStakeLockDays] = useState('30');
+  const [staking, setStaking] = useState(false);
 
   useEffect(() => {
     if (walletAddress) {
@@ -131,13 +136,14 @@ const CHIPWallet = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [balanceRes, vipRes, stakesRes, txRes, nftRes, onChainRes] = await Promise.all([
+      const [balanceRes, vipRes, stakesRes, txRes, nftRes, onChainRes, contractsRes] = await Promise.all([
         fetch(`/api/chip/balance/${walletAddress}`),
         fetch(`/api/chip/vip-status/${walletAddress}`),
         fetch(`/api/stake/history/${walletAddress}`),
         fetch(`/api/chip/transactions/${walletAddress}`),
         fetch(`/api/nft/collection/${walletAddress}`),
-        fetch(`/api/chip/onchain/balance/${walletAddress}`)
+        fetch(`/api/chip/onchain/balance/${walletAddress}`),
+        fetch('/api/stake/contracts')
       ]);
 
       const balanceData = await balanceRes.json();
@@ -146,6 +152,7 @@ const CHIPWallet = () => {
       const txData = await txRes.json();
       const nftData = await nftRes.json();
       const onChainData = await onChainRes.json();
+      const contractsData = await contractsRes.json();
 
       if (balanceData.success) {
         setBalance(balanceData);
@@ -165,57 +172,181 @@ const CHIPWallet = () => {
       if (onChainData.success) {
         setOnChainBalance(onChainData.balance);
       }
+      if (contractsData.success) {
+        setStakingContractAddress(contractsData.stakingContract);
+      }
     } catch (error) {
       console.error('Failed to fetch wallet data:', error);
     }
     setLoading(false);
   };
 
-  const handleStake = async (amount, lockDays) => {
+  // 质押CHIP（通过TronLink签名）
+  const handleStake = async () => {
+    if (!window.tronWeb) {
+      window.alert('TronLink wallet not detected! Please install TronLink extension.');
+      return;
+    }
+
+    if (!stakingContractAddress) {
+      window.alert('质押合约地址未加载，请刷新页面重试');
+      return;
+    }
+
+    const amount = parseFloat(stakeAmount);
+    const lockDays = parseInt(stakeLockDays);
+
+    if (!amount || amount < 100) {
+      window.alert('质押金额至少100 CHIP');
+      return;
+    }
+
+    if (!lockDays || lockDays < 30) {
+      window.alert('锁定期至少30天');
+      return;
+    }
+
+    if (amount > onChainBalance) {
+      window.alert(`链上余额不足。您只有 ${onChainBalance} CHIP 可质押`);
+      return;
+    }
+
+    setStaking(true);
     try {
-      const response = await fetch('/api/stake/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, amount, lockDays })
+      const stakeAmountWei = Math.floor(amount * 1e6);
+      const lockDurationSeconds = lockDays * 24 * 60 * 60;
+
+      // 1. Approve CHIP token
+      const chipContract = await window.tronWeb.contract().at('TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n');
+      const approveTx = await chipContract.approve(stakingContractAddress, stakeAmountWei.toString()).send({
+        feeLimit: 100_000_000
       });
-      const data = await response.json();
-      if (data.success) {
-        fetchData();
-      }
+      console.log('Approve transaction:', approveTx);
+
+      // 2. Stake
+      const stakingContract = await window.tronWeb.contract().at(stakingContractAddress);
+      const stakeTx = await stakingContract.stake(stakeAmountWei.toString(), lockDurationSeconds).send({
+        feeLimit: 100_000_000
+      });
+      console.log('Stake transaction:', stakeTx);
+
+      // 3. Log to backend
+      await fetch('/api/stake/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-address': walletAddress
+        },
+        body: JSON.stringify({ amount, lockDays, txHash: stakeTx })
+      });
+
+      setShowStakeModal(false);
+      setStakeAmount('');
+      setStakeLockDays('30');
+      fetchData();
+      window.alert(`✅ 质押成功！\n\n交易: ${stakeTx}\n\n查看: https://nile.tronscan.org/#/transaction/${stakeTx}`);
+
     } catch (error) {
       console.error('Failed to stake:', error);
+      window.alert('质押失败: ' + (error.message || 'Unknown error'));
     }
+    setStaking(false);
   };
 
-  const handleUnstake = async (stakeId) => {
-    try {
-      const response = await fetch('/api/stake/unstake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, stakeId })
-      });
-      const data = await response.json();
-      if (data.success) {
-        fetchData();
+  // 解除质押（通过TronLink签名）
+  const handleUnstake = async (stake) => {
+    if (!window.tronWeb) {
+      alert('TronLink wallet not detected! Please install TronLink extension.');
+      return;
+    }
+
+    if (!stakingContractAddress) {
+      alert('质押合约地址未加载，请刷新页面重试');
+      return;
+    }
+
+    const amount = stake.amount * 1e6; // 转换为最小单位
+
+    // 检查是否已解锁
+    const unlockTime = new Date(stake.unlockAt).getTime();
+    const now = Date.now();
+    if (now < unlockTime) {
+      const daysLeft = Math.ceil((unlockTime - now) / (1000 * 60 * 60 * 24));
+      const penalty = stake.amount * 0.1; // 10% 提前解除惩罚
+      if (!window.confirm(`⚠️ 质押尚未解锁！\n\n还剩 ${daysLeft} 天解锁\n提前解除将扣除 10% 惩罚金：${penalty.toFixed(2)} CHIP\n\n确定要提前解除吗？`)) {
+        return;
       }
+    }
+
+    try {
+      console.log('Unstaking:', { amount: stake.amount, stakeId: stake._id });
+
+      // 获取质押合约实例
+      const contract = await window.tronWeb.contract().at(stakingContractAddress);
+
+      // 调用 unstake 函数
+      const tx = await contract.unstake(amount.toString()).send({
+        feeLimit: 100_000_000
+      });
+
+      console.log('Unstake transaction:', tx);
+
+      // 记录交易到后端（不记录金额到Game Balance，因为链上已处理）
+      await fetch('/api/stake/log-unstake', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-address': walletAddress
+        },
+        body: JSON.stringify({
+          amount: stake.amount,
+          txHash: tx
+        })
+      });
+
+      fetchData();
+      alert(`✅ 解除质押成功！\n\n交易: ${tx}\n\n查看: https://nile.tronscan.org/#/transaction/${tx}`);
+
     } catch (error) {
       console.error('Failed to unstake:', error);
+      alert('解除质押失败: ' + (error.message || 'Unknown error'));
     }
   };
 
-  const handleClaimReward = async (stakeId) => {
+  // 领取奖励（通过TronLink签名）
+  const handleClaimReward = async () => {
+    if (!window.tronWeb) {
+      alert('TronLink wallet not detected! Please install TronLink extension.');
+      return;
+    }
+
+    if (!stakingContractAddress) {
+      alert('质押合约地址未加载，请刷新页面重试');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/stake/claim-reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, stakeId })
+      console.log('Claiming reward...');
+
+      // 获取质押合约实例
+      const contract = await window.tronWeb.contract().at(stakingContractAddress);
+
+      // 调用 claimReward 函数
+      const tx = await contract.claimReward().send({
+        feeLimit: 100_000_000
       });
-      const data = await response.json();
-      if (data.success) {
-        fetchData();
-      }
+
+      console.log('Claim transaction:', tx);
+
+      // 注意：不记录金额到后端，因为链上已直接转账到钱包
+      // 如果记录金额会导致Game Balance双重计算
+
+      fetchData();
+      alert(`✅ 领取奖励成功！\n\n交易: ${tx}\n\n查看: https://nile.tronscan.org/#/transaction/${tx}`);
+
     } catch (error) {
       console.error('Failed to claim reward:', error);
+      alert('领取奖励失败: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -410,7 +541,7 @@ const CHIPWallet = () => {
                 <Text color="textSecondary">Total Staked</Text>
                 <BalanceDisplay data-testid="staked-amount">{balance.staked?.toLocaleString() || 0} CHIP</BalanceDisplay>
               </div>
-              <ActionButton primary onClick={() => handleStake(100, 30)} data-testid="stake-btn">
+              <ActionButton primary onClick={() => setShowStakeModal(true)} data-testid="stake-btn">
                 Stake CHIP
               </ActionButton>
             </Container>
@@ -432,8 +563,8 @@ const CHIPWallet = () => {
                   </div>
                   <Container flexDirection="row" gap="0.5rem">
                     <Text color="primaryCta">+{stake.pendingReward?.toFixed(2)} CHIP</Text>
-                    <ActionButton onClick={() => handleUnstake(stake._id)}>Unstake</ActionButton>
-                    <ActionButton primary onClick={() => handleClaimReward(stake._id)}>Claim</ActionButton>
+                    <ActionButton onClick={() => handleUnstake(stake)}>Unstake</ActionButton>
+                    <ActionButton primary onClick={() => handleClaimReward()}>Claim</ActionButton>
                   </Container>
                 </Container>
               </StakingCard>
@@ -662,6 +793,68 @@ const CHIPWallet = () => {
                 {withdrawing ? '提现中...' : '确认提现'}
               </ActionButton>
               <ActionButton onClick={() => setShowWithdrawModal(false)}>
+                取消
+              </ActionButton>
+            </Container>
+          </Container>
+        </WalletCard>
+      )}
+
+      {/* Stake Modal */}
+      {showStakeModal && (
+        <WalletCard style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, minWidth: '400px' }}>
+          <Heading as="h3">质押 CHIP</Heading>
+          <Container flexDirection="column" gap="1rem" marginTop="1rem">
+            <div>
+              <Text size="0.8rem" color="textSecondary">质押金额 (最少100 CHIP)</Text>
+              <input
+                type="number"
+                value={stakeAmount}
+                onChange={(e) => setStakeAmount(e.target.value)}
+                placeholder="输入质押金额"
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <div>
+              <Text size="0.8rem" color="textSecondary">锁定期 (天，最少30天)</Text>
+              <input
+                type="number"
+                value={stakeLockDays}
+                onChange={(e) => setStakeLockDays(e.target.value)}
+                placeholder="输入锁定期"
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+
+            <Container flexDirection="row" gap="0.5rem">
+              <Text size="0.8rem" color="textSecondary">链上余额: {onChainBalance?.toLocaleString() || 0} CHIP</Text>
+              <button
+                onClick={() => setStakeAmount(onChainBalance?.toString() || '0')}
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+              >
+                全部
+              </button>
+            </Container>
+
+            <div style={{ background: '#fff3cd', padding: '0.75rem', borderRadius: '4px', fontSize: '0.85rem' }}>
+              <Text size="0.8rem" color="#856404">
+                ⚠️ 质押期间CHIP将被锁定。提前解押将扣除10%惩罚金。
+              </Text>
+              <Text size="0.75rem" color="#856404" style={{ marginTop: '0.5rem' }}>
+                奖励规则: 每日奖励 = clamp(最大质押 × 用户占比 / 30, 1 CHIP, 1000 CHIP)
+              </Text>
+            </div>
+
+            <Container flexDirection="row" gap="1rem" marginTop="1rem">
+              <ActionButton
+                primary
+                onClick={handleStake}
+                disabled={staking}
+              >
+                {staking ? '质押中...' : '确认质押'}
+              </ActionButton>
+              <ActionButton onClick={() => setShowStakeModal(false)}>
                 取消
               </ActionButton>
             </Container>

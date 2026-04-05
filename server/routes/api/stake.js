@@ -152,21 +152,24 @@ router.post('/unstake', async (req, res) => {
 /**
  * @route POST /api/stake/log-unstake
  * @desc Log unstake transaction (called after user successfully unstakes on-chain)
+ * Note: amount is NOT recorded to Game Balance since chain already transferred
  */
 router.post('/log-unstake', async (req, res) => {
     try {
         const walletAddress = req.headers['x-wallet-address'] || req.body.walletAddress;
         const { amount, txHash, penalty } = req.body;
-        
+
+        // Note: We record the transaction for history but with amount 0
+        // because the chain already transferred the unstake directly to wallet
         await ChipTransaction.createTransaction({
             walletAddress,
             type: 'unstake',
-            amount: amount,
+            amount: 0,  // Set to 0 to avoid affecting Game Balance
             txHash,
-            description: `Unstaked ${amount} CHIP (penalty: ${penalty || 0})`
+            description: `Unstaked ${amount} CHIP on-chain (penalty: ${penalty || 0})`
         });
-        
-        res.json({ success: true, message: 'Unstake logged' });
+
+        res.json({ success: true, message: 'Unstake logged (not added to Game Balance)' });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
@@ -193,21 +196,25 @@ router.get('/claim-prepare', async (req, res) => {
 /**
  * @route POST /api/stake/claim-reward
  * @desc Log claim transaction (called after user successfully claims on-chain)
+ * Note: amount is NOT recorded to Game Balance since chain already transferred
  */
 router.post('/claim-reward', async (req, res) => {
     try {
         const walletAddress = req.headers['x-wallet-address'] || req.body.walletAddress;
         const { amount, txHash } = req.body;
-        
+
+        // Note: We record the transaction for history but with amount 0
+        // because the chain already transferred the reward directly to wallet
+        // If we record the amount, it would double-count in Game Balance
         await ChipTransaction.createTransaction({
             walletAddress,
             type: 'claim',
-            amount: amount,
+            amount: 0,  // Set to 0 to avoid double-counting in Game Balance
             txHash,
-            description: 'Claimed staking reward'
+            description: `Claimed staking reward (${amount || 'unknown'} CHIP on-chain)`
         });
-        
-        res.json({ success: true, message: 'Claim logged' });
+
+        res.json({ success: true, message: 'Claim logged (not added to Game Balance)' });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
