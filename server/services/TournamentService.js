@@ -62,8 +62,8 @@ class TournamentService {
         // Default configs for test mode
         const DEFAULT_CONFIGS = {
             1: { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] },
-            2: { playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40] },
-            3: { playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100] }
+            2: { playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40] },
+            3: { playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100] }
         };
         
         let tournamentId;
@@ -127,33 +127,15 @@ class TournamentService {
      * Get tournament configurations
      */
     async getConfigs() {
-        // Default configs for test mode (when no contract)
+        // All tournaments use 100 TRX buy-in
         const DEFAULT_CONFIGS = [
             { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 2, playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40], name: '4人赛 (50 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 3, playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100], name: '双人赛 (10 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
+            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
+            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
         ];
-        
-        if (!this.contract) return DEFAULT_CONFIGS;
-        
-        const configs = [];
-        for (let i = 1; i <= 4; i++) {
-            try {
-                const config = await this.contract.getTournamentConfig(i).call();
-                configs.push({
-                    id: i,
-                    playerCount: config.playerCount.toNumber(),
-                    buyIn: config.buyIn.toString(),
-                    rakeRate: config.rakeRate.toNumber(),
-                    prizeDistribution: config.prizeDistribution.map(p => p.toNumber()),
-                    initialChips: config.initialChips.toNumber()
-                });
-            } catch (e) {
-                break;
-            }
-        }
-        
-        return configs;
+
+        // Always use default configs (100 TRX for all tournaments)
+        return DEFAULT_CONFIGS;
     }
     
     /**
@@ -825,8 +807,8 @@ module.exports = {
         // Default configs for test mode
         const DEFAULT_CONFIGS = [
             { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 2, playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40], name: '4人赛 (50 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 3, playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100], name: '双人赛 (10 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
+            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
+            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
         ];
         
         if (!tournamentServiceInstance) return DEFAULT_CONFIGS;
@@ -837,9 +819,9 @@ module.exports = {
             // Create a minimal instance for test mode
             const TournamentModel = require('../models/Tournament');
             const config = data.configId === 2 
-                ? { playerCount: 4, buyIn: 50000000, rakeRate: 500, initialChips: 5000000, prizeDistribution: [60, 40] }
+                ? { playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40] }
                 : data.configId === 3
-                ? { playerCount: 2, buyIn: 10000000, rakeRate: 500, initialChips: 2000000, prizeDistribution: [100] }
+                ? { playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100] }
                 : { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] };
             
             const tournamentId = Date.now().toString();
@@ -1545,7 +1527,7 @@ module.exports = {
         console.log(`[TournamentService] _handleTournamentEnd: Saving tournament ${tournamentId} to DB, rankings:`, data.rankings);
         
         // Calculate rake amount (TRX)
-        const buyIn = tournament.buyIn || 10000000; // Default 10 TRX
+        const buyIn = tournament.buyIn || 100000000; // Default 100 TRX
         const playerCount = tournament.players?.length || data.rankings.length;
         const totalBuyIn = buyIn * playerCount;
         const rakeRate = tournament.rakeRate || 500; // 5% = 500 basis points

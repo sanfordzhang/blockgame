@@ -52,6 +52,8 @@ const TournamentTableGame = ({ tournamentId }) => {
     walletAddress,  // Get walletAddress from context
     tournamentEnded,
     finalRankings,
+    chipRewards,
+    rakeAmount,
     nftAchievement,
     setNftAchievement,
   } = useContext(TournamentGameContext);
@@ -206,21 +208,82 @@ const TournamentTableGame = ({ tournamentId }) => {
           });
           
           // Listen for mint result
-          socket.once('SC_NFT_MINT_READY', (data) => {
-            Swal.fire({
-              title: '🎉 铸造成功！',
-              html: `
-                <div style="text-align: center;">
-                  <p>您的 ${achievement.name || nftAchievement.handType} NFT 已铸造成功！</p>
-                  <p style="font-size: 0.9rem; color: #888;">Token ID: ${data.tokenId || 'N/A'}</p>
-                </div>
-              `,
-              icon: 'success',
-              confirmButtonText: '查看收藏',
-              confirmButtonColor: '#3085d6',
-            }).then(() => {
-              navigate('/nft');
-            });
+          socket.once('SC_NFT_MINT_READY', async (data) => {
+            try {
+              // Call on-chain contract to mint NFT
+              const { signature, onchainContractAddress } = data;
+              const contractAddress = onchainContractAddress || process.env.REACT_APP_NFT_CONTRACT_ONCHAIN || window.__NFT_CONTRACT_ONCHAIN;
+
+              if (!contractAddress || !window.tronWeb) {
+                console.warn('[NFT] No on-chain contract or tronWeb, simulating success');
+                Swal.fire({
+                  title: '🎉 铸造成功！',
+                  html: `<p>您的 ${achievement.name || nftAchievement.handType} NFT 已记录！</p>`,
+                  icon: 'success',
+                  confirmButtonText: '查看收藏',
+                }).then(() => navigate('/nft'));
+                return;
+              }
+
+              // Show signing prompt
+              Swal.fire({
+                title: '✍️ 请签名',
+                html: '<p>请在钱包中确认交易以铸造 NFT</p>',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+              });
+
+              const abi = [
+                { "inputs": [
+                    { "name": "achievementTypeId", "type": "uint256" },
+                    { "name": "timestamp", "type": "uint256" },
+                    { "name": "gameId", "type": "string" },
+                    { "name": "metadata", "type": "string" },
+                    { "name": "v", "type": "uint8" },
+                    { "name": "r", "type": "bytes32" },
+                    { "name": "s", "type": "bytes32" }
+                  ],
+                  "name": "claimNFT", "outputs": [{ "type": "uint256" }],
+                  "stateMutability": "payable", "type": "function"
+                }
+              ];
+
+              const contract = await window.tronWeb.contract(abi, contractAddress);
+              const price = 5000000; // 5 TRX in SUN
+
+              const tx = await contract.claimNFT(
+                signature.achievementTypeId,
+                signature.timestamp,
+                signature.gameId,
+                JSON.stringify(data.metadata || {}),
+                signature.v,
+                signature.r,
+                signature.s
+              ).send({ callValue: price, feeLimit: 100000000 });
+
+              console.log('[NFT] ✅ On-chain mint tx:', tx);
+
+              Swal.fire({
+                title: '🎉 铸造成功！',
+                html: `
+                  <div style="text-align: center;">
+                    <p>您的 ${achievement.name || nftAchievement.handType} NFT 已上链铸造成功！</p>
+                    <p style="font-size: 0.9rem; color: #888;">交易: ${tx?.substring(0, 16)}...</p>
+                  </div>
+                `,
+                icon: 'success',
+                confirmButtonText: '查看收藏',
+                confirmButtonColor: '#3085d6',
+              }).then(() => navigate('/nft'));
+
+            } catch (err) {
+              console.error('[NFT] On-chain mint error:', err);
+              Swal.fire({
+                title: '铸造失败',
+                text: err.message || '请稍后重试',
+                icon: 'error',
+              });
+            }
           });
           
           socket.once('SC_NFT_MINT_ERROR', (data) => {
@@ -283,7 +346,10 @@ const TournamentTableGame = ({ tournamentId }) => {
     });
     const myPosition = myRank ? finalRankings.indexOf(myRank) + 1 : finalRankings.length;
     const isWinner = myPosition === 1;
-    
+
+    // Find my CHIP reward
+    const myChipReward = chipRewards?.find(r => r.address?.toLowerCase() === walletAddress);
+
     return (
       <Container fullHeight flexDirection="column" padding="6rem 2rem 2rem 2rem">
         <Heading as="h2" textCentered color={isWinner ? '#ffd700' : '#fff'}>
@@ -297,6 +363,8 @@ const TournamentTableGame = ({ tournamentId }) => {
             const address = ranking.address || ranking;
             const isMe = address?.toLowerCase() === walletAddress;
             const position = index + 1;
+            const chipReward = chipRewards?.find(r => r.address?.toLowerCase() === address?.toLowerCase());
+
             return (
               <div
                 key={index}
@@ -317,15 +385,69 @@ const TournamentTableGame = ({ tournamentId }) => {
                   {' '}
                   {isMe ? 'You' : `${address?.substring(0, 10)}...`}
                 </span>
-                {ranking.prizeAmount && (
-                  <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1rem' }}>
-                    {(ranking.prizeAmount / 1e6).toLocaleString()} TRX
-                  </span>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                  {ranking.prizeAmount && (
+                    <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1rem' }}>
+                      {(ranking.prizeAmount / 1e6).toLocaleString()} TRX
+                    </span>
+                  )}
+                  {chipReward && chipReward.chipReward > 0 && (
+                    <span style={{ color: '#4CAF50', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                      +{chipReward.chipReward} CHIP 🎁
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+
+        {/* CHIP奖励详情卡片 */}
+        {myChipReward && myChipReward.chipReward > 0 && (
+          <div style={{
+            marginTop: '1.5rem',
+            width: '100%',
+            maxWidth: '500px',
+            margin: '1.5rem auto 0',
+            background: 'linear-gradient(135deg, #1a472a 0%, #2d5a3d 100%)',
+            borderRadius: '12px',
+            padding: '1rem 1.5rem',
+            border: '2px solid #4CAF50',
+          }}>
+            <Text color="#4CAF50" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+              🎁 CHIP Bonus Reward
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#fff' }}>Amount:</span>
+              <span style={{ color: '#4CAF50', fontWeight: 'bold', fontSize: '1.25rem' }}>
+                +{myChipReward.chipReward} CHIP
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <span style={{ color: '#aaa' }}>VIP Level:</span>
+              <span style={{ color: myChipReward.vipLevel === 'PLATINUM' ? '#E5E4E2' :
+                            myChipReward.vipLevel === 'GOLD' ? '#FFD700' :
+                            myChipReward.vipLevel === 'SILVER' ? '#C0C0C0' : '#CD7F32' }}>
+                {myChipReward.vipLevel}
+              </span>
+            </div>
+            {myChipReward.txid && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                <span style={{ color: '#aaa' }}>TX:</span>
+                <span style={{ color: '#888', fontSize: '0.8rem' }}>
+                  {myChipReward.txid.substring(0, 10)}...
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 抽成信息 */}
+        {rakeAmount > 0 && (
+          <Text textCentered marginTop="1rem" color="#888" style={{ fontSize: '0.85rem' }}>
+            Rake: {rakeAmount} TRX (5%)
+          </Text>
+        )}
 
         {myPosition > 1 && (
           <Text textCentered marginTop="1.5rem" color="#ccc">

@@ -75,6 +75,19 @@ const PrizePool = styled.div`
   font-weight: bold;
 `;
 
+const ChipRewardBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #4CAF50, #8BC34A);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 0.5rem;
+`;
+
 const FilterBar = styled.div`
   display: flex;
   gap: 1rem;
@@ -240,8 +253,8 @@ const Tournament = () => {
   // 默认测试配置（当合约未配置时使用）
   const DEFAULT_CONFIGS = [
     { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, name: '6人赛 (100 TRX)' },
-    { id: 2, playerCount: 4, buyIn: 50000000, rakeRate: 500, name: '4人赛 (50 TRX)' },
-    { id: 3, playerCount: 2, buyIn: 10000000, rakeRate: 500, name: '2人赛 (10 TRX)' },
+    { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, name: '4人赛 (100 TRX)' },
+    { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, name: '2人赛 (100 TRX)' },
   ];
 
   useEffect(() => {
@@ -401,15 +414,16 @@ const Tournament = () => {
     try {
       const response = await fetch(getApiUrl(`/api/tournament/${tournament.tournamentId}`));
       const data = await response.json();
-      
+
       if (!data.success) {
         setError('获取排名失败: ' + data.error);
         return;
       }
-      
+
       const rankings = data.tournament?.rankings || [];
       const players = data.tournament?.players || [];
-      
+      const rakeAmount = data.tournament?.rakeAmount || 0;
+
       openModal(
         () => (
           <RankingModal>
@@ -423,10 +437,11 @@ const Tournament = () => {
                 const address = ranking.address || ranking;
                 const isMe = address === walletAddress || address === address;
                 const position = index + 1;
-                const playerInfo = players.find(p => 
+                const playerInfo = players.find(p =>
                   p.address === address || p.address?.toLowerCase() === address?.toLowerCase()
                 );
-                
+                const chipReward = playerInfo?.chipReward;
+
                 return (
                   <RankingItem key={index} isMe={address === walletAddress}>
                     <span>
@@ -435,14 +450,28 @@ const Tournament = () => {
                       </Medal>
                       {address === walletAddress ? 'You' : `${address.substring(0, 10)}...`}
                     </span>
-                    {playerInfo?.prizeAmount > 0 && (
-                      <span style={{ color: '#ffd700' }}>
-                        ${(playerInfo.prizeAmount / 1e6).toLocaleString()} TRX
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                      {playerInfo?.prizeAmount > 0 && (
+                        <span style={{ color: '#ffd700' }}>
+                          {(playerInfo.prizeAmount / 1e6).toLocaleString()} TRX
+                        </span>
+                      )}
+                      {chipReward > 0 && (
+                        <span style={{ color: '#4CAF50', fontSize: '0.85rem' }}>
+                          +{chipReward} CHIP 🎁
+                        </span>
+                      )}
+                    </div>
                   </RankingItem>
                 );
               })
+            )}
+            {rakeAmount > 0 && (
+              <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }}>
+                <Text size="0.8rem" color="textSecondary" textCentered>
+                  Rake: {(rakeAmount / 1e6).toFixed(1)} TRX (5%)
+                </Text>
+              </div>
             )}
           </RankingModal>
         ),
@@ -567,6 +596,24 @@ const Tournament = () => {
                   </PlayerCount>
                 </div>
               </Container>
+
+              {/* CHIP Reward提示 */}
+              {tournament.status === 'WAITING' && (
+                <Container marginTop="0.75rem">
+                  <Text size="0.75rem" color="#4CAF50">
+                    🎁 Winner gets CHIP bonus based on VIP level!
+                  </Text>
+                </Container>
+              )}
+
+              {/* 已完成锦标赛的CHIP奖励显示 */}
+              {tournament.status === 'COMPLETED' && tournament.rakeAmount && (
+                <Container marginTop="0.75rem">
+                  <Text size="0.75rem" color="#4CAF50">
+                    🎁 CHIP rewards distributed!
+                  </Text>
+                </Container>
+              )}
               
               <Container marginTop="1rem">
                 <Text size="0.8rem" color="textSecondary">

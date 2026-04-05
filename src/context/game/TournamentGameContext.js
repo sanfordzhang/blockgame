@@ -101,6 +101,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   const [tournamentEnded, setTournamentEnded] = useState(false);
   const [finalRankings, setFinalRankings] = useState([]);
   const [nftAchievement, setNftAchievement] = useState(null);  // NFT成就数据
+  const [chipRewards, setChipRewards] = useState([]);  // CHIP奖励数据
+  const [rakeAmount, setRakeAmount] = useState(0);  // 抽成金额
 
   const currentTableRef = useRef(currentTable);
   const seatIdRef = useRef(seatId);
@@ -235,10 +237,13 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       console.log('[TournamentGameContext] ========== SC_TOURNAMENT_ENDED received ==========');
       console.log('[TournamentGameContext] Tournament ended:', data);
       console.log('[TournamentGameContext] Rankings:', data.rankings);
+      console.log('[TournamentGameContext] CHIP Rewards:', data.chipRewards);
       console.log('[TournamentGameContext] Setting tournamentEnded to true');
 
       setTournamentEnded(true);
       setFinalRankings(data.rankings || []);
+      setChipRewards(data.chipRewards || []);
+      setRakeAmount(data.rakeAmount || 0);
       const reason = data.reason === 'time_limit' ? 'Time limit reached!' : 'Tournament finished!';
       addMessage(reason);
 
@@ -246,6 +251,12 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       if (data.rankings && data.rankings.length > 0) {
         const winner = data.rankings[0];
         addMessage(`Winner: ${winner.substring(0, 8)}...${winner.substring(winner.length - 4)}`);
+      }
+
+      // Show CHIP reward if any
+      if (data.chipRewards && data.chipRewards.length > 0) {
+        const chipReward = data.chipRewards[0];
+        addMessage(`CHIP Bonus: +${chipReward.chipReward} CHIP (${chipReward.vipLevel})`);
       }
 
       console.log('[TournamentGameContext] Tournament end handling complete');
@@ -349,6 +360,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
         walletAddress,
         tournamentEnded,
         finalRankings,
+        chipRewards,
+        rakeAmount,
         // NFT Achievement
         nftAchievement,
         setNftAchievement,

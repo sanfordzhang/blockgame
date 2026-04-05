@@ -506,15 +506,30 @@ class TournamentTable extends Table {
             return null;
         }
         
+        console.log(`[TournamentTable] Player ${seat.player.address} disconnected`);
+        
+        // Mark player as disconnected/folded
+        seat.disconnected = true;
+        seat.folded = true;
+        
         // If it's their turn, auto-fold
         if (seat.turn) {
             console.log(`[TournamentTable] Player ${seat.player.address} disconnected during turn - auto fold`);
-            return this.handleFold(socketId);
+            this.handleFold(socketId);
         }
         
-        console.log(`[TournamentTable] Player ${seat.player.address} disconnected`);
+        // Check remaining active players
+        const remaining = this.getRemainingPlayers();
+        console.log(`[TournamentTable] After disconnect, remaining players: ${remaining.length}`);
         
-        return null;
+        // If only 1 player left, end tournament
+        if (remaining.length === 1) {
+            console.log(`[TournamentTable] Only 1 player remaining after disconnect, ending tournament...`);
+            this.endTournament();
+            return { tournamentEnded: true, winner: remaining[0].player.address };
+        }
+        
+        return { folded: true, remainingPlayers: remaining.length };
     }
     
     /**
