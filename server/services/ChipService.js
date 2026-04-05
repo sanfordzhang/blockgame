@@ -68,18 +68,48 @@ class ChipService {
     }
     
     /**
-     * Get VIP status based on balance
+     * Get VIP status based on STAKED amount (not balance)
+     * VIP levels based on staking:
+     * - Bronze: 0 CHIP staked
+     * - Silver: 1,000 CHIP staked
+     * - Gold: 10,000 CHIP staked
+     * - Platinum: 100,000 CHIP staked
+     */
+    async getVipStatusByStaking(address) {
+        const stakeInfo = await this.getOnChainStakeInfo(address);
+        const stakedAmount = stakeInfo && stakeInfo.amount ? stakeInfo.amount : 0;
+
+        const silverThreshold = 1000 * 1e6;      // 1,000 CHIP
+        const goldThreshold = 10000 * 1e6;       // 10,000 CHIP
+        const platinumThreshold = 100000 * 1e6;  // 100,000 CHIP
+
+        if (stakedAmount >= platinumThreshold) {
+            return { level: 'PLATINUM', discount: 20, chipRewardRate: 3.0, stakedAmount };
+        } else if (stakedAmount >= goldThreshold) {
+            return { level: 'GOLD', discount: 10, chipRewardRate: 2.0, stakedAmount };
+        } else if (stakedAmount >= silverThreshold) {
+            return { level: 'SILVER', discount: 5, chipRewardRate: 1.5, stakedAmount };
+        }
+
+        return { level: 'BRONZE', discount: 0, chipRewardRate: 1.0, stakedAmount };
+    }
+
+    /**
+     * Get VIP status based on balance (legacy method for backwards compatibility)
      */
     getVipStatus(balance) {
-        const vipThreshold = 10000 * 1e6;     // 10,000 CHIP
-        const superVipThreshold = 100000 * 1e6; // 100,000 CHIP
-        
-        if (balance >= superVipThreshold) {
-            return { isVip: true, isSuperVip: true, discount: 10, level: 'PLATINUM' };
-        } else if (balance >= vipThreshold) {
-            return { isVip: true, isSuperVip: false, discount: 5, level: 'GOLD' };
+        const silverThreshold = 1000 * 1e6;      // 1,000 CHIP
+        const goldThreshold = 10000 * 1e6;       // 10,000 CHIP
+        const platinumThreshold = 100000 * 1e6;  // 100,000 CHIP
+
+        if (balance >= platinumThreshold) {
+            return { isVip: true, isSuperVip: true, discount: 20, level: 'PLATINUM' };
+        } else if (balance >= goldThreshold) {
+            return { isVip: true, isSuperVip: false, discount: 10, level: 'GOLD' };
+        } else if (balance >= silverThreshold) {
+            return { isVip: true, isSuperVip: false, discount: 5, level: 'SILVER' };
         }
-        
+
         return { isVip: false, isSuperVip: false, discount: 0, level: 'BRONZE' };
     }
     
@@ -300,6 +330,56 @@ class ChipService {
         }
         return reward;
     }
+
+    /**
+     * Reward tournament winner with CHIP based on VIP level
+     * CHIP reward = rakeAmount (TRX) × chipRewardRate
+     *
+     * VIP levels:
+     * - Bronze: 1x rake = 5 CHIP for 5 TRX rake
+     * - Silver: 1.5x rake = 7.5 CHIP for 5 TRX rake
+     * - Gold: 2x rake = 10 CHIP for 5 TRX rake
+     * - Platinum: 3x rake = 15 CHIP for 5 TRX rake
+     *
+     * @param {string} winnerAddress - Winner's wallet address
+     * @param {number} rakeAmount - Rake amount in TRX (not SUN)
+     * @returns {Promise<object>} Reward result
+     */
+    async rewardWinnerWithChipBonus(winnerAddress, rakeAmount) {
+        try {
+            // Get VIP status based on staked amount
+            const vipStatus = await this.getVipStatusByStaking(winnerAddress);
+
+            // Calculate CHIP reward: rake (TRX) × chipRewardRate
+            // e.g., 5 TRX rake × 1.0 = 5 CHIP for Bronze
+            const chipReward = Math.floor(rakeAmount * vipStatus.chipRewardRate);
+
+            if (chipReward <= 0) {
+                console.log(`[ChipService] No CHIP reward for ${winnerAddress} (rake: ${rakeAmount})`);
+                return { success: true, chipReward: 0, vipLevel: vipStatus.level };
+            }
+
+            console.log(`[ChipService] Rewarding ${chipReward} CHIP to ${winnerAddress} (${vipStatus.level} VIP, rake: ${rakeAmount} TRX)`);
+
+            // Send CHIP from treasury to winner
+            const result = await this.withdrawToWallet(winnerAddress, chipReward);
+
+            console.log(`[ChipService] CHIP reward sent: ${chipReward} CHIP to ${winnerAddress}, tx: ${result.txid}`);
+
+            return {
+                success: true,
+                chipReward,
+                vipLevel: vipStatus.level,
+                txid: result.txid
+            };
+        } catch (error) {
+            console.error(`[ChipService] Failed to reward winner ${winnerAddress}:`, error.message);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
 }
 
 // Singleton instance
@@ -344,8 +424,12 @@ module.exports = {
         return chipServiceInstance.getUserInfo(address);
     },
     getVIPStatus: (balance) => {
-        if (!chipServiceInstance) return { isVip: false, isSuperVip: false, discount: 0 };
+        if (!chipServiceInstance) return { isVip: false, isSuperVip: false, discount: 0, level: 'BRONZE' };
         return chipServiceInstance.getVipStatus(balance);
+    },
+    getVipStatusByStaking: async (address) => {
+        if (!chipServiceInstance) return { level: 'BRONZE', discount: 0, chipRewardRate: 1.0, stakedAmount: 0 };
+        return chipServiceInstance.getVipStatusByStaking(address);
     },
     getOnChainStakeInfo: async (address) => {
         if (!chipServiceInstance) return { amount: 0, startTime: null, lockedUntil: null, isActive: false };

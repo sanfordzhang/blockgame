@@ -47,13 +47,39 @@ router.get('/balance/:walletAddress', async (req, res) => {
 
 /**
  * @route GET /api/chip/vip-status/:walletAddress
- * @desc Get user's VIP status and discount
+ * @desc Get user's VIP status based on staked amount
  */
 router.get('/vip-status/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
-        const vipStatus = await ChipService.getVIPStatus(walletAddress);
-        res.json({ success: true, ...vipStatus });
+        const vipStatus = await ChipService.getVipStatusByStaking(walletAddress);
+
+        // Calculate required stake to reach next level
+        const thresholds = {
+            BRONZE: { next: 'SILVER', required: 1000 },
+            SILVER: { next: 'GOLD', required: 10000 },
+            GOLD: { next: 'PLATINUM', required: 100000 },
+            PLATINUM: { next: null, required: 0 }
+        };
+
+        const currentLevel = vipStatus.level;
+        const threshold = thresholds[currentLevel];
+        const stakedAmount = vipStatus.stakedAmount / 1e6; // Convert to CHIP
+
+        let requiredStake = 0;
+        if (threshold.next) {
+            requiredStake = threshold.required - stakedAmount;
+            if (requiredStake < 0) requiredStake = 0;
+        }
+
+        res.json({
+            success: true,
+            level: vipStatus.level,
+            discount: vipStatus.discount,
+            chipRewardRate: vipStatus.chipRewardRate,
+            stakedAmount: stakedAmount,
+            requiredStake: Math.ceil(requiredStake)
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

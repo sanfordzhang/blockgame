@@ -1534,6 +1534,7 @@ module.exports = {
     // Internal: Handle tournament end (called async from onTournamentEnd callback)
     _handleTournamentEnd: async (tournamentId, data) => {
         const TournamentModel = require('../models/Tournament');
+        const ChipService = require('./ChipService');
         const tournament = await TournamentModel.findOne({ tournamentId });
         
         if (!tournament) {
@@ -1543,8 +1544,19 @@ module.exports = {
         
         console.log(`[TournamentService] _handleTournamentEnd: Saving tournament ${tournamentId} to DB, rankings:`, data.rankings);
         
+        // Calculate rake amount (TRX)
+        const buyIn = tournament.buyIn || 10000000; // Default 10 TRX
+        const playerCount = tournament.players?.length || data.rankings.length;
+        const totalBuyIn = buyIn * playerCount;
+        const rakeRate = tournament.rakeRate || 500; // 5% = 500 basis points
+        const rakeAmountSun = Math.floor(totalBuyIn * rakeRate / 10000);
+        const rakeAmountTrx = rakeAmountSun / 1e6; // Convert SUN to TRX
+
+        console.log(`[TournamentService] Rake calculation: ${playerCount} players × ${buyIn/1e6} TRX = ${totalBuyIn/1e6} TRX total, rake: ${rakeAmountTrx} TRX`);
+        
         // Update tournament status
         tournament.status = 'COMPLETED';
+        tournament.rakeAmount = rakeAmountSun;
         tournament.rankings = data.rankings.map((address, index) => ({
             address,
             position: index + 1,
@@ -1556,6 +1568,32 @@ module.exports = {
         
         await tournament.save();
         console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} saved to DB`);
+
+        // Reward winners with CHIP based on VIP level
+        // Only reward top finishers (first place gets full reward)
+        const chipRewards = [];
+        for (let i = 0; i < data.rankings.length; i++) {
+            const winnerAddress = data.rankings[i];
+            // Only first place gets full CHIP reward
+            if (i === 0 && rakeAmountTrx > 0) {
+                try {
+                    const chipService = ChipService.getChipService();
+                    if (chipService) {
+                        const rewardResult = await chipService.rewardWinnerWithChipBonus(winnerAddress, rakeAmountTrx);
+                        chipRewards.push({
+                            address: winnerAddress,
+                            position: i + 1,
+                            ...rewardResult
+                        });
+                        console.log(`[TournamentService] CHIP reward result for ${winnerAddress}:`, rewardResult);
+                    } else {
+                        console.warn(`[TournamentService] ChipService not initialized, skipping CHIP reward`);
+                    }
+                } catch (error) {
+                    console.error(`[TournamentService] Failed to reward CHIP to ${winnerAddress}:`, error.message);
+                }
+            }
+        }
         
         // Broadcast tournament ended (activeTable already removed by sync callback)
         if (testModeSocketIO) {
@@ -1563,7 +1601,9 @@ module.exports = {
                 tournamentId,
                 rankings: data.rankings,
                 reason: data.reason || 'elimination',
-                totalHands: data.totalHands
+                totalHands: data.totalHands,
+                rakeAmount: rakeAmountTrx,
+                chipRewards
             });
             console.log(`[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to room`);
         }

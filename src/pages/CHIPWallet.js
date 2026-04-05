@@ -109,7 +109,7 @@ const CHIPWallet = () => {
   const [tab, setTab] = useState('wallet');
   const [balance, setBalance] = useState({ chip: 0, staked: 0, pendingReward: 0 });
   const [onChainBalance, setOnChainBalance] = useState(0);
-  const [vipStatus, setVipStatus] = useState({ level: 'BRONZE', discount: 0, requiredStake: 0 });
+  const [vipStatus, setVipStatus] = useState({ level: 'BRONZE', discount: 0, chipRewardRate: 1, stakedAmount: 0, requiredStake: 0 });
   const [stakes, setStakes] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [nfts, setNfts] = useState([]);
@@ -624,8 +624,18 @@ const CHIPWallet = () => {
               {vipStatus.discount}% Rake Discount
             </Text>
             <Text color="textSecondary">
-              Stake {vipStatus.requiredStake} CHIP to reach next level
+              CHIP Reward: {vipStatus.chipRewardRate || 1}x per TRX rake
             </Text>
+            {vipStatus.requiredStake > 0 && (
+              <Text color="textSecondary">
+                Stake {vipStatus.requiredStake} CHIP to reach next level
+              </Text>
+            )}
+            {vipStatus.stakedAmount > 0 && (
+              <Text color="textSecondary" size="0.9rem">
+                Staked: {vipStatus.stakedAmount.toLocaleString()} CHIP
+              </Text>
+            )}
           </Container>
 
           <Container marginTop="2rem">
@@ -633,19 +643,19 @@ const CHIPWallet = () => {
             <Container flexDirection="column" gap="0.5rem" marginTop="1rem">
               <Container flexDirection="row" justifyContent="space-between">
                 <VIPBadge level="BRONZE">Bronze</VIPBadge>
-                <Text>0% discount • 0 CHIP staked</Text>
+                <Text>1x reward • 0 CHIP staked</Text>
               </Container>
               <Container flexDirection="row" justifyContent="space-between">
                 <VIPBadge level="SILVER">Silver</VIPBadge>
-                <Text>5% discount • 1,000 CHIP staked</Text>
+                <Text>1.5x reward • 1,000 CHIP staked</Text>
               </Container>
               <Container flexDirection="row" justifyContent="space-between">
                 <VIPBadge level="GOLD">Gold</VIPBadge>
-                <Text>10% discount • 10,000 CHIP staked</Text>
+                <Text>2x reward • 10,000 CHIP staked</Text>
               </Container>
               <Container flexDirection="row" justifyContent="space-between">
                 <VIPBadge level="PLATINUM">Platinum</VIPBadge>
-                <Text>20% discount • 100,000 CHIP staked</Text>
+                <Text>3x reward • 100,000 CHIP staked</Text>
               </Container>
             </Container>
           </Container>
