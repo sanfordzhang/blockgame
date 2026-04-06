@@ -324,7 +324,6 @@ const TournamentTableGame = ({ tournamentId }) => {
                     { "name": "achievementTypeId", "type": "uint256" },
                     { "name": "timestamp", "type": "uint256" },
                     { "name": "gameId", "type": "string" },
-                    { "name": "metadata", "type": "string" },
                     { "name": "v", "type": "uint8" },
                     { "name": "r", "type": "bytes32" },
                     { "name": "s", "type": "bytes32" }
@@ -341,7 +340,6 @@ const TournamentTableGame = ({ tournamentId }) => {
                 signature.achievementTypeId,
                 signature.timestamp,
                 signature.gameId,
-                JSON.stringify(data.metadata || {}),
                 signature.v,
                 signature.r,
                 signature.s
@@ -349,7 +347,24 @@ const TournamentTableGame = ({ tournamentId }) => {
 
               console.log('[NFT] ✅ On-chain mint tx:', tx);
 
-              // Update database with txHash
+              // Poll transaction to get on-chain tokenId from AchievementMinted event
+              let onchainTokenId = null;
+              try {
+                for (let i = 0; i < 10; i++) {
+                  await new Promise(r => setTimeout(r, 3000));
+                  const txInfo = await window.tronWeb.trx.getTransactionInfo(tx);
+                  if (txInfo?.log?.length) {
+                    // AchievementMinted event: topics[1]=player, topics[2]=tokenId
+                    const mintLog = txInfo.log.find(l => l.topics?.length === 3);
+                    if (mintLog?.topics?.[2]) {
+                      onchainTokenId = parseInt(mintLog.topics[2], 16);
+                    }
+                    break;
+                  }
+                }
+              } catch (e) { console.warn('[NFT] Could not get onchain tokenId:', e.message); }
+
+              // Update database with txHash and onchainTokenId
               try {
                 await fetch(`${process.env.REACT_APP_SERVER_URL || 'http://127.0.0.1:7778'}/api/nft/confirm-mint`, {
                   method: 'POST',
@@ -358,10 +373,10 @@ const TournamentTableGame = ({ tournamentId }) => {
                     walletAddress: walletAddress,
                     gameId: signature.gameId,
                     txHash: tx,
-                    tokenId: data.tokenId
+                    tokenId: onchainTokenId || data.tokenId
                   })
                 });
-                console.log('[NFT] ✅ Database updated with txHash');
+                console.log('[NFT] ✅ Database updated, onchainTokenId:', onchainTokenId);
               } catch (dbErr) {
                 console.error('[NFT] Failed to update database:', dbErr);
               }

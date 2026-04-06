@@ -1,8 +1,15 @@
 const CDP = require('chrome-remote-interface');
 const http = require('http');
 const WebSocket = require('ws');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
+
+// TronLink 签名按钮坐标（与 deposit 流程相同）
+const SIGN_BUTTON_COORDS = { x: 1406, y: 638 };
+
+function cliclick(cmd) {
+    try { execSync(`cliclick ${cmd}`, { encoding: 'utf-8' }); } catch (e) { /* ignore */ }
+}
 
 const API_URL = 'http://127.0.0.1:7778';
 const BASE_URL = 'http://127.0.0.1:3001';
@@ -79,28 +86,39 @@ function handleBotTurn(ws, state, botState) {
     }
 }
 
+async function connectCDP(urlPattern) {
+    // Wait for tab with urlPattern to appear
+    for (let i = 0; i < 10; i++) {
+        const pages = await new Promise((resolve, reject) => {
+            http.get('http://localhost:9222/json', res => {
+                let d = ''; res.on('data', c => d += c);
+                res.on('end', () => resolve(JSON.parse(d)));
+            }).on('error', reject);
+        });
+        const page = urlPattern ? pages.find(p => p.url.includes(urlPattern)) : pages.find(p => p.url.includes('3001'));
+        if (page) {
+            const c = await CDP({ target: page.webSocketDebuggerUrl });
+            await c.Page.enable();
+            await c.Runtime.enable();
+            const screenshot = (name) => c.Page.captureScreenshot().then(({data}) => {
+                fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
+                log(`📸 ${name}`);
+            }).catch(() => {});
+            const eval_ = (expr) => c.Runtime.evaluate({ expression: expr, returnByValue: true, awaitPromise: true })
+                .then(r => r.result?.value).catch(() => null);
+            return { client: c, screenshot, eval_ };
+        }
+        await sleep(1000);
+    }
+    throw new Error('Tab not found: ' + urlPattern);
+}
+
 async function test() {
     if (!fs.existsSync('test-results')) fs.mkdirSync('test-results');
 
-    const client = await CDP({ port: 9222 });
-    const { Page, Runtime } = client;
-    await Page.enable();
-    await Runtime.enable();
-
-    const screenshot = async (name) => {
-        const { data } = await Page.captureScreenshot();
-        fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
-        log(`📸 ${name}`);
-    };
-
-    const eval_ = async (expr) => {
-        const r = await Runtime.evaluate({ expression: expr, returnByValue: true, awaitPromise: true });
-        return r.result?.value;
-    };
-
     log('=== CDP游戏测试 Mock顺子NFT ===');
 
-    // Step 1: PLAYER1 创建 mock 锦标赛
+    // Step 1: 创建 mock 锦标赛
     log('[1] 创建 Mock 锦标赛');
     const createRes = await httpPost(`${API_URL}/api/tournament/create`, {
         configId: 3, walletAddress: PLAYER1.address, mockGame: true
@@ -111,9 +129,28 @@ async function test() {
 
     // Step 2: 导航到游戏页面
     log('[2] 导航到游戏页面');
-    await Page.navigate({ url: `${BASE_URL}/tournament/${tournamentId}/play?address=${PLAYER1.address}` });
-    await Page.loadEventFired();
-    await sleep(3000);
+    {
+        log('[2a] 获取tabs');
+        const pages = await new Promise((resolve, reject) => {
+            http.get('http://localhost:9222/json', res => {
+                let d = ''; res.on('data', c => d += c);
+                res.on('end', () => resolve(JSON.parse(d)));
+            }).on('error', reject);
+        });
+        const tab = pages.find(p => p.url.includes('3001')) || pages[0];
+        log('[2b] 连接tab: ' + tab.url.substring(0, 50));
+        const c = await CDP({ target: tab.webSocketDebuggerUrl });
+        log('[2c] 启用Page');
+        await c.Page.enable();
+        log('[2d] 导航');
+        c.Page.navigate({ url: `${BASE_URL}/tournament/${tournamentId}/play?address=${PLAYER1.address}` }).catch(() => {});
+        log('[2e] 等待5秒');
+        await sleep(5000);
+        log('[2f] 关闭连接');
+        await c.close().catch(() => {});
+        log('[2g] 完成');
+    }
+    const { client, screenshot, eval_ } = await connectCDP(`tournament/${tournamentId}`);
     await screenshot('01-play-page');
 
     // Step 3: Bot 加入（坐座位2）
@@ -135,11 +172,29 @@ async function test() {
 
         if (round % 5 === 0) await screenshot(`round-${round}`);
 
-        // 检测铸造NFT按钮
+        // 检测铸造NFT按钮 - 直接点击并处理TronLink签名
         if (btns.some(b => b.includes('铸造 NFT') || b.includes('Mint NFT'))) {
-            log('🎉 检测到铸造NFT按钮！');
+            log('🎉 检测到铸造NFT按钮！点击铸造...');
             await screenshot('nft-button-detected');
             nftDetected = true;
+            // 点击铸造NFT按钮
+            await eval_(`(function(){
+                const btns = Array.from(document.querySelectorAll('button'));
+                const btn = btns.find(b => b.textContent.includes('铸造 NFT') || b.textContent.includes('Mint NFT'));
+                if (btn) btn.click();
+            })()`);
+            log('已点击铸造NFT按钮，等待TronLink签名弹窗...');
+            await sleep(2000);
+            await screenshot('nft-tronlink-popup');
+            // 自动点击TronLink签名按钮（尽快点击避免交易过期）
+            log(`点击TronLink签名按钮 (${SIGN_BUTTON_COORDS.x}, ${SIGN_BUTTON_COORDS.y})`);
+            cliclick(`m:${SIGN_BUTTON_COORDS.x},${SIGN_BUTTON_COORDS.y}`);
+            await sleep(500);
+            cliclick(`c:${SIGN_BUTTON_COORDS.x},${SIGN_BUTTON_COORDS.y}`);
+            await sleep(1000);
+            cliclick(`c:${SIGN_BUTTON_COORDS.x},${SIGN_BUTTON_COORDS.y}`);
+            await sleep(2000);
+            await screenshot('nft-after-sign');
             break;
         }
 
@@ -162,19 +217,14 @@ async function test() {
         process.exit(1);
     }
 
-    // Step 5: 链上铸造
-    log('[5] 执行链上铸造');
-    try {
-        const result = execSync('node mint-onchain-latest.js', { encoding: 'utf8', timeout: 60000 });
-        log(result);
-    } catch (e) {
-        log('铸造错误: ' + e.message);
-    }
+    // Step 5: 等待链上铸造确认
+    log('[5] 等待链上铸造确认（30秒）');
+    await sleep(30000);
+    await screenshot('nft-mint-result');
 
     // Step 6: 验证
     log('[6] 验证NFT');
-    await Page.navigate({ url: `${BASE_URL}/nft?address=${PLAYER1.address}` });
-    await Page.loadEventFired();
+    client.Page.navigate({ url: `${BASE_URL}/nft?address=${PLAYER1.address}` }).catch(() => {});
     await sleep(3000);
     await screenshot('nft-gallery');
 

@@ -1,31 +1,28 @@
+const mongoose = require('mongoose');
 require('dotenv').config({ path: '.env.testnet' });
-const { TronWeb } = require('tronweb');
 
-async function check() {
-    const tronWeb = new TronWeb({ 
-        fullHost: 'https://nile.trongrid.io',
-        privateKey: process.env.NILE_PRIVATE_KEY 
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+
+const NFTClaim = mongoose.model('NFTClaim', new mongoose.Schema({}, { strict: false }), 'nftclaims');
+
+(async () => {
+    // 查询所有记录
+    const all = await NFTClaim.find({}).sort({ createdAt: -1 }).limit(10);
+    
+    console.log('\n=== 所有NFT记录 (最新10条) ===');
+    console.log('总数:', all.length);
+    
+    all.forEach((c, i) => {
+        const obj = c.toObject();
+        console.log(`\n[${i+1}]`);
+        console.log('  walletAddress:', obj.walletAddress);
+        console.log('  type:', obj.achievementType || obj.type);
+        console.log('  tokenId:', obj.tokenId);
+        console.log('  txHash:', obj.txHash);
+        console.log('  minted:', obj.minted);
+        console.log('  status:', obj.status);
+        console.log('  createdAt:', obj.createdAt);
     });
-    const c = await tronWeb.contract().at('TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC');
     
-    const addresses = [
-        'TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA',
-        'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-        'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
-    ];
-    
-    for (const addr of addresses) {
-        const bal = await c.balanceOf(addr).call();
-        console.log(addr, ':', bal.toString());
-    }
-    
-    console.log('\nTokens:');
-    for (let i = 1; i <= 15; i++) {
-        try {
-            const owner = await c.ownerOf(i).call();
-            console.log('#' + i + ':', tronWeb.address.fromHex(owner));
-        } catch(e) {}
-    }
-}
-
-check().catch(console.error);
+    await mongoose.disconnect();
+})();
