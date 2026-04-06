@@ -1,10 +1,11 @@
-import React, { useContext, useEffect, useState, useMemo, useRef } from 'react';
+import React, { useContext, useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Container from '../components/layout/Container';
 import Button from '../components/buttons/Button';
 import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
+import { getPlayerBalance } from '../utils/tronInteract';
 import { TournamentGameProvider, TournamentGameContext } from '../context/game/TournamentGameContext';
 import PokerTable from '../components/game/PokerTable';
 import { RotateDevicePrompt } from '../components/game/RotateDevicePrompt';
@@ -60,9 +61,51 @@ const TournamentTableGame = ({ tournamentId }) => {
 
   const [bet, setBet] = useState(0);
 
+  // GameBalance state
+  const [gameBalance, setGameBalance] = useState(0);
+  const [balanceBefore, setBalanceBefore] = useState(0);
+  const prevTournamentEnded = useRef(false);
+
   // Track previous turn state to only reset bet when turn changes
   const prevTurnRef = useRef(null);
   const prevHandRef = useRef(null);
+
+  // Fetch GameBalance from contract
+  const fetchGameBalance = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const balance = await getPlayerBalance(walletAddress);
+      const total = (balance.balance || 0) + (balance.locked || 0);
+      setGameBalance(total);
+      return total;
+    } catch (e) {
+      console.error('[TournamentTable] Failed to fetch balance:', e);
+      return null;
+    }
+  }, [walletAddress]);
+
+  // Fetch balance on mount and when walletAddress changes
+  useEffect(() => {
+    if (walletAddress) {
+      fetchGameBalance().then(balance => {
+        if (balance !== null && !prevTournamentEnded.current) {
+          setBalanceBefore(balance);
+        }
+      });
+    }
+  }, [walletAddress, fetchGameBalance]);
+
+  // When tournament ends, fetch new balance to show change
+  useEffect(() => {
+    if (tournamentEnded && !prevTournamentEnded.current) {
+      prevTournamentEnded.current = true;
+      setBalanceBefore(gameBalance); // Save balance before end
+      // Fetch new balance after a short delay to allow settlement
+      setTimeout(() => {
+        fetchGameBalance();
+      }, 2000);
+    }
+  }, [tournamentEnded, gameBalance, fetchGameBalance]);
 
   // Handle NFT Achievement notification
   useEffect(() => {
@@ -449,6 +492,40 @@ const TournamentTableGame = ({ tournamentId }) => {
           </Text>
         )}
 
+        {/* GameBalance 显示 */}
+        <div style={{
+          marginTop: '1.5rem',
+          width: '100%',
+          maxWidth: '500px',
+          margin: '1.5rem auto 0',
+          background: 'rgba(70, 130, 180, 0.3)',
+          borderRadius: '12px',
+          padding: '1rem 1.5rem',
+          border: '1px solid rgba(70, 130, 180, 0.5)',
+        }}>
+          <Text color="#ffd700" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+            💰 GameBalance
+          </Text>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#aaa' }}>Current Balance:</span>
+            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '1.25rem' }}>
+              {(gameBalance / 1e6).toFixed(2)} TRX
+            </span>
+          </div>
+          {balanceBefore > 0 && gameBalance !== balanceBefore && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <span style={{ color: '#888' }}>Change:</span>
+              <span style={{
+                color: gameBalance > balanceBefore ? '#4CAF50' : '#f44336',
+                fontWeight: 'bold'
+              }}>
+                {gameBalance > balanceBefore ? '+' : ''}
+                {((gameBalance - balanceBefore) / 1e6).toFixed(2)} TRX
+              </span>
+            </div>
+          )}
+        </div>
+
         {myPosition > 1 && (
           <Text textCentered marginTop="1.5rem" color="#ccc">
             You finished #{myPosition}
@@ -579,6 +656,24 @@ const TournamentTableGame = ({ tournamentId }) => {
                 fontSize: '0.9rem'
               }}>
                 Tournament #{tournamentId}
+              </div>
+            </PositionedUISlot>
+
+            {/* GameBalance display */}
+            <PositionedUISlot
+              top="8vh"
+              right="1.5rem"
+              scale="0.65"
+              style={{ zIndex: '50' }}
+            >
+              <div style={{ 
+                background: 'rgba(0,0,0,0.7)', 
+                padding: '0.5rem 1rem', 
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '0.85rem'
+              }}>
+                💰 GameBalance: {(gameBalance / 1e6).toFixed(2)} TRX
               </div>
             </PositionedUISlot>
           </>
