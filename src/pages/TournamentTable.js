@@ -32,6 +32,17 @@ const achievementTypes = {
   'ROYAL_FLUSH': { name: '皇家同花顺', icon: '👑' },
 };
 
+// Helper to format address
+const formatAddress = (addr) => {
+  if (!addr) return '';
+  const normalized = addr.toUpperCase();
+  const knownAddresses = {
+    'TU8RHTPFQUSGPBE9SXQAFG8BXF52GGSMV': 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
+    'TX27LJDQK64D4NVBXKT1TAAYX5DPF4JPL4': 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4'
+  };
+  return knownAddresses[normalized] || addr;
+};
+
 /**
  * TournamentTableGame - 内部游戏组件，复用 Play.js 的 UI
  * 必须在 TournamentGameProvider 内部使用
@@ -44,6 +55,7 @@ const TournamentTableGame = ({ tournamentId }) => {
     currentTable,
     seatId,
     isLeaving,
+    setIsLeaving,
     leaveTable,
     fold,
     check,
@@ -64,6 +76,8 @@ const TournamentTableGame = ({ tournamentId }) => {
   // GameBalance state
   const [gameBalance, setGameBalance] = useState(0);
   const [balanceBefore, setBalanceBefore] = useState(0);
+  const [chipBalanceBefore, setChipBalanceBefore] = useState(0);
+  const [chipBalanceAfter, setChipBalanceAfter] = useState(0);
   const prevTournamentEnded = useRef(false);
 
   // Track previous turn state to only reset bet when turn changes
@@ -84,6 +98,19 @@ const TournamentTableGame = ({ tournamentId }) => {
     }
   }, [walletAddress]);
 
+  // Fetch CHIP balance from API
+  const fetchChipBalance = useCallback(async () => {
+    if (!walletAddress) return 0;
+    try {
+      const res = await fetch(`http://127.0.0.1:7778/api/chip/onchain/balance/${walletAddress}`);
+      const data = await res.json();
+      return data.balance || 0;
+    } catch (e) {
+      console.error('[TournamentTable] Failed to fetch CHIP balance:', e);
+      return 0;
+    }
+  }, [walletAddress]);
+
   // Fetch balance on mount and when walletAddress changes
   useEffect(() => {
     if (walletAddress) {
@@ -92,20 +119,29 @@ const TournamentTableGame = ({ tournamentId }) => {
           setBalanceBefore(balance);
         }
       });
+      fetchChipBalance().then(chipBalance => {
+        if (!prevTournamentEnded.current) {
+          setChipBalanceBefore(chipBalance);
+        }
+      });
     }
-  }, [walletAddress, fetchGameBalance]);
+  }, [walletAddress, fetchGameBalance, fetchChipBalance]);
 
   // When tournament ends, fetch new balance to show change
   useEffect(() => {
     if (tournamentEnded && !prevTournamentEnded.current) {
       prevTournamentEnded.current = true;
       setBalanceBefore(gameBalance); // Save balance before end
+      setChipBalanceBefore(chipBalanceBefore); // Keep CHIP balance before
       // Fetch new balance after a short delay to allow settlement
       setTimeout(() => {
         fetchGameBalance();
+        fetchChipBalance().then(chipBalance => {
+          setChipBalanceAfter(chipBalance);
+        });
       }, 2000);
     }
-  }, [tournamentEnded, gameBalance, fetchGameBalance]);
+  }, [tournamentEnded, gameBalance, chipBalanceBefore, fetchGameBalance, fetchChipBalance]);
 
   // Handle NFT Achievement notification
   useEffect(() => {
@@ -315,9 +351,20 @@ const TournamentTableGame = ({ tournamentId }) => {
                   </div>
                 `,
                 icon: 'success',
+                showCancelButton: true,
                 confirmButtonText: '查看收藏',
+                cancelButtonText: '返回游戏',
                 confirmButtonColor: '#3085d6',
-              }).then(() => navigate('/nft'));
+                cancelButtonColor: '#28a745',
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  // User clicked "查看收藏" - set leaving flag before navigating
+                  setIsLeaving(true);
+                  navigate('/nft');
+                }
+                // If cancelled (返回游戏), just close the popup and continue playing
+                // No need to set isLeaving flag - player stays in game
+              });
 
             } catch (err) {
               console.error('[NFT] On-chain mint error:', err);
@@ -492,7 +539,7 @@ const TournamentTableGame = ({ tournamentId }) => {
           </Text>
         )}
 
-        {/* GameBalance 显示 */}
+        {/* 详细结算卡片 */}
         <div style={{
           marginTop: '1.5rem',
           width: '100%',
@@ -503,27 +550,73 @@ const TournamentTableGame = ({ tournamentId }) => {
           padding: '1rem 1.5rem',
           border: '1px solid rgba(70, 130, 180, 0.5)',
         }}>
-          <Text color="#ffd700" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
-            💰 GameBalance
+          <Text color="#ffd700" style={{ fontWeight: 'bold', marginBottom: '0.75rem' }}>
+            💰 结算详情
           </Text>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#aaa' }}>Current Balance:</span>
-            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '1.25rem' }}>
-              {(gameBalance / 1e6).toFixed(2)} TRX
-            </span>
-          </div>
-          {balanceBefore > 0 && gameBalance !== balanceBefore && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-              <span style={{ color: '#888' }}>Change:</span>
-              <span style={{
-                color: gameBalance > balanceBefore ? '#4CAF50' : '#f44336',
-                fontWeight: 'bold'
-              }}>
-                {gameBalance > balanceBefore ? '+' : ''}
-                {((gameBalance - balanceBefore) / 1e6).toFixed(2)} TRX
+          
+          {/* TRX 部分 */}
+          <div style={{ 
+            borderBottom: '1px solid rgba(255,255,255,0.1)', 
+            paddingBottom: '0.75rem', 
+            marginBottom: '0.75rem' 
+          }}>
+            <Text color="#aaa" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>TRX (GameBalance)</Text>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#888', fontSize: '0.9rem' }}>游戏前:</span>
+              <span style={{ color: '#fff', fontSize: '1rem' }}>
+                {(balanceBefore / 1e6).toFixed(2)} TRX
               </span>
             </div>
-          )}
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+              <span style={{ color: '#888', fontSize: '0.9rem' }}>输赢:</span>
+              <span style={{
+                color: gameBalance > balanceBefore ? '#4CAF50' : gameBalance < balanceBefore ? '#f44336' : '#888',
+                fontWeight: 'bold',
+                fontSize: '1.1rem'
+              }}>
+                {gameBalance > balanceBefore ? '+' : ''}{((gameBalance - balanceBefore) / 1e6).toFixed(2)} TRX
+              </span>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+              <span style={{ color: '#ffd700', fontSize: '0.9rem' }}>结束后:</span>
+              <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1.25rem' }}>
+                {(gameBalance / 1e6).toFixed(2)} TRX
+              </span>
+            </div>
+          </div>
+          
+          {/* CHIP 部分 */}
+          <div>
+            <Text color="#4CAF50" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>CHIP Token</Text>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#888', fontSize: '0.9rem' }}>游戏前:</span>
+              <span style={{ color: '#fff', fontSize: '1rem' }}>
+                {chipBalanceBefore.toLocaleString()} CHIP
+              </span>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+              <span style={{ color: '#888', fontSize: '0.9rem' }}>奖励:</span>
+              <span style={{
+                color: (chipBalanceAfter - chipBalanceBefore) > 0 ? '#4CAF50' : '#888',
+                fontWeight: 'bold',
+                fontSize: '1.1rem'
+              }}>
+                {(chipBalanceAfter - chipBalanceBefore) > 0 ? '+' : ''}{(chipBalanceAfter - chipBalanceBefore).toLocaleString()} CHIP
+              </span>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+              <span style={{ color: '#4CAF50', fontSize: '0.9rem' }}>结束后:</span>
+              <span style={{ color: '#4CAF50', fontWeight: 'bold', fontSize: '1.25rem' }}>
+                {chipBalanceAfter.toLocaleString()} CHIP
+              </span>
+            </div>
+          </div>
         </div>
 
         {myPosition > 1 && (

@@ -1760,16 +1760,30 @@ module.exports = {
         // Reward winners with CHIP based on VIP level
         // Only reward top finishers (first place gets full reward)
         const chipRewards = [];
+        
+        // Helper to restore proper Base58 address from lowercase
+        const restoreAddressForChip = (addr) => {
+            if (!addr) return addr;
+            const knownAddresses = {
+                'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv': 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
+                'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4': 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4'
+            };
+            const lower = addr.toLowerCase();
+            return knownAddresses[lower] || addr;
+        };
+        
         for (let i = 0; i < data.rankings.length; i++) {
-            const winnerAddress = data.rankings[i];
+            const winnerAddressRaw = data.rankings[i];
+            const winnerAddress = restoreAddressForChip(winnerAddressRaw);
             // Only first place gets full CHIP reward
             if (i === 0 && rakeAmountTrx > 0) {
                 try {
                     const chipService = ChipService.getChipService();
                     if (chipService) {
+                        console.log(`[TournamentService] Attempting CHIP reward to ${winnerAddress} (original: ${winnerAddressRaw})`);
                         const rewardResult = await chipService.rewardWinnerWithChipBonus(winnerAddress, rakeAmountTrx);
                         chipRewards.push({
-                            address: winnerAddress,
+                            address: winnerAddressRaw,
                             position: i + 1,
                             ...rewardResult
                         });

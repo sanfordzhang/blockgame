@@ -103,9 +103,12 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   const [nftAchievement, setNftAchievement] = useState(null);  // NFT成就数据
   const [chipRewards, setChipRewards] = useState([]);  // CHIP奖励数据
   const [rakeAmount, setRakeAmount] = useState(0);  // 抽成金额
+  const [showNftModal, setShowNftModal] = useState(false);  // 是否显示NFT弹窗
 
   const currentTableRef = useRef(currentTable);
   const seatIdRef = useRef(seatId);
+  const tournamentEndedRef = useRef(tournamentEnded);
+  const isLeavingRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => {
@@ -115,6 +118,14 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   useEffect(() => {
     seatIdRef.current = seatId;
   }, [seatId]);
+
+  useEffect(() => {
+    tournamentEndedRef.current = tournamentEnded;
+  }, [tournamentEnded]);
+
+  useEffect(() => {
+    isLeavingRef.current = isLeaving;
+  }, [isLeaving]);
 
   // Socket event handlers
   useEffect(() => {
@@ -285,7 +296,11 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       socket.off('SC_TOURNAMENT_ENDED');
       socket.off(SC_NFT_ACHIEVEMENT_EARNED);
       socket.off(SC_NFT_MINT_READY);
-      socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId });
+      
+      // Only send leave event if actively leaving (not tournament ended or navigating away)
+      if (isLeavingRef.current && !tournamentEndedRef.current) {
+        socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId });
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, walletAddress]);
@@ -365,6 +380,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
         // NFT Achievement
         nftAchievement,
         setNftAchievement,
+        // Setter for isLeaving (needed for NFT mint flow)
+        setIsLeaving,
       }}
     >
       {children}
