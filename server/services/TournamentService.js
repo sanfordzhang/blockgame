@@ -60,10 +60,11 @@ class TournamentService {
         }
         
         // Default configs for test mode
+        // prizeDistribution uses basis points: 1% = 100 basis points
         const DEFAULT_CONFIGS = {
-            1: { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] },
-            2: { playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40] },
-            3: { playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100] }
+            1: { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000] },  // 50%/30%/20%
+            2: { playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000] },         // 60%/40%
+            3: { playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000] }              // 100%
         };
         
         let tournamentId;
@@ -128,10 +129,11 @@ class TournamentService {
      */
     async getConfigs() {
         // All tournaments use 100 TRX buy-in
+        // prizeDistribution uses basis points: 1% = 100 basis points
         const DEFAULT_CONFIGS = [
-            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
+            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },  // 50%/30%/20%
+            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },         // 60%/40%
+            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }            // 100%
         ];
 
         // Always use default configs (100 TRX for all tournaments)
@@ -240,6 +242,41 @@ class TournamentService {
     async joinTournament(tournamentId, playerAddress, socketId) {
         const normalizedAddress = playerAddress.toLowerCase();
 
+        // Get tournament to check buyIn
+        const existingTournament = await Tournament.findOne({ tournamentId });
+        if (!existingTournament) {
+            throw new Error('Tournament not found');
+        }
+        if (existingTournament.status !== 'WAITING') {
+            throw new Error('Tournament not accepting players');
+        }
+        const alreadyJoined = existingTournament.players.some(p => p.address === normalizedAddress);
+        if (alreadyJoined) {
+            throw new Error('Already joined');
+        }
+
+        // Lock buyIn via contract (if player has enough balance)
+        const buyIn = existingTournament.buyIn || 100000000; // 100 TRX
+        let buyInLocked = false;
+        
+        try {
+            const contractService = require('../blockchain/ContractService');
+            if (contractService) {
+                const playerInfo = await contractService.getPlayerInfo(playerAddress);
+                if (playerInfo.balance >= buyIn) {
+                    // Generate a tableId for this tournament
+                    const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
+                    await contractService.joinTableFor(playerAddress, tableId, buyIn);
+                    buyInLocked = true;
+                    console.log(`[TournamentService] Locked ${buyIn/1e6} TRX buyIn for player ${playerAddress.substring(0, 10)}...`);
+                } else {
+                    console.log(`[TournamentService] Player ${playerAddress.substring(0, 10)}... has insufficient balance (${playerInfo.balance/1e6} TRX < ${buyIn/1e6} TRX), buyIn not locked on chain`);
+                }
+            }
+        } catch (e) {
+            console.error(`[TournamentService] Failed to lock buyIn:`, e.message);
+        }
+
         // Use atomic update to prevent race condition
         const tournament = await Tournament.findOneAndUpdate(
             {
@@ -255,7 +292,8 @@ class TournamentService {
                         joinedAt: new Date(),
                         finalPosition: null,
                         prizeAmount: null,
-                        claimed: false
+                        claimed: false,
+                        buyInLocked // Track if buyIn was locked on chain
                     }
                 }
             },
@@ -263,18 +301,7 @@ class TournamentService {
         );
 
         if (!tournament) {
-            const existing = await Tournament.findOne({ tournamentId });
-            if (!existing) {
-                throw new Error('Tournament not found');
-            }
-            if (existing.status !== 'WAITING') {
-                throw new Error('Tournament not accepting players');
-            }
-            const alreadyJoined = existing.players.some(p => p.address === normalizedAddress);
-            if (alreadyJoined) {
-                throw new Error('Already joined');
-            }
-            return existing;
+            return existingTournament;
         }
         
         // Broadcast update
@@ -805,10 +832,11 @@ module.exports = {
     },
     getConfigs: async () => {
         // Default configs for test mode
+        // prizeDistribution uses basis points: 1% = 100 basis points
         const DEFAULT_CONFIGS = [
-            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },
-            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }
+            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },  // 50%/30%/20%
+            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },         // 60%/40%
+            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }            // 100%
         ];
         
         if (!tournamentServiceInstance) return DEFAULT_CONFIGS;
@@ -817,12 +845,13 @@ module.exports = {
     createTournament: async (data) => {
         if (!tournamentServiceInstance) {
             // Create a minimal instance for test mode
+            // prizeDistribution uses basis points: 1% = 100 basis points
             const TournamentModel = require('../models/Tournament');
             const config = data.configId === 2 
-                ? { playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [60, 40] }
+                ? { playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000] }       // 60%/40%
                 : data.configId === 3
-                ? { playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [100] }
-                : { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [50, 30, 20] };
+                ? { playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000] }          // 100%
+                : { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000] }; // 50%/30%/20%
             
             const tournamentId = Date.now().toString();
             const tournament = new TournamentModel({
@@ -1554,8 +1583,11 @@ module.exports = {
         // Prize pool = total buy-in - rake
         const prizePool = totalBuyIn - rakeAmountSun;
         
-        // Default prize distribution: 70% to 1st, 30% to 2nd (for 2 players)
-        const prizeDistribution = tournament.prizeDistribution || [7000, 3000]; // basis points
+        // Get prize distribution from tournament config
+        // ConfigId 1 (6人赛): [50, 30, 20] - 50%/30%/20%
+        // ConfigId 2 (4人赛): [60, 40] - 60%/40%
+        // ConfigId 3 (双人赛): [100] - 第一名100%
+        const prizeDistribution = tournament.config?.prizeDistribution || tournament.prizeDistribution || [7000, 3000]; // basis points
         
         // Calculate prizes for each position
         const prizes = [];
@@ -1588,38 +1620,28 @@ module.exports = {
         console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} saved to DB`);
 
         // === SETTLE TRX VIA CONTRACT ===
-        // For tournament settlement, we need to:
-        // 1. For each winner, call contract to add prize to their balance
-        // Since tournament doesn't lock buy-in via joinTableFor, we use a simpler approach:
-        // Call joinTableFor + leaveTableFor for each player to settle
+        // Tournament settlement logic:
+        // 1. Prize pool already has rake deducted (totalBuyIn - rake)
+        // 2. Contract will also take rake on profit (finalStack > buyIn)
+        // 3. To avoid double-rake, we adjust finalStack so that after contract rake,
+        //    player gets exactly the prizeAmount
+        //
+        // Formula derivation:
+        // - Contract: netStack = finalStack - (finalStack - buyIn) * rakeRate
+        // - We want: netStack = buyIn + prizeAmount
+        // - Solve: finalStack = buyIn + prizeAmount / (1 - rakeRate)
         
         try {
             const contractService = require('../blockchain/ContractService');
             const { TronWeb } = require('tronweb');
             
             // Helper function to restore proper Base58 address from lowercase
-            // This works because TRON Base58 encoding preserves case information in checksum
             const restoreAddress = (lowerAddr) => {
-                // Known test addresses - restore to correct format
                 const knownAddresses = {
                     'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv': 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
                     'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4': 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4'
                 };
-                if (knownAddresses[lowerAddr]) {
-                    return knownAddresses[lowerAddr];
-                }
-                // Try to restore using TronWeb - convert to hex first
-                const tw = new TronWeb({ fullHost: 'https://nile.trongrid.io' });
-                try {
-                    // For any address, we can try to get hex representation
-                    // The hex is the same regardless of case
-                    // We need to encode it back to proper Base58
-                    // Use address.toHex on the known correct format, then fromHex
-                    // For unknown addresses, return as-is and let contract handle it
-                    return lowerAddr;
-                } catch (e) {
-                    return lowerAddr;
-                }
+                return knownAddresses[lowerAddr] || lowerAddr;
             };
             
             // Check if contract service is available
@@ -1629,35 +1651,103 @@ module.exports = {
                 // Generate a unique tableId for this tournament
                 const tableId = parseInt(tournamentId.replace('tournament-', '').replace(/-/g, '').substring(0, 10)) || Date.now();
                 const buyIn = tournament.buyIn || 100000000;
+                const contractRakeRate = 0.05; // Contract rake rate is 5% (500 basis points)
                 
-                // For each player, settle their final position
+                // Build a map of all players with their final amounts
+                const playerSettlements = new Map();
+                
+                // Add all tournament players with their prize amounts
                 for (const prize of prizes) {
-                    if (prize.prizeAmount > 0) {
-                        try {
-                            // Restore proper Base58 address
-                            const playerAddress = restoreAddress(prize.address);
-                            
-                            console.log(`[TournamentService] Settling prize for ${playerAddress}...`);
-                            
-                            // Step 1: Join table (locks buyIn from player balance)
-                            // This requires player to have deposited funds
-                            const playerInfo = await contractService.getPlayerInfo(playerAddress);
-                            const playerBalance = playerInfo.balance || 0;
-                            
-                            if (playerBalance >= buyIn) {
-                                // Player has funds, do proper settlement
-                                await contractService.joinTableFor(playerAddress, tableId, buyIn);
-                                // Step 2: Leave table with prize (unlocks + adds winnings)
-                                await contractService.leaveTableFor(playerAddress, tableId, prize.prizeAmount);
-                                console.log(`[TournamentService] ✅ Settled ${(prize.prizeAmount/1e6).toFixed(2)} TRX to ${playerAddress.substring(0, 10)}...`);
+                    playerSettlements.set(prize.address, {
+                        address: prize.address,
+                        prizeAmount: prize.prizeAmount,
+                        position: prize.position
+                    });
+                }
+                
+                // Also add losers who didn't get any prize (finalStack = 0)
+                for (const player of tournament.players) {
+                    if (!playerSettlements.has(player.address)) {
+                        playerSettlements.set(player.address, {
+                            address: player.address,
+                            prizeAmount: 0,  // Loser gets nothing
+                            position: player.finalPosition || data.rankings.length
+                        });
+                    }
+                }
+                
+                // Settle each player
+                for (const [address, settlement] of playerSettlements) {
+                    try {
+                        const playerAddress = restoreAddress(address);
+                        
+                        console.log(`[TournamentService] Settling player ${playerAddress.substring(0, 10)}... position=${settlement.position}, prize=${(settlement.prizeAmount/1e6).toFixed(2)} TRX`);
+                        
+                        // Get player info
+                        const playerInfo = await contractService.getPlayerInfo(playerAddress);
+                        const playerBalance = playerInfo.balance || 0;
+                        const playerLocked = playerInfo.lockedAmount || 0;
+                        
+                        // Calculate finalStack that accounts for contract rake
+                        // The contract charges rake on profit (finalStack - buyIn)
+                        // We need to adjust finalStack so that after contract rake,
+                        // player gets exactly the prizeAmount
+                        //
+                        // Formula derivation:
+                        // netChange = netStack - buyIn = finalStack - (finalStack - buyIn) * rakeRate - buyIn
+                        // We want: netChange = prizeAmount - buyIn
+                        // Solving: finalStack = (prizeAmount - buyIn) / (1 - rakeRate) + buyIn
+                        // Simplified: finalStack = targetNetChange / (1 - rakeRate) + buyIn
+                        // Where targetNetChange = prizeAmount - buyIn
+                        
+                        let finalStack;
+                        if (settlement.prizeAmount === 0) {
+                            // Loser: finalStack = 0, loses entire buyIn
+                            finalStack = 0;
+                        } else {
+                            // Winner: adjust for contract rake
+                            // targetNetChange = prizeAmount - buyIn (e.g., 190 - 100 = 90 TRX)
+                            const targetNetChange = settlement.prizeAmount - buyIn;
+                            if (targetNetChange <= 0) {
+                                // No profit, no adjustment needed
+                                finalStack = settlement.prizeAmount;
                             } else {
-                                // Player doesn't have enough balance, skip contract settlement
-                                // They get their prize tracked in DB but not on chain
-                                console.log(`[TournamentService] ⚠️ Player ${playerAddress.substring(0, 10)}... has insufficient balance (${playerBalance/1e6} TRX), prize recorded in DB only`);
+                                // Adjust finalStack so contract rake doesn't eat into expected prize
+                                finalStack = Math.floor(targetNetChange / (1 - contractRakeRate) + buyIn);
                             }
-                        } catch (e) {
-                            console.error(`[TournamentService] ❌ Failed to settle prize for ${prize.address}:`, e.message);
                         }
+                        
+                        // Check if player already has locked funds (from joinTournament)
+                        // or has enough balance to lock
+                        if (playerLocked >= buyIn) {
+                            // Player already has buyIn locked, just return final stack
+                            console.log(`[TournamentService] Player has ${playerLocked/1e6} TRX locked, settling...`);
+                            
+                            await contractService.leaveTableFor(playerAddress, tableId, finalStack);
+                            
+                            // Calculate actual net change (after contract rake)
+                            const netStack = finalStack <= buyIn ? finalStack : 
+                                finalStack - Math.floor((finalStack - buyIn) * contractRakeRate);
+                            const netChange = netStack - buyIn;
+                            console.log(`[TournamentService] ✅ Settled ${playerAddress.substring(0, 10)}...: finalStack=${(finalStack/1e6).toFixed(2)}, net change=${netChange/1e6 >= 0 ? '+' : ''}${netChange/1e6} TRX`);
+                        } else if (playerBalance >= buyIn) {
+                            // Step 1: Lock buyIn
+                            await contractService.joinTableFor(playerAddress, tableId, buyIn);
+                            
+                            // Step 2: Return final stack
+                            await contractService.leaveTableFor(playerAddress, tableId, finalStack);
+                            
+                            // Calculate actual net change (after contract rake)
+                            const netStack = finalStack <= buyIn ? finalStack : 
+                                finalStack - Math.floor((finalStack - buyIn) * contractRakeRate);
+                            const netChange = netStack - buyIn;
+                            console.log(`[TournamentService] ✅ Settled ${playerAddress.substring(0, 10)}...: finalStack=${(finalStack/1e6).toFixed(2)}, net change=${netChange/1e6 >= 0 ? '+' : ''}${netChange/1e6} TRX`);
+                        } else {
+                            console.log(`[TournamentService] ⚠️ Player ${playerAddress.substring(0, 10)}... has insufficient balance (${playerBalance/1e6} TRX < ${buyIn/1e6} TRX), prize recorded in DB only`);
+                            console.log(`[TournamentService] 💡 Player needs to deposit at least ${buyIn/1e6} TRX to contract for on-chain settlement`);
+                        }
+                    } catch (e) {
+                        console.error(`[TournamentService] ❌ Failed to settle ${address}:`, e.message);
                     }
                 }
             } else {
@@ -1694,8 +1784,9 @@ module.exports = {
         }
         
         // Broadcast tournament ended (activeTable already removed by sync callback)
+        // Send to all players (including eliminated ones who may have left the room)
         if (testModeSocketIO) {
-            testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_ENDED', {
+            const endEventData = {
                 tournamentId,
                 rankings: data.rankings,
                 reason: data.reason || 'elimination',
@@ -1703,8 +1794,28 @@ module.exports = {
                 rakeAmount: rakeAmountTrx,
                 chipRewards,
                 prizes: prizes.map(p => ({ address: p.address, position: p.position, prizeAmount: p.prizeAmount }))
-            });
-            console.log(`[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to room`);
+            };
+            
+            // Broadcast to room (for remaining players)
+            testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_ENDED', endEventData);
+            
+            // Also send directly to eliminated players (who may have left the room)
+            for (const player of tournament.players) {
+                if (player.socketId) {
+                    // Check if socket is still connected
+                    const socket = testModeSocketIO.sockets.sockets.get(player.socketId);
+                    if (socket) {
+                        // Check if socket is in the room (avoid double send)
+                        const isInRoom = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`)?.has(player.socketId);
+                        if (!isInRoom) {
+                            socket.emit('SC_TOURNAMENT_ENDED', endEventData);
+                            console.log(`[TournamentService] Sent SC_TOURNAMENT_ENDED to eliminated player ${player.address?.substring(0, 10)}...`);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to all players`);
         }
         
         console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} end handling complete`);

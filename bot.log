@@ -5,16 +5,16 @@
    地址: TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
 ========================================
 
-[4:55:46 AM] [Bot_Alice] 连接服务器...
-[4:55:46 AM] [Bot_Alice] ✅ Socket连接成功
-[4:55:48 AM] [Bot_Alice] 创建2人锦标赛 (configId: 3, mockGame: true)...
-[4:55:48 AM] [Bot_Alice] 创建响应:
+[12:18:28 PM] [Bot_Alice] 连接服务器...
+[12:18:29 PM] [Bot_Alice] ✅ Socket连接成功
+[12:18:31 PM] [Bot_Alice] 创建2人锦标赛 (configId: 3, mockGame: true)...
+[12:18:31 PM] [Bot_Alice] 创建响应:
    {
   "success": true,
   "tournament": {
     "configId": 3,
     "status": "WAITING",
-    "buyIn": 10000000,
+    "buyIn": 100000000,
     "playerCount": 2,
     "rakeRate": 500,
     "prizePool": 0,
@@ -27,31 +27,31 @@
     "cancelReason": null,
     "totalHands": 0,
     "mockGame": true,
-    "_id": "69c840541b65c95f179826d1",
-    "tournamentId": "1774731348903",
+    "_id": "69d3341769bf670b264769c3",
+    "tournamentId": "1775449111070",
     "players": [],
     "config": {
       "playerCount": 2,
-      "buyIn": 10000000,
+      "buyIn": 100000000,
       "rakeRate": 500,
-      "initialChips": 2000000,
+      "initialChips": 10000000,
       "prizeDistribution": [
-        100
+        10000
       ],
       "tournamentType": "SNG",
       "startMode": "INSTANT",
-      "name": "2人赛 (10 TRX)"
+      "name": "2人赛 (100 TRX)"
     },
     "rankings": [],
-    "createdAt": "2026-03-28T20:55:48.905Z",
-    "updatedAt": "2026-03-28T20:55:48.905Z",
+    "createdAt": "2026-04-06T04:18:31.072Z",
+    "updatedAt": "2026-04-06T04:18:31.072Z",
     "__v": 0,
-    "id": "69c840541b65c95f179826d1"
+    "id": "69d3341769bf670b264769c3"
   }
 }
-[4:55:48 AM] [Bot_Alice] ✅ 锦标赛创建成功: 1774731348903
-[4:55:49 AM] [Bot_Alice] 发送 CS_TOURNAMENT_JOIN
-[4:55:49 AM] [Bot_Alice] 发送 CS_TOURNAMENT_ROOM_JOIN
-[4:55:49 AM] [Bot_Alice] ✅ 已加入锦标赛: 1774731348903
-[4:55:49 AM] [Bot_Alice] ⏳ 等待你加入...
-[4:55:49 AM] [Bot_Alice] 🌐 请访问: http://127.0.0.1:3001/tournament
+[12:18:31 PM] [Bot_Alice] ✅ 锦标赛创建成功: 1775449111070
+[12:18:31 PM] [Bot_Alice] 发送 CS_TOURNAMENT_JOIN
+[12:18:32 PM] [Bot_Alice] 发送 CS_TOURNAMENT_ROOM_JOIN
+[12:18:32 PM] [Bot_Alice] ✅ 已加入锦标赛: 1775449111070
+[12:18:32 PM] [Bot_Alice] ⏳ 等待你加入...
+[12:18:32 PM] [Bot_Alice] 🌐 请访问: http://127.0.0.1:3001/tournament
