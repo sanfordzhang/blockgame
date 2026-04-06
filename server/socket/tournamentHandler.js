@@ -367,10 +367,20 @@ function initTournamentHandlers(socket, io) {
     });
     
     /**
-     * Leave tournament room
+     * Leave tournament room - player actively leaves the tournament
      */
     socket.on('CS_TOURNAMENT_ROOM_LEAVE', ({ tournamentId }) => {
+        const walletAddress = socketWalletMap.get(socket.id);
+        console.log(`[TournamentHandler] Player leaving tournament: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
+        
         leaveTournamentRoom(socket, tournamentId);
+        
+        // Handle player leaving in active game (same as disconnect)
+        if (tournamentId) {
+            console.log(`[TournamentHandler] Calling TournamentService.handleDisconnect for tournament ${tournamentId}`);
+            const result = TournamentService.handleDisconnect?.(socket.id, walletAddress);
+            console.log(`[TournamentHandler] handleDisconnect result:`, result);
+        }
     });
     
     /**
@@ -452,17 +462,22 @@ function initTournamentHandlers(socket, io) {
     socket.on('disconnect', () => {
         const tournamentId = playerTournamentMap.get(socket.id);
         const walletAddress = socketWalletMap.get(socket.id);
-        
+
+        console.log(`[TournamentHandler] Disconnect event: socketId=${socket.id}, tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
+
         // 清理映射
         socketWalletMap.delete(socket.id);
-        
+        playerTournamentMap.delete(socket.id);
+
         if (tournamentId) {
             leaveTournamentRoom(socket, tournamentId);
-            
-            // Handle player disconnect in active game
-            TournamentService.handleDisconnect?.(socket.id);
+
+            // Handle player disconnect in active game (pass wallet address for test mode)
+            console.log(`[TournamentHandler] Calling TournamentService.handleDisconnect for tournament ${tournamentId}`);
+            const result = TournamentService.handleDisconnect?.(socket.id, walletAddress);
+            console.log(`[TournamentHandler] handleDisconnect result:`, result);
         }
-        
+
         console.log(`[TournamentHandler] Socket disconnected: ${socket.id}, wallet: ${walletAddress?.substring(0, 10)}...`);
     });
 }

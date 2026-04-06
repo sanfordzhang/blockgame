@@ -19,7 +19,6 @@ const ABI = [{
         { "name": "achievementTypeId", "type": "uint256" },
         { "name": "timestamp", "type": "uint256" },
         { "name": "gameId", "type": "string" },
-        { "name": "metadata", "type": "string" },
         { "name": "v", "type": "uint8" },
         { "name": "r", "type": "bytes32" },
         { "name": "s", "type": "bytes32" }
@@ -87,7 +86,6 @@ async function main() {
         claim.achievementTypeId,
         timestamp,
         gameId,
-        metadata,
         sig.v,
         sig.r,
         sig.s

@@ -428,15 +428,18 @@ class TournamentTable extends Table {
     }
     
     /**
-     * Get remaining players (not eliminated)
+     * Get remaining players (not eliminated, not disconnected)
      */
     getRemainingPlayers() {
         const remaining = [];
-        
+
         for (const seatId of Object.keys(this.seats)) {
             const seat = this.seats[seatId];
-            
-            if (seat && seat.stack > 0 && !this.isPlayerEliminated(seat.player.socketId || seat.player.id || seat.player.address)) {
+
+            // Exclude: eliminated, disconnected, or zero stack
+            if (seat && seat.stack > 0 &&
+                !seat.disconnected &&
+                !this.isPlayerEliminated(seat.player.socketId || seat.player.id || seat.player.address)) {
                 remaining.push({
                     seatId: parseInt(seatId),
                     player: seat.player,
@@ -444,7 +447,7 @@ class TournamentTable extends Table {
                 });
             }
         }
-        
+
         return remaining;
     }
     
@@ -452,17 +455,21 @@ class TournamentTable extends Table {
      * Get final rankings (winner first)
      */
     getFinalRankings() {
-        // Sort eliminated players by position (descending, since position is remaining count)
+        // Sort eliminated players by position (ascending, lower position = better rank)
         const rankings = [...this.eliminatedPlayers]
-            .sort((a, b) => a.finalPosition - b.finalPosition)
+            .sort((a, b) => b.finalPosition - a.finalPosition) // Higher position = worse rank, so later in array
             .map(e => e.player.address);
-        
+
         // Add winner (last remaining)
         const remaining = this.getRemainingPlayers();
         if (remaining.length === 1) {
+            // Winner should be first
             rankings.unshift(remaining[0].player.address);
+        } else if (remaining.length === 0 && rankings.length > 0) {
+            // All players disconnected - last one to disconnect is the "winner"
+            // rankings already sorted with earliest eliminated last, so first one in array is last eliminated = winner
         }
-        
+
         return rankings;
     }
     
@@ -497,38 +504,67 @@ class TournamentTable extends Table {
     
     /**
      * Handle player disconnect
+     * @param {string} socketId - Socket ID (may be null in test mode)
+     * @param {string} walletAddress - Wallet address (fallback for test mode)
      */
-    handleDisconnect(socketId) {
-        // Find the seat
-        const seat = this.findPlayerBySocketId(socketId);
-        
+    handleDisconnect(socketId, walletAddress) {
+        // Find the seat - try socketId first, then wallet address
+        let seat = this.findPlayerBySocketId(socketId);
+        if (!seat && walletAddress) {
+            seat = this.findPlayerByAddress(walletAddress);
+            console.log(`[TournamentTable] Found player by wallet address: ${walletAddress?.substring(0, 10)}`);
+        }
+
         if (!seat || !this.isTournamentActive) {
+            console.log(`[TournamentTable] handleDisconnect: seat not found or tournament not active`);
             return null;
         }
-        
+
+        // Get remaining players BEFORE marking as disconnected
+        const remainingBeforeDisconnect = this.getRemainingPlayers();
+
         console.log(`[TournamentTable] Player ${seat.player.address} disconnected`);
-        
+        console.log(`[TournamentTable] Remaining players before disconnect: ${remainingBeforeDisconnect.length}`);
+
         // Mark player as disconnected/folded
         seat.disconnected = true;
         seat.folded = true;
-        
+
+        // Add to eliminated players list (they forfeit)
+        const eliminationData = {
+            seatId: parseInt(Object.keys(this.seats).find(k => this.seats[k] === seat)),
+            player: seat.player,
+            finalPosition: remainingBeforeDisconnect.length, // They finish at current position (e.g., 2nd in 2-player)
+            eliminatedAt: new Date(),
+            reason: 'disconnect'
+        };
+        this.eliminatedPlayers.push(eliminationData);
+        console.log(`[TournamentTable] Player ${seat.player.address} marked as eliminated at position ${eliminationData.finalPosition}`);
+
         // If it's their turn, auto-fold
         if (seat.turn) {
             console.log(`[TournamentTable] Player ${seat.player.address} disconnected during turn - auto fold`);
-            this.handleFold(socketId);
+            this.handleFold(socketId || seat.player.socketId);
         }
-        
-        // Check remaining active players
+
+        // Check remaining active players (after marking disconnected)
         const remaining = this.getRemainingPlayers();
         console.log(`[TournamentTable] After disconnect, remaining players: ${remaining.length}`);
-        
+
         // If only 1 player left, end tournament
         if (remaining.length === 1) {
             console.log(`[TournamentTable] Only 1 player remaining after disconnect, ending tournament...`);
             this.endTournament();
             return { tournamentEnded: true, winner: remaining[0].player.address };
         }
-        
+
+        // If no players left (all disconnected)
+        if (remaining.length === 0) {
+            console.log(`[TournamentTable] No players remaining, ending tournament...`);
+            this.endTournament();
+            return { tournamentEnded: true, winner: null };
+        }
+
         return { folded: true, remainingPlayers: remaining.length };
     }
     

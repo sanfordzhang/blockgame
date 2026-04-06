@@ -464,10 +464,10 @@ class TournamentService {
     /**
      * Handle player disconnect
      */
-    handleDisconnect(socketId) {
+    handleDisconnect(socketId, walletAddress) {
         // Find tournament the player is in
         for (const [tournamentId, table] of this.activeTables) {
-            const result = table.handleDisconnect(socketId);
+            const result = table.handleDisconnect(socketId, walletAddress);
             if (result) {
                 console.log(`[TournamentService] Player disconnected from tournament ${tournamentId}`);
             }
@@ -1448,11 +1448,25 @@ module.exports = {
         return result;
     },
     // Handle disconnect
-    handleDisconnect: (socketId) => {
+    handleDisconnect: (socketId, walletAddress) => {
         if (tournamentServiceInstance) {
-            return tournamentServiceInstance.handleDisconnect(socketId);
+            return tournamentServiceInstance.handleDisconnect(socketId, walletAddress);
         }
-        // Test mode - no-op for now
+
+        // Test mode - handle disconnect in test mode tables
+        console.log(`[TournamentService] Test mode handleDisconnect for socket: ${socketId}, wallet: ${walletAddress?.substring(0, 10)}`);
+        for (const [tournamentId, table] of testModeActiveTables) {
+            const result = table.handleDisconnect(socketId, walletAddress);
+            if (result) {
+                console.log(`[TournamentService] Test mode: Player disconnected from tournament ${tournamentId}`);
+                if (result.tournamentEnded) {
+                    // Remove table from active tables
+                    testModeActiveTables.delete(tournamentId);
+                }
+                return result;
+            }
+        }
+        return null;
     },
     // Broadcast table state
     broadcastTableState: (tournamentId, table) => {

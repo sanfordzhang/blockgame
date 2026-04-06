@@ -201,6 +201,8 @@ Playwright 配置已设置为连接现有 Chrome 实例（CDP 端口 9222）。
 5.UI\逻辑\合约调用，端对端集成测试流程走一遍，解决相关问题
 6.不要启动新的chrome浏览器，连接现有已启动的调试chrome浏览器
 7.请参考按docs/GAME_BOT_TEST_FLOW.md文档内的测试流程进行测试，间断性的截图看状态分析，不要卡死
+8.按照docs/GAME_BOT_TEST_FLOW.md 运行游戏自测流程，启动机器人，CDP 控制浏览器 UI 真实操作，让浏览器完整走这个流程，执行cdp-play-game.js，mock 顺子牌型，重新生成NFT
+
 
 PLAYER1.address = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
 PLAYER2.address = 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4';
