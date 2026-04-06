@@ -1757,8 +1757,11 @@ module.exports = {
             console.error(`[TournamentService] Error in contract settlement:`, e.message);
         }
 
-        // Reward winners with CHIP based on VIP level
-        // Only reward top finishers (first place gets full reward)
+        // Reward ALL players with CHIP based on position and VIP level
+        // Position-based reward rates:
+        // - 1st place: 100% of base CHIP reward
+        // - 2nd place: 30% of base CHIP reward (even if they left/disconnected)
+        // - 3rd+ places: 10% of base CHIP reward
         const chipRewards = [];
         
         // Helper to restore proper Base58 address from lowercase
@@ -1772,27 +1775,37 @@ module.exports = {
             return knownAddresses[lower] || addr;
         };
         
+        // Position-based reward multipliers
+        const positionMultipliers = [1.0, 0.3, 0.1, 0.1]; // 1st: 100%, 2nd: 30%, 3rd+: 10%
+        
         for (let i = 0; i < data.rankings.length; i++) {
-            const winnerAddressRaw = data.rankings[i];
-            const winnerAddress = restoreAddressForChip(winnerAddressRaw);
-            // Only first place gets full CHIP reward
-            if (i === 0 && rakeAmountTrx > 0) {
+            const playerAddressRaw = data.rankings[i];
+            const playerAddress = restoreAddressForChip(playerAddressRaw);
+            const position = i + 1;
+            const multiplier = positionMultipliers[i] || 0.1; // Default to 10% for 4th+ place
+            
+            if (rakeAmountTrx > 0 && multiplier > 0) {
                 try {
                     const chipService = ChipService.getChipService();
                     if (chipService) {
-                        console.log(`[TournamentService] Attempting CHIP reward to ${winnerAddress} (original: ${winnerAddressRaw})`);
-                        const rewardResult = await chipService.rewardWinnerWithChipBonus(winnerAddress, rakeAmountTrx);
+                        console.log(`[TournamentService] Attempting CHIP reward to ${playerAddress} (position: ${position}, multiplier: ${multiplier})`);
+                        const rewardResult = await chipService.rewardPlayerWithChipBonus(
+                            playerAddress, 
+                            rakeAmountTrx, 
+                            multiplier,
+                            position
+                        );
                         chipRewards.push({
-                            address: winnerAddressRaw,
-                            position: i + 1,
+                            address: playerAddressRaw,
+                            position: position,
                             ...rewardResult
                         });
-                        console.log(`[TournamentService] CHIP reward result for ${winnerAddress}:`, rewardResult);
+                        console.log(`[TournamentService] CHIP reward result for ${playerAddress}:`, rewardResult);
                     } else {
                         console.warn(`[TournamentService] ChipService not initialized, skipping CHIP reward`);
                     }
                 } catch (error) {
-                    console.error(`[TournamentService] Failed to reward CHIP to ${winnerAddress}:`, error.message);
+                    console.error(`[TournamentService] Failed to reward CHIP to ${playerAddress}:`, error.message);
                 }
             }
         }
@@ -1813,17 +1826,53 @@ module.exports = {
             // Broadcast to room (for remaining players)
             testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_ENDED', endEventData);
             
-            // Also send directly to eliminated players (who may have left the room)
-            for (const player of tournament.players) {
-                if (player.socketId) {
-                    // Check if socket is still connected
-                    const socket = testModeSocketIO.sockets.sockets.get(player.socketId);
+            // Also send directly to all players in rankings (including eliminated ones who left the room)
+            // Get socket IDs from active table's eliminated players and seats
+            const table = testModeActiveTables.get(tournamentId);
+            const playerSocketMap = new Map(); // address -> socketId
+            
+            // Collect from eliminated players
+            if (table && table.eliminatedPlayers) {
+                for (const eliminated of table.eliminatedPlayers) {
+                    if (eliminated.player && eliminated.player.address && eliminated.player.socketId) {
+                        playerSocketMap.set(eliminated.player.address.toLowerCase(), eliminated.player.socketId);
+                    }
+                }
+            }
+            
+            // Collect from current seats (remaining players)
+            if (table && table.seats) {
+                for (const seatId in table.seats) {
+                    const seat = table.seats[seatId];
+                    if (seat && seat.player && seat.player.address && seat.player.socketId) {
+                        playerSocketMap.set(seat.player.address.toLowerCase(), seat.player.socketId);
+                    }
+                }
+            }
+            
+            // Also check tournament.players from DB (may have socketId from join)
+            if (tournament.players) {
+                for (const player of tournament.players) {
+                    if (player.address && player.socketId) {
+                        // Only add if not already in map (prefer table's socketId)
+                        if (!playerSocketMap.has(player.address.toLowerCase())) {
+                            playerSocketMap.set(player.address.toLowerCase(), player.socketId);
+                        }
+                    }
+                }
+            }
+            
+            // Send to all ranked players who are not in the room
+            for (const address of data.rankings) {
+                const socketId = playerSocketMap.get(address.toLowerCase());
+                if (socketId) {
+                    const socket = testModeSocketIO.sockets.sockets.get(socketId);
                     if (socket) {
                         // Check if socket is in the room (avoid double send)
-                        const isInRoom = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`)?.has(player.socketId);
+                        const isInRoom = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`)?.has(socketId);
                         if (!isInRoom) {
                             socket.emit('SC_TOURNAMENT_ENDED', endEventData);
-                            console.log(`[TournamentService] Sent SC_TOURNAMENT_ENDED to eliminated player ${player.address?.substring(0, 10)}...`);
+                            console.log(`[TournamentService] Sent SC_TOURNAMENT_ENDED to player ${address?.substring(0, 10)}... (socket left room)`);
                         }
                     }
                 }

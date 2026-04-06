@@ -18,12 +18,13 @@ Successfully connected to MongoDB!
 [TournamentService] Test mode: Socket.IO instance set
 [TournamentService] Test mode: Socket.IO instance set
 [TournamentService] Test mode: Socket.IO instance set
-[TournamentService] Test mode: Socket.IO instance set
-SC_LOBBY_CONNECTED TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 GLW786pf4-_aSFGrAAAJ
 [NFTService] Contract loaded: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC
 [Server] ✅ NFT Service initialized with contract: TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC
 [Server] Initializing CHIP Token Service...
+[TournamentService] Test mode: Socket.IO instance set
 [ChipService] Token contract loaded: TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n
+[TournamentService] Test mode: Socket.IO instance set
+[TournamentService] Test mode: Socket.IO instance set
 [ChipService] Staking contract loaded: TBz2FDnQtfAqUfjeZhcTTKhuC15SHqXmdc
 [ChipService] Initialized successfully
 [Server] ✅ CHIP Token Service initialized with contract: TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n
@@ -33,6 +34,198 @@ SC_LOBBY_CONNECTED TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 GLW786pf4-_aSFGrAAAJ
 [Server] Current table 1 owner: 41dbf2e4b885e6de39190e15723abcfaa1d91b93b3
 [Server] Setting server as table owner for table 1...
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66326791,
+  block_timestamp: 1775456169000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775456113',
+    '2': '0',
+    amount: '0',
+    tableId: '1775456113',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'afb166af8946705e763ef4ae6c0ee77fef2c963b9628139f473474dbed5c42a8'
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1775456113, refunded 0 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66326791,
+  block_timestamp: 1775456169000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775456113',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775456113',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'd391d843872bcb969b515d76f94b1a3a608c071cae64c6a92a3389c749da5903'
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1775456113
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Event: LeftTable {
+  block_number: 66326790,
+  block_timestamp: 1775456166000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 2,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775456113',
+    '2': '185263158',
+    amount: '185263158',
+    tableId: '1775456113',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'ad9453b731894f979652c1e32a2d2ccfdb8f957f4359b12225437efff567315d'
+}
+[EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1775456113, refunded 185263158 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66326789,
+  block_timestamp: 1775456163000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775456113',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775456113',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'f67cfa6c35986bd984140feb5df82eacf11291ce0ef1bd35b30813f7d81f6bb3'
+}
+[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1775456113
+[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+[EventListener] Event: LeftTable {
+  block_number: 66326650,
+  block_timestamp: 1775455740000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775455596',
+    '2': '0',
+    amount: '0',
+    tableId: '1775455596',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: '504c6d8dd7ddb7cd46ca128ec306129d61779c6a78a134be0ffe70c4593118b7'
+}
+[EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1775455596, refunded 0 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66326649,
+  block_timestamp: 1775455737000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775455596',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775455596',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'de13b0de145cce435e26ecd2366a8dfc8538f6be81444b2ca218ecee689f3c32'
+}
+[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1775455596
+[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+[EventListener] Event: LeftTable {
+  block_number: 66326648,
+  block_timestamp: 1775455734000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 2,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775455596',
+    '2': '185263158',
+    amount: '185263158',
+    tableId: '1775455596',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'a17d49857894ad989e4e8e3b6a6f5bec40165918dc62c27dbbd7c5d21e6f71ec'
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1775455596, refunded 185263158 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66326647,
+  block_timestamp: 1775455731000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775455596',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775455596',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'b1b9a488d0028e857bbc274c324736151cf2961709d2221e6e304814e3488cbf'
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1775455596
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
 [EventListener] Event: LeftTable {
   block_number: 66324752,
   block_timestamp: 1775450028000,
@@ -101,232 +294,12 @@ SC_LOBBY_CONNECTED TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 GLW786pf4-_aSFGrAAAJ
   transaction_id: 'dd990b4264bcfa33ececbeaa87308c04adf6126047da151bb851f2291b14f8b8'
 }
 [EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1775449925, refunded 185263158 SUN
-[EventListener] Event: JoinedTableFor {
-  block_number: 66324750,
-  block_timestamp: 1775450022000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'JoinedTableFor',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '1775449925',
-    '2': '100000000',
-    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    buyIn: '100000000',
-    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    tableId: '1775449925',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: {
-    buyIn: 'uint256',
-    delegate: 'address',
-    tableId: 'uint256',
-    player: 'address'
-  },
-  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
-  transaction_id: 'd9579ce1eb6e6ce699279d562d7139e96348348d6f3bdd96567e6d8ea9d8d071'
-}
-[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1775449925
-[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
-[EventListener] Event: Deposited {
-  block_number: 66324703,
-  block_timestamp: 1775449881000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'Deposited',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '100000000',
-    amount: '100000000',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: { amount: 'uint256', player: 'address' },
-  event: 'Deposited(address indexed player, uint256 amount)',
-  transaction_id: '9e8f584bde39fe20c760e64c2a882c9cf5f78f568718581db04aaa87931bd9f6'
-}
-[EventListener] ✅ DEPOSIT EVENT: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 deposited 100000000 SUN (100 TRX)
-[EventListener] Event details: {
-  "0": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527",
-  "1": "100000000",
-  "amount": "100000000",
-  "player": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527"
-}
-[EventListener] Event: LeftTable {
-  block_number: 66324463,
-  block_timestamp: 1775449161000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 1,
-  event_name: 'LeftTable',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '1775449131',
-    '2': '0',
-    amount: '0',
-    tableId: '1775449131',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
-  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
-  transaction_id: '16228322a707577f9ed9bf0377f09300ed891c6b44bd060373e1c8d916b0125b'
-}
-[EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1775449131, refunded 0 SUN
-[EventListener] Event: JoinedTableFor {
-  block_number: 66324463,
-  block_timestamp: 1775449161000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'JoinedTableFor',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '1775449131',
-    '2': '100000000',
-    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    buyIn: '100000000',
-    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    tableId: '1775449131',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: {
-    buyIn: 'uint256',
-    delegate: 'address',
-    tableId: 'uint256',
-    player: 'address'
-  },
-  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
-  transaction_id: '602386eab42fcfca7aa320858406dcf5675f0da834f60b7ea4547b940d4d1fdc'
-}
-[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1775449131
-[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
-[EventListener] Event: LeftTable {
-  block_number: 66324462,
-  block_timestamp: 1775449158000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 2,
-  event_name: 'LeftTable',
-  result: {
-    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
-    '1': '1775449131',
-    '2': '185263158',
-    amount: '185263158',
-    tableId: '1775449131',
-    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
-  },
-  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
-  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
-  transaction_id: 'f74ac431b8d7b8140fb6a75287104720af3d731146c75ad44652b8bee586e2ef'
-}
-[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1775449131, refunded 185263158 SUN
-[EventListener] Event: JoinedTableFor {
-  block_number: 66324461,
-  block_timestamp: 1775449155000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'JoinedTableFor',
-  result: {
-    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
-    '1': '1775449131',
-    '2': '100000000',
-    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    buyIn: '100000000',
-    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    tableId: '1775449131',
-    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
-  },
-  result_type: {
-    buyIn: 'uint256',
-    delegate: 'address',
-    tableId: 'uint256',
-    player: 'address'
-  },
-  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
-  transaction_id: 'a1faea8ac60f48b58c4f1474734e3f9e88236a3742d2656a2612c0fc564adb45'
-}
-[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1775449131
-[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
-[EventListener] Event: LeftTable {
-  block_number: 66323871,
-  block_timestamp: 1775447379000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 2,
-  event_name: 'LeftTable',
-  result: {
-    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
-    '1': '1775447198',
-    '2': '181000000',
-    amount: '181000000',
-    tableId: '1775447198',
-    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
-  },
-  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
-  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
-  transaction_id: '428655afb0728d0c987db04efd5b162b398a9f5bcc7c6e4d982a7b5cee78c49f'
-}
-[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1775447198, refunded 181000000 SUN
-[EventListener] Event: JoinedTableFor {
-  block_number: 66323870,
-  block_timestamp: 1775447376000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'JoinedTableFor',
-  result: {
-    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
-    '1': '1775447198',
-    '2': '100000000',
-    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    buyIn: '100000000',
-    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
-    tableId: '1775447198',
-    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
-  },
-  result_type: {
-    buyIn: 'uint256',
-    delegate: 'address',
-    tableId: 'uint256',
-    player: 'address'
-  },
-  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
-  transaction_id: '78975c1f802950590bf7057b41f6c2cd07ba6977124e1c1f6c921a6b6be8b35d'
-}
-[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1775447198
-[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
-[EventListener] Event: Deposited {
-  block_number: 66323831,
-  block_timestamp: 1775447259000,
-  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
-  event_index: 0,
-  event_name: 'Deposited',
-  result: {
-    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
-    '1': '100000000',
-    amount: '100000000',
-    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
-  },
-  result_type: { amount: 'uint256', player: 'address' },
-  event: 'Deposited(address indexed player, uint256 amount)',
-  transaction_id: 'ce4c80be55581a3c0bb25dbdee95e29e6b98a8570afba1318fcdcd8e4e404706'
-}
-[EventListener] ✅ DEPOSIT EVENT: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 deposited 100000000 SUN (100 TRX)
-[EventListener] Event details: {
-  "0": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527",
-  "1": "100000000",
-  "amount": "100000000",
-  "player": "0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527"
-}
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
 [EventListener] Balance synced after JoinedTableFor: locked=0 TRX
-[Server] 💰 Server wallet balance: 1911.11 TRX
+[Server] 💰 Server wallet balance: 1872.17 TRX
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
@@ -346,116 +319,1928 @@ SC_LOBBY_CONNECTED TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 GLW786pf4-_aSFGrAAAJ
 [Server] ✅ Server set as table owner for table 1
 [Server] Blockchain services initialized successfully
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 POST http://127.0.0.1:7778/api/tournament/create
-[TournamentService] Created test tournament 1775454924291, mockGame=true
-[Tournament API] Created tournament 1775454924291, mockGame=true
+[TournamentService] Created test tournament 1775456636236, mockGame=true
+[Tournament API] Created tournament 1775456636236, mockGame=true
+[TournamentHandler] Disconnect event: socketId=aFLRyfWf41VEnQD9AAAJ, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: aFLRyfWf41VEnQD9AAAJ, wallet: undefined...
+GET http://127.0.0.1:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[TournamentService] Test mode: Socket.IO instance set
+POST http://127.0.0.1:7778/api/tournament/1775456636236/join
+[Tournament API] Join request: tournamentId=1775456636236, wallet=TU8rhtpFQU...
+[TournamentService] Test mode: Socket.IO instance set
+[TournamentService] Test mode: Player TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv joined tournament 1775456636236
+[TournamentService] Test mode: Player count 1/2
+[TournamentService] Test mode: Player addresses in DB: tu8rhtpfqu
+[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=1775456636236, wallet=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ
+[TournamentHandler] Socket JnhtJsaR0E46n__NAAAQ joined room tournament:1775456636236
+[TournamentHandler] Tournament status: WAITING, players: 1
+[TournamentHandler]   DB player[0]: address=tu8rhtpfqu... (lowercase: tu8rhtpfqu...)
+[TournamentHandler] Looking for normalizedWallet: tu8rhtpfqu...
+[TournamentHandler] Player index found: 0
+[TournamentHandler] Updated socketId for player tu8rhtpfqu...
+[TournamentHandler] Active table exists: false
+[TournamentHandler] existingPlayer=true, isInProgress=false, willSendState=false
+GET http://localhost:7778/tournament/1775456636236/play?address=tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv
+GET http://localhost:7778/tournament/1775456636236/play?address=tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [TournamentService] Test mode: Socket.IO instance set
-SC_LOBBY_CONNECTED undefined tSEGotMc5VULYrLPAAAL
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[TournamentHandler] Player TX27LjDqk6... joining tournament 1775454924291, socketId=tSEGotMc5VULYrLPAAAL
-[TournamentService] Test mode: Player TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 joined tournament 1775454924291
-[TournamentService] Test mode: Player count 1/2
-[TournamentService] Test mode: Player addresses in DB: tx27ljdqk6
-[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=1775454924291, wallet=tx27ljdqk6..., socketId=tSEGotMc5VULYrLPAAAL
-[TournamentHandler] Socket tSEGotMc5VULYrLPAAAL joined room tournament:1775454924291
-[TournamentHandler] Tournament status: WAITING, players: 1
-[TournamentHandler]   DB player[0]: address=tx27ljdqk6... (lowercase: tx27ljdqk6...)
+SC_LOBBY_CONNECTED undefined kChoLV70lZNhbjZZAAAT
+[TournamentHandler] Player TX27LjDqk6... joining tournament 1775456636236, socketId=kChoLV70lZNhbjZZAAAT
+[TournamentService] Test mode: Player TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 joined tournament 1775456636236
+[TournamentService] Test mode: Player count 2/2
+[TournamentService] Test mode: Player addresses in DB: tu8rhtpfqu, tx27ljdqk6
+[TournamentService] Test mode: Tournament 1775456636236 is full, auto-starting...
+[TournamentService] Test mode: Tournament 1775456636236 started
+[TournamentService] Test mode: Broadcasted SC_TOURNAMENT_STARTED
+[TournamentService] Test mode: Creating table with mockGame=true
+[TournamentTable] Created tournament 1775456636236 with 2 players, 10000000 starting chips
+[TournamentTable] Blind config: level=1, smallBlind=250000, increase every 10 hands
+[TournamentService] Test mode: Table created, table.mockGame=true
+[TournamentTable] Player tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv sat at seat 1 with 10000000 chips
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 sat at seat 2 with 10000000 chips
+[TournamentTable] Tournament timer started at 2026-04-06T06:24:01.359Z
+[TournamentService] Test mode: Created game table with 2 players, 30 min time limit
+[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=1775456636236, wallet=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT
+[TournamentHandler] Socket kChoLV70lZNhbjZZAAAT joined room tournament:1775456636236
+[TournamentHandler] Tournament status: IN_PROGRESS, players: 2
+[TournamentHandler]   DB player[0]: address=tu8rhtpfqu... (lowercase: tu8rhtpfqu...)
+[TournamentHandler]   DB player[1]: address=tx27ljdqk6... (lowercase: tx27ljdqk6...)
 [TournamentHandler] Looking for normalizedWallet: tx27ljdqk6...
-[TournamentHandler] Player index found: 0
+[TournamentHandler] Player index found: 1
 [TournamentHandler] Updated socketId for player tx27ljdqk6...
+[TournamentHandler] Active table exists: true
+[TournamentHandler] Table turn: null, handOver: true
+[TournamentHandler]   Table seat[1]: id=tu8rhtpfqu... (lowercase: tu8rhtpfqu...), socketId=JnhtJsaR0E46n__NAAAQ
+[TournamentHandler]   Table seat[2]: id=tx27ljdqk6... (lowercase: tx27ljdqk6...), socketId=null
+[TournamentHandler] >>> MATCH! Updated socketId in table for seat 2: kChoLV70lZNhbjZZAAAT
+[TournamentHandler] existingPlayer=true, isInProgress=true, willSendState=true
+[TournamentHandler] >>> Sending game state to player tx27ljdqk6... (reconnect/late join)
+[TournamentHandler] Hand not started yet (turn=null), scheduling retry in 2500ms...
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentService] Test mode: >>> Starting first hand...
+[TournamentService] Test mode: Table mockGame=true, handsPlayed=0
+[TournamentService] Test mode: Room sockets before startHand: JnhtJsaR0E46n__NAAAQ, kChoLV70lZNhbjZZAAAT
+[TournamentTable] Starting hand 1
+[MockDeck] Generated straight mock deck for 2 players
+[MockDeck] Player 1 will get: 5h 6h
+[MockDeck] Board will be: 7h 8h 9d 2c 3s
+[TournamentTable] Mock game mode: Setting straight deck for player 1
+[Table] Using MOCK deck with 52 cards
+[TournamentService] Test mode: Next hand starting { handNumber: 1, blindLevel: 1, smallBlind: 250000, bigBlind: 500000 }
+[TournamentService] Test mode: startNextHand done. table.turn=2
+[TournamentService] Test mode: Room sockets after startHand: JnhtJsaR0E46n__NAAAQ, kChoLV70lZNhbjZZAAAT
+[TournamentService] broadcastGameState: roomSockets count = 2
+[TournamentService] Sending to socket JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] Sending to socket kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=2
+[TournamentService] Test mode: >>> Broadcasted initial game state via broadcastGameState
+[TournamentService] Test mode: Broadcasting game state after next hand start
+[TournamentService] broadcastGameState: roomSockets count = 2
+[TournamentService] Sending to socket JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] Sending to socket kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6..., action=call, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=false, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=true, stack=9750000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 calls $250000.00' }
+[TournamentHandler] >>> Retry: sending game state to player tx27ljdqk6...
+[TournamentHandler] >>> sendGameStateToPlayer: wallet=tx27ljdqk6..., table.turn=1, handOver=false, board=3 cards
+[TournamentHandler]   Seat 1: seat.turn=true, table.turn=1, computedTurn=true, player=tu8rhtpfqu, isOwn=false
+[TournamentHandler]   Seat 2: seat.turn=false, table.turn=1, computedTurn=false, player=tx27ljdqk6, isOwn=true
+[TournamentHandler] >>> EMIT tournament_game_state to socket kChoLV70lZNhbjZZAAAT, player tx27ljdqk6..., turn=1, seatsCount=2
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=true, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=false, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv checks' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=false, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=true, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 checks' }
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=true, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=false, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv checks' }
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=false, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=true, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 checks' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=true, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=false, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv checks' }
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456636236, socketId=kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=JnhtJsaR0E46n__NAAAQ, turn=false, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=kChoLV70lZNhbjZZAAAT, turn=true, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 2
+[Table] determineMainPotWinner called, pot: 1000000
+[Table] determineWinner called, amount: 1000000 seats count: 2
+[Table] Added winMessage: tu8r...gsmv wins $1000000.00 with Straight, 9 High
+[Table] determineWinner complete, winMessages: [ 'tu8r...gsmv wins $1000000.00 with Straight, 9 High' ]
+[Table] endHand called, setting handOver=true, winMessages: [ 'tu8r...gsmv wins $1000000.00 with Straight, 9 High' ]
+[TournamentTable] Hand 1 ended
+[TournamentTable] Checking NFT achievements at showdown...
+[TournamentTable] 🎉 NFT Achievement detected for tu8r...gsmv: STRAIGHT
+[TournamentTable] Remaining players: 2
+[TournamentTable] Remaining player stacks: tu8rhtpf=10500000, tx27ljdq=9500000
+[TournamentTable] Scheduling next hand in 3 seconds...
+[TournamentService] handleGameAction: sent to JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=null
+[TournamentService] handleGameAction: sent to kChoLV70lZNhbjZZAAAT, wallet=tx27ljdqk6, turn=null
+[TournamentService] Sending NFT achievement to tu8rhtpfqu: STRAIGHT
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 checks' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentTable] Starting hand 2
+[Table] Using MOCK deck with 52 cards
+[TournamentService] Test mode: Next hand starting { handNumber: 2, blindLevel: 1, smallBlind: 250000, bigBlind: 500000 }
+[TournamentHandler] Disconnect event: socketId=kChoLV70lZNhbjZZAAAT, tournamentId=1775456636236, wallet=tx27ljdqk6...
+[TournamentHandler] Calling TournamentService.handleDisconnect for tournament 1775456636236
+[TournamentService] Test mode handleDisconnect for socket: kChoLV70lZNhbjZZAAAT, wallet: tx27ljdqk6
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 disconnected
+[TournamentTable] Remaining players before disconnect: 2
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 marked as eliminated at position 2
+[TournamentTable] After disconnect, remaining players: 1
+[TournamentTable] Only 1 player remaining after disconnect, ending tournament...
+[TournamentTable] ========== TOURNAMENT ENDED ==========
+[TournamentTable] Tournament 1775456636236 ended
+[TournamentTable] Rankings: tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv, tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4
+[TournamentTable] Total hands played: 2
+[TournamentTable] onTournamentEnd callback exists: true
+[TournamentTable] Calling onTournamentEnd callback...
+[TournamentService] Test mode: >>> Tournament 1775456636236 ended {
+  tournamentId: '1775456636236',
+  rankings: [
+    'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv',
+    'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4'
+  ],
+  totalHands: 2,
+  endedAt: 2026-04-06T06:24:14.651Z
+}
+[TournamentService] Test mode: >>> Removed from activeTables
+[TournamentTable] onTournamentEnd callback completed
+[TournamentService] Test mode: Player disconnected from tournament 1775456636236
+[TournamentHandler] handleDisconnect result: { tournamentEnded: true, winner: 'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv' }
+[TournamentHandler] Socket disconnected: kChoLV70lZNhbjZZAAAT, wallet: tx27ljdqk6...
+[TournamentService] _handleTournamentEnd: Saving tournament 1775456636236 to DB, rankings: [
+  'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv',
+  'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4'
+]
+[TournamentService] Rake calculation: 2 players × 100 TRX = 200 TRX total, rake: 10 TRX
+[TournamentService] Prize distribution: #1: 190.00 TRX
+[TournamentService] _handleTournamentEnd: Tournament 1775456636236 saved to DB
+[TournamentService] Settling tournament prizes via contract...
+[TournamentService] Settling player TU8rhtpFQU... position=1, prize=190.00 TRX
+[TournamentService] Test mode: Broadcasting game state after next hand start
+[TournamentService] broadcastGameState: roomSockets count = 1
+[TournamentService] Sending to socket JnhtJsaR0E46n__NAAAQ, wallet=tu8rhtpfqu, turn=1
+[ContractService] joinTableFor: player=TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv, tableId=1775456636, buyIn=100000000
+[ContractService] joinTableFor txId: b2fbcd60143353d3c7ed070a84107863244fde2be221d6645d5e1f30c6dd881d
+[ContractService] leaveTableFor: player=TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv, tableId=1775456636, finalStack=194736842
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ContractService] leaveTableFor txId: 50b9f4fbb76a4d4459e88da4d2b4dc2fd8bff19935dabb3428b2be5fb69c15a1
+[TournamentService] ✅ Settled TU8rhtpFQU...: finalStack=194.74, net change=+90 TRX
+[TournamentService] Settling player TX27LjDqk6... position=2, prize=0.00 TRX
+[ContractService] joinTableFor: player=TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4, tableId=1775456636, buyIn=100000000
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: JoinedTableFor {
+  block_number: 66326954,
+  block_timestamp: 1775456658000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775456636',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775456636',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'b2fbcd60143353d3c7ed070a84107863244fde2be221d6645d5e1f30c6dd881d',
+  _unconfirmed: true
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1775456636
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[ContractService] joinTableFor txId: bee9a9047a4c6143e6d612d65c2ea51234ba0a1da277cb4eaf1e41537af8e7fb
+[ContractService] leaveTableFor: player=TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4, tableId=1775456636, finalStack=0
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[ContractService] leaveTableFor txId: d1c17f44ff4cb6e23ed713dc5df4c508f17940fa84c695476ccc093e6ffc96cd
+[TournamentService] ✅ Settled TX27LjDqk6...: finalStack=0.00, net change=-100 TRX
+[TournamentService] Attempting CHIP reward to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv (position: 1, multiplier: 1)
+[ChipService] Rewarding 10 CHIP to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv (BRONZE VIP, position: 1, rake: 10 TRX, multiplier: 1)
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66326955,
+  block_timestamp: 1775456661000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 2,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775456636',
+    '2': '185263158',
+    amount: '185263158',
+    tableId: '1775456636',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: '50b9f4fbb76a4d4459e88da4d2b4dc2fd8bff19935dabb3428b2be5fb69c15a1',
+  _unconfirmed: true
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1775456636, refunded 185263158 SUN
+[ChipService] CHIP reward sent: 10 CHIP to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv, tx: 650054a678ade7489f08b1aeaa80266b69d98feb88fba3e92529f95f4e2df4a8
+[TournamentService] CHIP reward result for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv: {
+  success: true,
+  chipReward: 10,
+  vipLevel: 'BRONZE',
+  position: 1,
+  txid: '650054a678ade7489f08b1aeaa80266b69d98feb88fba3e92529f95f4e2df4a8'
+}
+[TournamentService] Attempting CHIP reward to TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 (position: 2, multiplier: 0.3)
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66326957,
+  block_timestamp: 1775456667000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775456636',
+    '2': '0',
+    amount: '0',
+    tableId: '1775456636',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'd1c17f44ff4cb6e23ed713dc5df4c508f17940fa84c695476ccc093e6ffc96cd',
+  _unconfirmed: true
+}
+[EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1775456636, refunded 0 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66326956,
+  block_timestamp: 1775456664000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775456636',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775456636',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'bee9a9047a4c6143e6d612d65c2ea51234ba0a1da277cb4eaf1e41537af8e7fb',
+  _unconfirmed: true
+}
+[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1775456636
+[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+[ChipService] Rewarding 3 CHIP to TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 (BRONZE VIP, position: 2, rake: 10 TRX, multiplier: 0.3)
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ChipService] CHIP reward sent: 3 CHIP to TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4, tx: b841c4ceb8e96981e5a0a73ab76459c90e53bfc116e1edda8da939bfcafecf06
+[TournamentService] CHIP reward result for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4: {
+  success: true,
+  chipReward: 3,
+  vipLevel: 'BRONZE',
+  position: 2,
+  txid: 'b841c4ceb8e96981e5a0a73ab76459c90e53bfc116e1edda8da939bfcafecf06'
+}
+[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to all players
+[TournamentService] _handleTournamentEnd: Tournament 1775456636236 end handling complete
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://127.0.0.1:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Disconnect event: socketId=P5FNSY5G5T3Xai11AAAR, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: P5FNSY5G5T3Xai11AAAR, wallet: undefined...
+[TournamentHandler] Disconnect event: socketId=JnhtJsaR0E46n__NAAAQ, tournamentId=1775456636236, wallet=tu8rhtpfqu...
+[TournamentHandler] Calling TournamentService.handleDisconnect for tournament 1775456636236
+[TournamentService] Test mode handleDisconnect for socket: JnhtJsaR0E46n__NAAAQ, wallet: tu8rhtpfqu
+[TournamentHandler] handleDisconnect result: null
+[TournamentHandler] Socket disconnected: JnhtJsaR0E46n__NAAAQ, wallet: tu8rhtpfqu...
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/nft/collection/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[NFT API] Collection query for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv found 30 NFTs
+GET http://localhost:7778/nft?address=tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv
+GET http://localhost:7778/nft?address=tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+POST http://127.0.0.1:7778/api/tournament/create
+[TournamentService] Created test tournament 1775456787772, mockGame=false
+[Tournament API] Created tournament 1775456787772, mockGame=undefined
+[TournamentHandler] Disconnect event: socketId=f22h7zOO8TwHMWeWAAAV, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: f22h7zOO8TwHMWeWAAAV, wallet: undefined...
+GET http://127.0.0.1:7778/api/tournament/list?
+GET http://127.0.0.1:7778/api/tournament/configs/list
+[TournamentService] Test mode: Socket.IO instance set
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+POST http://127.0.0.1:7778/api/tournament/1775456787772/join
+[Tournament API] Join request: tournamentId=1775456787772, wallet=TU8rhtpFQU...
+[TournamentService] Test mode: Player TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv joined tournament 1775456787772
+[TournamentService] Test mode: Player count 1/2
+[TournamentService] Test mode: Player addresses in DB: tu8rhtpfqu
+[TournamentService] Test mode: Socket.IO instance set
+GET http://127.0.0.1:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+POST http://127.0.0.1:7778/api/tournament/1775456787772/join
+[Tournament API] Join request: tournamentId=1775456787772, wallet=TU8rhtpFQU...
+[Tournament API] Join error: Already joined
+[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=1775456787772, wallet=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ
+[TournamentHandler] Socket McCQ3X0y9OIlx14HAAAZ joined room tournament:1775456787772
+[TournamentHandler] Tournament status: WAITING, players: 1
+[TournamentHandler]   DB player[0]: address=tu8rhtpfqu... (lowercase: tu8rhtpfqu...)
+[TournamentHandler] Looking for normalizedWallet: tu8rhtpfqu...
+[TournamentHandler] Player index found: 0
+[TournamentHandler] Updated socketId for player tu8rhtpfqu...
 [TournamentHandler] Active table exists: false
 [TournamentHandler] existingPlayer=true, isInProgress=false, willSendState=false
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[TournamentHandler] Disconnect event: socketId=tSEGotMc5VULYrLPAAAL, tournamentId=1775454924291, wallet=tx27ljdqk6...
-[TournamentHandler] Calling TournamentService.handleDisconnect for tournament 1775454924291
-[TournamentService] Test mode handleDisconnect for socket: tSEGotMc5VULYrLPAAAL, wallet: tx27ljdqk6
-[TournamentHandler] handleDisconnect result: null
-[TournamentHandler] Socket disconnected: tSEGotMc5VULYrLPAAAL, wallet: tx27ljdqk6...
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
-[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+GET http://192.168.10.50:7778/api/tournament/list?
+GET http://192.168.10.50:7778/api/tournament/configs/list
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Disconnect event: socketId=OejVw7oA4Y_qDXv_AAAH, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: OejVw7oA4Y_qDXv_AAAH, wallet: undefined...
+[TournamentHandler] Disconnect event: socketId=t8EnlT1t_SOrHxHOAAAF, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: t8EnlT1t_SOrHxHOAAAF, wallet: undefined...
+GET http://192.168.10.50:7778/api/tournament/list?
+GET http://192.168.10.50:7778/api/tournament/configs/list
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentService] Test mode: Socket.IO instance set
+[TournamentHandler] Disconnect event: socketId=zbCA6a3XnjfWC8yAAAAL, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: zbCA6a3XnjfWC8yAAAAL, wallet: undefined...
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/blockchain/config
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[Socket] CS_CHECK_DELEGATE: { player: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv', isAuthorized: true }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Disconnect event: socketId=PJ4jUJb0wkVjQMfEAAAN, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: PJ4jUJb0wkVjQMfEAAAN, wallet: undefined...
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/chip/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+(node:8802) [DEP0044] DeprecationWarning: The `util.isArray` API is deprecated. Please use `Array.isArray()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+GET http://localhost:7778/api/chip/vip-status/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/stake/history/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/transactions/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+GET http://localhost:7778/api/stake/contracts
+GET http://localhost:7778/api/nft/collection/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[NFT API] Collection query for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv found 30 NFTs
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Disconnect event: socketId=egsEW1JbFIpLNUF4AAAB, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: egsEW1JbFIpLNUF4AAAB, wallet: undefined...
+GET http://localhost:7778/api/chip/balance/TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+GET http://localhost:7778/api/chip/vip-status/TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+GET http://localhost:7778/api/stake/history/TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+GET http://localhost:7778/api/chip/transactions/TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+GET http://localhost:7778/api/chip/onchain/balance/TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+GET http://localhost:7778/api/nft/collection/TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+[NFT API] Collection query for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 found 4 NFTs
+GET http://localhost:7778/api/stake/contracts
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Disconnect event: socketId=xCUe9rPncOWK_H3gAAAD, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: xCUe9rPncOWK_H3gAAAD, wallet: undefined...
+[TournamentService] Test mode: Socket.IO instance set
+GET http://localhost:7778/api/blockchain/config
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentService] Test mode: Socket.IO instance set
+[Socket] CS_CHECK_DELEGATE: { player: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4', isAuthorized: true }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+POST http://192.168.10.50:7778/api/tournament/1775456787772/join
+[Tournament API] Join request: tournamentId=1775456787772, wallet=TX27LjDqk6...
+[TournamentService] Test mode: Player TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 joined tournament 1775456787772
+[TournamentService] Test mode: Player count 2/2
+[TournamentService] Test mode: Player addresses in DB: tu8rhtpfqu, tx27ljdqk6
+[TournamentService] Test mode: Tournament 1775456787772 is full, auto-starting...
+[TournamentService] Test mode: Tournament 1775456787772 started
+[TournamentService] Test mode: Broadcasted SC_TOURNAMENT_STARTED
+[TournamentService] Test mode: Creating table with mockGame=false
+[TournamentTable] Created tournament 1775456787772 with 2 players, 10000000 starting chips
+[TournamentTable] Blind config: level=1, smallBlind=250000, increase every 10 hands
+[TournamentService] Test mode: Table created, table.mockGame=false
+[TournamentTable] Player tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv sat at seat 1 with 10000000 chips
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 sat at seat 2 with 10000000 chips
+[TournamentTable] Tournament timer started at 2026-04-06T07:34:24.743Z
+[TournamentService] Test mode: Created game table with 2 players, 30 min time limit
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentService] Test mode: Socket.IO instance set
+[TournamentService] Test mode: >>> Starting first hand...
+[TournamentService] Test mode: Table mockGame=false, handsPlayed=0
+[TournamentService] Test mode: Room sockets before startHand: McCQ3X0y9OIlx14HAAAZ
+[TournamentTable] Starting hand 1
+[TournamentService] Test mode: Next hand starting { handNumber: 1, blindLevel: 1, smallBlind: 250000, bigBlind: 500000 }
+[TournamentService] Test mode: startNextHand done. table.turn=2
+[TournamentService] Test mode: Room sockets after startHand: McCQ3X0y9OIlx14HAAAZ
+[TournamentService] broadcastGameState: roomSockets count = 1
+[TournamentService] Sending to socket McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] Test mode: >>> Broadcasted initial game state via broadcastGameState
+[TournamentService] Test mode: Broadcasting game state after next hand start
+[TournamentService] broadcastGameState: roomSockets count = 1
+[TournamentService] Sending to socket McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=1775456787772, wallet=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl
+[TournamentHandler] Socket qyUh5ypXBl0PTJ9VAAAl joined room tournament:1775456787772
+[TournamentHandler] Tournament status: IN_PROGRESS, players: 2
+[TournamentHandler]   DB player[0]: address=tu8rhtpfqu... (lowercase: tu8rhtpfqu...)
+[TournamentHandler]   DB player[1]: address=tx27ljdqk6... (lowercase: tx27ljdqk6...)
+[TournamentHandler] Looking for normalizedWallet: tx27ljdqk6...
+[TournamentHandler] Player index found: 1
+[TournamentHandler] Updated socketId for player tx27ljdqk6...
+[TournamentHandler] Active table exists: true
+[TournamentHandler] Table turn: 2, handOver: false
+[TournamentHandler]   Table seat[1]: id=tu8rhtpfqu... (lowercase: tu8rhtpfqu...), socketId=McCQ3X0y9OIlx14HAAAZ
+[TournamentHandler]   Table seat[2]: id=tx27ljdqk6... (lowercase: tx27ljdqk6...), socketId=null
+[TournamentHandler] >>> MATCH! Updated socketId in table for seat 2: qyUh5ypXBl0PTJ9VAAAl
+[TournamentHandler] existingPlayer=true, isInProgress=true, willSendState=true
+[TournamentHandler] >>> Sending game state to player tx27ljdqk6... (reconnect/late join)
+[TournamentHandler] Hand already started (turn=2), sending immediately
+[TournamentHandler] >>> sendGameStateToPlayer: wallet=tx27ljdqk6..., table.turn=2, handOver=false, board=0 cards
+[TournamentHandler]   Seat 1: seat.turn=false, table.turn=2, computedTurn=false, player=tu8rhtpfqu, isOwn=false
+[TournamentHandler]   Seat 2: seat.turn=true, table.turn=2, computedTurn=true, player=tx27ljdqk6, isOwn=true
+[TournamentHandler] >>> EMIT tournament_game_state to socket qyUh5ypXBl0PTJ9VAAAl, player tx27ljdqk6..., turn=2, seatsCount=2
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6..., action=call, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=false, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=true, stack=9750000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 calls $250000.00' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu..., action=raise, amount=500000
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=true, stack=9500000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=false, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv raises to $500000.00' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6..., action=call, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=false, stack=9000000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=true, stack=9500000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 calls $500000.00' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu..., action=raise, amount=500000
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=true, stack=9000000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=false, stack=9000000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv raises to $500000.00' }
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6..., action=call, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=false, stack=8500000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=true, stack=9000000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 calls $500000.00' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=true, stack=8500000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=false, stack=8500000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv checks' }
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=false, stack=8500000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=true, stack=8500000
+[TournamentHandler] Found player by wallet address at seat 2
+[Table] determineMainPotWinner called, pot: 3000000
+[Table] determineWinner called, amount: 3000000 seats count: 2
+[Table] Added winMessage: tu8r...gsmv wins $3000000.00 with Pair, Q's
+[Table] determineWinner complete, winMessages: [ "tu8r...gsmv wins $3000000.00 with Pair, Q's" ]
+[Table] endHand called, setting handOver=true, winMessages: [ "tu8r...gsmv wins $3000000.00 with Pair, Q's" ]
+[TournamentTable] Hand 1 ended
+[TournamentTable] Checking NFT achievements at showdown...
+[TournamentTable] Remaining players: 2
+[TournamentTable] Remaining player stacks: tu8rhtpf=11500000, tx27ljdq=8500000
+[TournamentTable] Scheduling next hand in 3 seconds...
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=null
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=null
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 checks' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentTable] Starting hand 2
+[TournamentService] Test mode: Next hand starting { handNumber: 2, blindLevel: 1, smallBlind: 250000, bigBlind: 500000 }
+[TournamentService] Test mode: Broadcasting game state after next hand start
+[TournamentService] broadcastGameState: roomSockets count = 2
+[TournamentService] Sending to socket McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] Sending to socket qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=1
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu..., action=call, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=true, stack=11250000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=false, stack=8000000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv calls $250000.00' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=false, stack=11000000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=true, stack=8000000
+[TournamentHandler] Found player by wallet address at seat 2
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=1
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=1
+[TournamentHandler] Action result: { seatId: 2, message: 'tx27...jpl4 checks' }
+[TournamentHandler] handleTournamentGameAction: tournamentId=1775456787772, socketId=McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu..., action=check, amount=0
+[TournamentHandler] Table seats:
+  Seat 1: player=tu8rhtpfqu..., socketId=McCQ3X0y9OIlx14HAAAZ, turn=true, stack=11000000
+  Seat 2: player=tx27ljdqk6..., socketId=qyUh5ypXBl0PTJ9VAAAl, turn=false, stack=8000000
+[TournamentHandler] Found player by wallet address at seat 1
+[TournamentService] handleGameAction: sent to McCQ3X0y9OIlx14HAAAZ, wallet=tu8rhtpfqu, turn=2
+[TournamentService] handleGameAction: sent to qyUh5ypXBl0PTJ9VAAAl, wallet=tx27ljdqk6, turn=2
+[TournamentHandler] Action result: { seatId: 1, message: 'tu8r...gsmv checks' }
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Player leaving tournament: tournamentId=1775456787772, wallet=tx27ljdqk6...
+[TournamentHandler] Calling TournamentService.handleDisconnect for tournament 1775456787772
+[TournamentService] Test mode handleDisconnect for socket: qyUh5ypXBl0PTJ9VAAAl, wallet: tx27ljdqk6
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 disconnected
+[TournamentTable] Remaining players before disconnect: 2
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 marked as eliminated at position 2
+[TournamentTable] Player tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4 disconnected during turn - auto fold
+[Table] endWithoutShowdown called
+[Table] Winner: tu8r...gsmv Pot: 1000000
+[Table] endHand called, setting handOver=true, winMessages: [ 'tu8r...gsmv wins $1000000.00' ]
+[TournamentTable] Hand 2 ended
+[TournamentTable] Remaining players: 1
+[TournamentTable] Remaining player stacks: tu8rhtpf=12000000
+[TournamentTable] Only 1 player remaining, ending tournament...
+[TournamentTable] ========== TOURNAMENT ENDED ==========
+[TournamentTable] Tournament 1775456787772 ended
+[TournamentTable] Rankings: tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv, tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4
+[TournamentTable] Total hands played: 6
+[TournamentTable] onTournamentEnd callback exists: true
+[TournamentTable] Calling onTournamentEnd callback...
+[TournamentService] Test mode: >>> Tournament 1775456787772 ended {
+  tournamentId: '1775456787772',
+  rankings: [
+    'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv',
+    'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4'
+  ],
+  totalHands: 6,
+  endedAt: 2026-04-06T07:35:06.872Z
+}
+[TournamentService] Test mode: >>> Removed from activeTables
+[TournamentTable] onTournamentEnd callback completed
+[TournamentTable] After disconnect, remaining players: 1
+[TournamentTable] Only 1 player remaining after disconnect, ending tournament...
+[TournamentTable] ========== TOURNAMENT ENDED ==========
+[TournamentTable] Tournament 1775456787772 ended
+[TournamentTable] Rankings: tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv, tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4
+[TournamentTable] Total hands played: 6
+[TournamentTable] onTournamentEnd callback exists: true
+[TournamentTable] Calling onTournamentEnd callback...
+[TournamentService] Test mode: >>> Tournament 1775456787772 ended {
+  tournamentId: '1775456787772',
+  rankings: [
+    'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv',
+    'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4'
+  ],
+  totalHands: 6,
+  endedAt: 2026-04-06T07:35:06.874Z
+}
+[TournamentService] Test mode: >>> Removed from activeTables
+[TournamentTable] onTournamentEnd callback completed
+[TournamentService] Test mode: Player disconnected from tournament 1775456787772
+[TournamentHandler] handleDisconnect result: { tournamentEnded: true, winner: 'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv' }
+[TournamentHandler] Tournament ended by player leaving, sending end event to leaving player
+[TournamentService] _handleTournamentEnd: Saving tournament 1775456787772 to DB, rankings: [
+  'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv',
+  'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4'
+]
+[TournamentService] Rake calculation: 2 players × 100 TRX = 200 TRX total, rake: 10 TRX
+[TournamentService] Prize distribution: #1: 190.00 TRX
+[TournamentService] _handleTournamentEnd: Saving tournament 1775456787772 to DB, rankings: [
+  'tu8rhtpfqusgpbe9sxqafg8bdxf52ggsmv',
+  'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4'
+]
+[TournamentService] Rake calculation: 2 players × 100 TRX = 200 TRX total, rake: 10 TRX
+[TournamentService] Prize distribution: #1: 190.00 TRX
+[TournamentService] _handleTournamentEnd: Tournament 1775456787772 saved to DB
+[TournamentService] Settling tournament prizes via contract...
+[TournamentService] Settling player TU8rhtpFQU... position=1, prize=190.00 TRX
+[TournamentService] Test mode: _handleTournamentEnd error: VersionError: No matching document found for id "69d3521366556b2262a0b2c3" version 0 modifiedPaths "status, rakeAmount, rankings, finishedAt, endReason, totalHands"
+    at generateVersionError (/Users/yingfengzhang/1JackSource/blockchain/game-core/node_modules/mongoose/lib/model.js:444:10)
+    at Model.save (/Users/yingfengzhang/1JackSource/blockchain/game-core/node_modules/mongoose/lib/model.js:500:28)
+    at Object._handleTournamentEnd (/Users/yingfengzhang/1JackSource/blockchain/game-core/server/services/TournamentService.js:1619:26)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  version: 0,
+  modifiedPaths: [
+    'status',
+    'rakeAmount',
+    'rankings',
+    'finishedAt',
+    'endReason',
+    'totalHands'
+  ]
+}
+[ContractService] joinTableFor: player=TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv, tableId=1775456787, buyIn=100000000
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ContractService] joinTableFor txId: d05c139087653788207a9c37d8abbdb111df88b13fec9ea36ee12a1cb1cb539d
+[ContractService] leaveTableFor: player=TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv, tableId=1775456787, finalStack=194736842
+[ContractService] leaveTableFor txId: e61beaf95ea63768896b69941fd6c922445dade8e8d16bc4f575c82d3f07a5c9
+[TournamentService] ✅ Settled TU8rhtpFQU...: finalStack=194.74, net change=+90 TRX
+[TournamentService] Settling player TX27LjDqk6... position=2, prize=0.00 TRX
+[ContractService] joinTableFor: player=TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4, tableId=1775456787, buyIn=100000000
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ContractService] joinTableFor txId: d50e63b6eca6e5a1d6f7e8a13a503035be91d00112a8ba940b1fccb99b2e2d19
+[ContractService] leaveTableFor: player=TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4, tableId=1775456787, finalStack=0
+[ContractService] leaveTableFor txId: a2c27618e9bff7bd46a241c36fed486d8888c8560dac33035b237ad526fae1a0
+[TournamentService] ✅ Settled TX27LjDqk6...: finalStack=0.00, net change=-100 TRX
+[TournamentService] Attempting CHIP reward to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv (position: 1, multiplier: 1)
+[ChipService] Rewarding 10 CHIP to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv (BRONZE VIP, position: 1, rake: 10 TRX, multiplier: 1)
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66328368,
+  block_timestamp: 1775460912000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 2,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775456787',
+    '2': '185263158',
+    amount: '185263158',
+    tableId: '1775456787',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'e61beaf95ea63768896b69941fd6c922445dade8e8d16bc4f575c82d3f07a5c9',
+  _unconfirmed: true
+}
+[EventListener] 0xc7457b452780a641ff4c5c922034accd6e6b9b79 left table 1775456787, refunded 185263158 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66328368,
+  block_timestamp: 1775460912000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xc7457b452780a641ff4c5c922034accd6e6b9b79',
+    '1': '1775456787',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775456787',
+    player: '0xc7457b452780a641ff4c5c922034accd6e6b9b79'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'd05c139087653788207a9c37d8abbdb111df88b13fec9ea36ee12a1cb1cb539d',
+  _unconfirmed: true
+}
+[EventListener] JoinedTableFor: 0xc7457b452780a641ff4c5c922034accd6e6b9b79 joined table 1775456787
+[GameFlowIntegration] Syncing balance for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Event: LeftTable {
+  block_number: 66328370,
+  block_timestamp: 1775460918000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 1,
+  event_name: 'LeftTable',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775456787',
+    '2': '0',
+    amount: '0',
+    tableId: '1775456787',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: { amount: 'uint256', tableId: 'uint256', player: 'address' },
+  event: 'LeftTable(address indexed player, uint256 indexed tableId, uint256 amount)',
+  transaction_id: 'a2c27618e9bff7bd46a241c36fed486d8888c8560dac33035b237ad526fae1a0',
+  _unconfirmed: true
+}
+[EventListener] 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 left table 1775456787, refunded 0 SUN
+[EventListener] Event: JoinedTableFor {
+  block_number: 66328369,
+  block_timestamp: 1775460915000,
+  caller_contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  contract_address: 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c',
+  event_index: 0,
+  event_name: 'JoinedTableFor',
+  result: {
+    '0': '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527',
+    '1': '1775456787',
+    '2': '100000000',
+    '3': '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    buyIn: '100000000',
+    delegate: '0xdbf2e4b885e6de39190e15723abcfaa1d91b93b3',
+    tableId: '1775456787',
+    player: '0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527'
+  },
+  result_type: {
+    buyIn: 'uint256',
+    delegate: 'address',
+    tableId: 'uint256',
+    player: 'address'
+  },
+  event: 'JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed delegate)',
+  transaction_id: 'd50e63b6eca6e5a1d6f7e8a13a503035be91d00112a8ba940b1fccb99b2e2d19',
+  _unconfirmed: true
+}
+[EventListener] JoinedTableFor: 0xe6e729f4cf0dfb5f4b558a7c6f09e83863bcc527 joined table 1775456787
+[GameFlowIntegration] Syncing balance for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4
+[ChipService] CHIP reward sent: 10 CHIP to TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv, tx: fd1c3f9230c9a37bb0c5014ba20fc59822948364e2ed6956578cbc67933df97e
+[TournamentService] CHIP reward result for TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv: {
+  success: true,
+  chipReward: 10,
+  vipLevel: 'BRONZE',
+  position: 1,
+  txid: 'fd1c3f9230c9a37bb0c5014ba20fc59822948364e2ed6956578cbc67933df97e'
+}
+[TournamentService] Attempting CHIP reward to TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 (position: 2, multiplier: 0.3)
+[EventListener] Balance synced after JoinedTableFor: locked=0 TRX
+[ChipService] Rewarding 3 CHIP to TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4 (BRONZE VIP, position: 2, rake: 10 TRX, multiplier: 0.3)
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[ChipService] CHIP reward sent: 3 CHIP to TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4, tx: 1fcca3bd675ff0b3f09707c9b72b5e16b5c1e9a8edcd43a7377f0bc6288dfabf
+[TournamentService] CHIP reward result for TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4: {
+  success: true,
+  chipReward: 3,
+  vipLevel: 'BRONZE',
+  position: 2,
+  txid: '1fcca3bd675ff0b3f09707c9b72b5e16b5c1e9a8edcd43a7377f0bc6288dfabf'
+}
+[TournamentService] Sent SC_TOURNAMENT_ENDED to player tx27ljdqk6... (socket left room)
+[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to all players
+[TournamentService] _handleTournamentEnd: Tournament 1775456787772 end handling complete
+GET http://127.0.0.1:7778/api/chip/onchain/balance/TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] Disconnect event: socketId=plhCj3AWAKFYg0u-AAAb, tournamentId=undefined, wallet=undefined...
+[TournamentHandler] Socket disconnected: plhCj3AWAKFYg0u-AAAb, wallet: undefined...
+[TournamentHandler] Disconnect event: socketId=qyUh5ypXBl0PTJ9VAAAl, tournamentId=undefined, wallet=tx27ljdqk6...
+[TournamentHandler] Socket disconnected: qyUh5ypXBl0PTJ9VAAAl, wallet: tx27ljdqk6...
+[TournamentService] Test mode: Socket.IO instance set
+[TournamentService] Test mode: Socket.IO instance set
+[EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
+[TournamentHandler] >>> CS_TOURNAMENT_ROOM_JOIN: tournamentId=1775456787772, wallet=tx27ljdqk6..., socketId=505yiJyBudkmb_QnAAAo
+[TournamentHandler] Socket 505yiJyBudkmb_QnAAAo joined room tournament:1775456787772
+[TournamentHandler] Tournament status: COMPLETED, players: 2
+[TournamentHandler]   DB player[0]: address=tu8rhtpfqu... (lowercase: tu8rhtpfqu...)
+[TournamentHandler]   DB player[1]: address=tx27ljdqk6... (lowercase: tx27ljdqk6...)
+[TournamentHandler] Looking for normalizedWallet: tx27ljdqk6...
+[TournamentHandler] Player index found: 1
+[TournamentHandler] Updated socketId for player tx27ljdqk6...
+[TournamentHandler] Active table exists: false
+[TournamentHandler] existingPlayer=true, isInProgress=false, willSendState=false
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c
 [EventListener] Polled 20 events from contract TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c

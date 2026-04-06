@@ -373,6 +373,9 @@ function initTournamentHandlers(socket, io) {
         const walletAddress = socketWalletMap.get(socket.id);
         console.log(`[TournamentHandler] Player leaving tournament: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
         
+        // Keep socket reference before leaving room (to send end event later)
+        const leavingSocket = socket;
+        
         leaveTournamentRoom(socket, tournamentId);
         
         // Handle player leaving in active game (same as disconnect)
@@ -380,6 +383,14 @@ function initTournamentHandlers(socket, io) {
             console.log(`[TournamentHandler] Calling TournamentService.handleDisconnect for tournament ${tournamentId}`);
             const result = TournamentService.handleDisconnect?.(socket.id, walletAddress);
             console.log(`[TournamentHandler] handleDisconnect result:`, result);
+            
+            // If tournament ended due to this player leaving, send end event directly to them
+            if (result && result.tournamentEnded) {
+                console.log(`[TournamentHandler] Tournament ended by player leaving, sending end event to leaving player`);
+                // The leaving player will receive SC_TOURNAMENT_ENDED from _handleTournamentEnd
+                // But since they left the room, we need to send it directly
+                // Note: _handleTournamentEnd handles this already via the eliminated players loop
+            }
         }
     });
     

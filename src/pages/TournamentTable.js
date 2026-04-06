@@ -140,8 +140,15 @@ const TournamentTableGame = ({ tournamentId }) => {
           setChipBalanceAfter(chipBalance);
         });
       }, 2000);
+      
+      // If player was leaving, show end screen briefly then navigate
+      if (isLeaving) {
+        console.log('[TournamentTable] Player was leaving, will show end screen then navigate');
+        // The end screen will show, and user can click "Back to Tournaments" to leave
+        // Or we can auto-navigate after a delay (currently letting user see results)
+      }
     }
-  }, [tournamentEnded, gameBalance, chipBalanceBefore, fetchGameBalance, fetchChipBalance]);
+  }, [tournamentEnded, gameBalance, chipBalanceBefore, fetchGameBalance, fetchChipBalance, isLeaving]);
 
   // Handle NFT Achievement notification
   useEffect(() => {
@@ -421,10 +428,14 @@ const TournamentTableGame = ({ tournamentId }) => {
     }
   }, [currentTable, seatId]);
 
-  // Handle leave
+  // Handle leave - player forfeits and will see end screen
   const handleLeave = () => {
+    // Set leaving flag but don't navigate yet - wait for tournament to end
+    // The tournament will end when player leaves (only 1 player remaining)
+    // Then SC_TOURNAMENT_ENDED will be received and end screen will show
+    setIsLeaving(true);
     leaveTable();
-    navigate('/tournament');
+    // Note: Don't navigate immediately - wait for tournamentEnded to become true
   };
 
   // Tournament ended - show final results

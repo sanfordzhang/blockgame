@@ -380,6 +380,55 @@ class ChipService {
             };
         }
     }
+
+    /**
+     * Reward player with CHIP based on position and VIP level
+     * Used for all players (including those who left/disconnected)
+     * 
+     * @param {string} playerAddress - Player's wallet address
+     * @param {number} rakeAmount - Rake amount in TRX (not SUN)
+     * @param {number} multiplier - Position multiplier (1.0 for 1st, 0.3 for 2nd, etc.)
+     * @param {number} position - Player's finishing position
+     * @returns {Promise<object>} Reward result
+     */
+    async rewardPlayerWithChipBonus(playerAddress, rakeAmount, multiplier = 1.0, position = 1) {
+        try {
+            // Get VIP status based on staked amount
+            const vipStatus = await this.getVipStatusByStaking(playerAddress);
+
+            // Calculate CHIP reward: rake (TRX) × chipRewardRate × positionMultiplier
+            // e.g., 5 TRX rake × 1.0 (VIP rate) × 0.3 (2nd place) = 1.5 CHIP
+            const baseReward = Math.floor(rakeAmount * vipStatus.chipRewardRate);
+            const chipReward = Math.floor(baseReward * multiplier);
+
+            if (chipReward <= 0) {
+                console.log(`[ChipService] No CHIP reward for ${playerAddress} (rake: ${rakeAmount}, multiplier: ${multiplier})`);
+                return { success: true, chipReward: 0, vipLevel: vipStatus.level, position };
+            }
+
+            console.log(`[ChipService] Rewarding ${chipReward} CHIP to ${playerAddress} (${vipStatus.level} VIP, position: ${position}, rake: ${rakeAmount} TRX, multiplier: ${multiplier})`);
+
+            // Send CHIP from treasury to player
+            const result = await this.withdrawToWallet(playerAddress, chipReward);
+
+            console.log(`[ChipService] CHIP reward sent: ${chipReward} CHIP to ${playerAddress}, tx: ${result.txid}`);
+
+            return {
+                success: true,
+                chipReward,
+                vipLevel: vipStatus.level,
+                position,
+                txid: result.txid
+            };
+        } catch (error) {
+            console.error(`[ChipService] Failed to reward player ${playerAddress}:`, error.message);
+            return {
+                success: false,
+                error: error.message,
+                position
+            };
+        }
+    }
 }
 
 // Singleton instance
