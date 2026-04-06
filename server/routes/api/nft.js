@@ -217,4 +217,46 @@ router.get('/metadata/:tokenId', async (req, res) => {
     }
 });
 
+/**
+ * @route POST /api/nft/confirm-mint
+ * @desc Update NFT record with on-chain txHash after successful mint
+ */
+router.post('/confirm-mint', async (req, res) => {
+    try {
+        const { walletAddress, gameId, txHash, tokenId } = req.body;
+        
+        if (!walletAddress || !gameId || !txHash) {
+            return res.status(400).json({ success: false, error: 'walletAddress, gameId, txHash required' });
+        }
+        
+        console.log(`[NFT API] Confirming mint: ${walletAddress?.substring(0, 10)}... gameId=${gameId} tx=${txHash?.substring(0, 16)}...`);
+        
+        // Find the NFT record and update
+        const result = await NFTClaim.updateOne(
+            { 
+                playerAddress: { $regex: new RegExp(walletAddress, 'i') },
+                gameId: gameId
+            },
+            { 
+                $set: { 
+                    txHash: txHash,
+                    onchainTokenId: tokenId,
+                    mintedAt: new Date()
+                } 
+            }
+        );
+        
+        if (result.modifiedCount === 0) {
+            console.log('[NFT API] No NFT record found to update');
+            return res.status(404).json({ success: false, error: 'NFT record not found' });
+        }
+        
+        console.log(`[NFT API] ✅ NFT record updated: ${result.modifiedCount} document(s)`);
+        res.json({ success: true, modifiedCount: result.modifiedCount });
+    } catch (error) {
+        console.error('[NFT API] Confirm mint error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

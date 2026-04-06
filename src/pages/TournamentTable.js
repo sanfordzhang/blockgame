@@ -349,6 +349,23 @@ const TournamentTableGame = ({ tournamentId }) => {
 
               console.log('[NFT] ✅ On-chain mint tx:', tx);
 
+              // Update database with txHash
+              try {
+                await fetch(`${process.env.REACT_APP_SERVER_URL || 'http://127.0.0.1:7778'}/api/nft/confirm-mint`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    walletAddress: walletAddress,
+                    gameId: signature.gameId,
+                    txHash: tx,
+                    tokenId: data.tokenId
+                  })
+                });
+                console.log('[NFT] ✅ Database updated with txHash');
+              } catch (dbErr) {
+                console.error('[NFT] Failed to update database:', dbErr);
+              }
+
               Swal.fire({
                 title: '🎉 铸造成功！',
                 html: `

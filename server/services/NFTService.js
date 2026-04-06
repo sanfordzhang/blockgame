@@ -545,33 +545,41 @@ module.exports = {
         await claim.save();
         console.log(`[NFTService] NFT saved to database: ${achievementTypeName} for ${walletAddress.substring(0, 10)}...`);
         
-        if (!nftServiceInstance) {
-            // 返回模拟签名用于测试
-            const timestamp = Math.floor(Date.now() / 1000);
-            const cardsStr = parsedCards.map(c => `${c.rank}${c.suit}`).join(' ');
-            const metadata = generateMetadata(achievementTypeName, tokenId, cardsStr);
-            return {
-                success: true,
-                signature: {
-                    player: walletAddress,
-                    achievementTypeId,
-                    timestamp,
-                    gameId,
-                    mockMode: true
-                },
-                tokenId,
-                achievementType: achievementTypeName,
-                metadata,
-                onchainContractAddress: process.env.NFT_CONTRACT_ONCHAIN
-            };
-        }
-
-        const sig = await nftServiceInstance.generateCompactSignature?.(walletAddress, achievementTypeId, gameId);
+        // Generate signature using ethers.js (works even without nftServiceInstance)
+        const timestamp = Math.floor(Date.now() / 1000);
         const cardsStr = parsedCards.map(c => `${c.rank}${c.suit}`).join(' ');
         const metadata = generateMetadata(achievementTypeName, tokenId, cardsStr);
+        
+        // Generate compact signature using server private key
+        const ethers = require('ethers');
+        const serverWallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY);
+        
+        // Build hash: keccak256(playerAddress, achievementTypeId, timestamp, gameId)
+        // Convert TRON address to hex format
+        const { TronWeb } = require('tronweb');
+        const tronWeb = new TronWeb({ fullHost: 'https://nile.trongrid.io' });
+        let callerHex = tronWeb.address.toHex(walletAddress);
+        if (callerHex.startsWith('41')) callerHex = '0x' + callerHex.slice(2);
+        
+        const hash = ethers.utils.solidityKeccak256(
+            ['address', 'uint256', 'uint256', 'string'],
+            [callerHex, achievementTypeId, timestamp, gameId]
+        );
+        const sig = ethers.utils.splitSignature(await serverWallet.signMessage(ethers.utils.arrayify(hash)));
+        
+        console.log(`[NFTService] Generated signature for ${walletAddress.substring(0, 10)}... typeId=${achievementTypeId} v=${sig.v}`);
+        
         return {
             success: true,
-            signature: sig,
+            signature: {
+                player: walletAddress,
+                achievementTypeId,
+                timestamp,
+                gameId,
+                v: sig.v,
+                r: sig.r,
+                s: sig.s
+            },
             tokenId,
             achievementType: achievementTypeName,
             metadata,
