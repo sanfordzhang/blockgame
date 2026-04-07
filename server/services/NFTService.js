@@ -597,49 +597,67 @@ module.exports = {
     getNFTMetadata: async (tokenId) => {
         const idNum = parseInt(tokenId);
         const nft = await NFTClaim.findOne({ $or: [{ tokenId: idNum }, { onchainTokenId: idNum }] });
-        if (!nft) return { 
-            name: 'Poker Achievement NFT', 
+        if (!nft) return {
+            name: 'Poker Achievement NFT',
             description: 'Poker Achievement NFT',
             image: 'https://via.placeholder.com/400x400?text=Poker+NFT'
         };
-        
+
         // 构建cards属性
-        const cardsAttribute = nft.cards && nft.cards.length > 0 
+        const cardsAttribute = nft.cards && nft.cards.length > 0
             ? { trait_type: 'Cards', value: nft.cards.map(c => `${c.rank}${c.suit}`).join(' ') }
             : null;
-        
+
+        // Display token ID: prefer onchainTokenId, fallback to tokenId
+        const displayId = nft.onchainTokenId || nft.tokenId;
+
         // 构建attributes
         const attributes = [
             { trait_type: 'Achievement', value: nft.achievementType },
             { trait_type: 'Rarity', value: nft.rarity },
             { trait_type: 'Game ID', value: nft.gameId },
-            { trait_type: 'Token ID', value: nft.tokenId, display_type: 'number' }
+            { trait_type: 'Token ID', value: displayId, display_type: 'number' }
         ];
-        
+
         if (cardsAttribute) {
             attributes.push(cardsAttribute);
         }
-        
-        // 生成图片 - 内嵌 SVG base64，不依赖外部 URL
-        let imageUrl;
-        if (nft.gameScreenshot) {
-            imageUrl = `data:image/${nft.screenshotFormat || 'png'};base64,${nft.gameScreenshot}`;
-        } else {
-            const cards = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
-            const svg = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="#1a1a2e"/><rect x="20" y="20" width="360" height="360" rx="16" fill="#16213e" stroke="#4ecca3" stroke-width="2"/><text x="200" y="100" font-size="22" fill="#4ecca3" text-anchor="middle" font-weight="bold" font-family="Arial">${nft.achievementType}</text><text x="200" y="210" font-size="28" fill="#ffffff" text-anchor="middle" font-family="monospace">${cards}</text><text x="200" y="330" font-size="16" fill="#888888" text-anchor="middle" font-family="Arial">#${nft.tokenId}</text></svg>`;
-            imageUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-        }
-        
+
+        // 生成 SVG 图片（轻量，兼容 TronScan/TronLink）
+        const cards = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+        const suitSymbols = { h: '♥', d: '♦', c: '♣', s: '♠' };
+        const cardDisplay = nft.cards?.map(c => {
+            const s = suitSymbols[c.suit] || c.suit;
+            const color = (c.suit === 'h' || c.suit === 'd') ? '#ff4444' : '#ffffff';
+            return `<tspan fill="${color}">${c.rank}${s}</tspan>`;
+        }).join(' ') || '';
+        const rarityColors = {
+            'LEGENDARY': '#ff6b00', 'EPIC': '#a855f7', 'RARE': '#3b82f6', 'COMMON': '#4ecca3'
+        };
+        const rarityColor = rarityColors[nft.rarity] || '#4ecca3';
+        const svg = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="400" height="400" fill="#1a1a2e"/>` +
+            `<rect x="15" y="15" width="370" height="370" rx="20" fill="#16213e" stroke="${rarityColor}" stroke-width="3"/>` +
+            `<text x="200" y="60" font-size="14" fill="#888" text-anchor="middle" font-family="Arial">Poker Achievement NFT</text>` +
+            `<text x="200" y="110" font-size="28" fill="${rarityColor}" text-anchor="middle" font-weight="bold" font-family="Arial">${nft.achievementType}</text>` +
+            `<text x="200" y="145" font-size="14" fill="#666" text-anchor="middle" font-family="Arial">${nft.rarity || 'COMMON'}</text>` +
+            `<text x="200" y="220" font-size="24" fill="#ffffff" text-anchor="middle" font-family="monospace">${cardDisplay || cards}</text>` +
+            `<text x="200" y="320" font-size="18" fill="#4ecca3" text-anchor="middle" font-family="Arial">#${displayId}</text>` +
+            `<text x="200" y="365" font-size="12" fill="#555" text-anchor="middle" font-family="Arial">Hello World Poker</text>` +
+            `</svg>`;
+        const imageUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+
         const cardsStr = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+        const achievementName = nft.displayName || nft.achievementType;
         const description = cardsStr
-            ? `${nft.achievementType} | Cards: ${cardsStr}`
-            : (nft.handDescription || `${nft.achievementType} achievement`);
+            ? `${achievementName} | Cards: ${cardsStr}`
+            : (nft.handDescription || `${achievementName} achievement`);
 
         return {
-            name: `${nft.displayName || nft.achievementType} #${nft.tokenId}`,
+            name: `${achievementName} #${displayId}`,
             description,
             image: imageUrl,
-            external_url: `http://localhost:3001/nft/${nft.tokenId}`,
+            external_url: `https://nile.tronscan.org/#/token20/${process.env.NFT_CONTRACT_ONCHAIN || 'TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC'}`,
             attributes: attributes
         };
     },

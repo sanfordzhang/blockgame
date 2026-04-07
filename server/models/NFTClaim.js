@@ -47,6 +47,19 @@ const nftClaimSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+
+    // On-chain token ID (from contract)
+    onchainTokenId: {
+        type: Number,
+        default: null,
+        index: true
+    },
+
+    // When the NFT was minted on-chain
+    mintedAt: {
+        type: Date,
+        default: null
+    },
     
     // Hand description (e.g., "Royal Flush - A-K-Q-J-10 of Hearts")
     handDescription: {
