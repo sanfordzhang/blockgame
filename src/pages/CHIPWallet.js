@@ -126,6 +126,7 @@ const CHIPWallet = () => {
   const [stakeAmount, setStakeAmount] = useState('');
   const [stakeLockDays, setStakeLockDays] = useState('30');
   const [staking, setStaking] = useState(false);
+  const [chipTokenAddress, setChipTokenAddress] = useState(null);
 
   useEffect(() => {
     if (walletAddress) {
@@ -136,14 +137,15 @@ const CHIPWallet = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [balanceRes, vipRes, stakesRes, txRes, nftRes, onChainRes, contractsRes] = await Promise.all([
+      const [balanceRes, vipRes, stakesRes, txRes, nftRes, onChainRes, contractsRes, configRes] = await Promise.all([
         fetch(`/api/chip/balance/${walletAddress}`),
         fetch(`/api/chip/vip-status/${walletAddress}`),
         fetch(`/api/stake/history/${walletAddress}`),
         fetch(`/api/chip/transactions/${walletAddress}`),
         fetch(`/api/nft/collection/${walletAddress}`),
         fetch(`/api/chip/onchain/balance/${walletAddress}`),
-        fetch('/api/stake/contracts')
+        fetch('/api/stake/contracts'),
+        fetch('/api/blockchain/config')
       ]);
 
       const balanceData = await balanceRes.json();
@@ -153,6 +155,7 @@ const CHIPWallet = () => {
       const nftData = await nftRes.json();
       const onChainData = await onChainRes.json();
       const contractsData = await contractsRes.json();
+      const configData = await configRes.json();
 
       if (balanceData.success) {
         setBalance(balanceData);
@@ -175,6 +178,9 @@ const CHIPWallet = () => {
       if (contractsData.success) {
         setStakingContractAddress(contractsData.stakingContract);
       }
+      if (configData.chipToken) {
+        setChipTokenAddress(configData.chipToken);
+      }
     } catch (error) {
       console.error('Failed to fetch wallet data:', error);
     }
@@ -190,6 +196,11 @@ const CHIPWallet = () => {
 
     if (!stakingContractAddress) {
       window.alert('质押合约地址未加载，请刷新页面重试');
+      return;
+    }
+
+    if (!chipTokenAddress) {
+      window.alert('CHIP代币合约地址未加载，请刷新页面重试');
       return;
     }
 
@@ -217,7 +228,7 @@ const CHIPWallet = () => {
       const lockDurationSeconds = lockDays * 24 * 60 * 60;
 
       // 1. Approve CHIP token
-      const chipContract = await window.tronWeb.contract().at('TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n');
+      const chipContract = await window.tronWeb.contract().at(chipTokenAddress);
       const approveTx = await chipContract.approve(stakingContractAddress, stakeAmountWei.toString()).send({
         feeLimit: 100_000_000
       });
@@ -406,13 +417,18 @@ const CHIPWallet = () => {
 
     setTransferring(true);
     try {
-      const CHIP_CONTRACT = 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n';
+      if (!chipTokenAddress) {
+        alert('CHIP代币合约地址未加载，请刷新页面重试');
+        setTransferring(false);
+        return;
+      }
+
       const amount = parseFloat(transferAmount) * 1e6; // 转换为最小单位
 
       console.log('On-chain transfer:', { to: transferTo, amount: transferAmount });
 
       // 获取合约实例
-      const contract = await window.tronWeb.contract().at(CHIP_CONTRACT);
+      const contract = await window.tronWeb.contract().at(chipTokenAddress);
 
       // 调用transfer函数
       const tx = await contract.transfer(transferTo, amount.toString()).send({
@@ -517,7 +533,7 @@ const CHIPWallet = () => {
               {onChainBalance?.toLocaleString() || 0} CHIP
             </BalanceDisplay>
             <Text size="0.8rem" color="textSecondary">
-              TronLink钱包余额 • 合约: TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n
+              TronLink钱包余额 • 合约: {chipTokenAddress || '加载中...'}
             </Text>
           </WalletCard>
 

@@ -843,6 +843,11 @@ const Landing = () => {
                       <FeatureName>DAO治理</FeatureName>
                       <FeatureDesc>Governance</FeatureDesc>
                     </FeatureCard>
+                    <FeatureCard onClick={() => navigate('/dex')} data-testid="feature-dex">
+                      <DEXIcon>💱</DEXIcon>
+                      <FeatureName>交易兑换</FeatureName>
+                      <FeatureDesc>TRX/CHIP DEX</FeatureDesc>
+                    </FeatureCard>
                   </FeatureGrid>
                 </FeatureSection>
               )}
@@ -1262,6 +1267,24 @@ const FeatureIcon = styled.img`
   @media screen and (max-width: 468px) {
     width: 36px;
     height: 36px;
+  }
+`;
+
+const DEXIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: linear-gradient(135deg, #00d9ff, #00ff88);
+  
+  @media screen and (max-width: 468px) {
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
   }
 `;
 

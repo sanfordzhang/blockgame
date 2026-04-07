@@ -19,6 +19,15 @@ const config = {
   // This is derived from TESTNET_PRIVATE_KEY or MAINNET_PRIVATE_KEY
   // Players need to authorize this address to allow server proxy operations
   SERVER_WALLET_ADDRESS: null, // Will be set by TronService.init()
+  
+  // CHIP Token Configuration
+  CHIP_TOKEN_ADDRESS: process.env.CHIP_TOKEN_ADDRESS || '',
+  CHIP_DAILY_REWARD_LIMIT: parseInt(process.env.CHIP_DAILY_REWARD_LIMIT) || 5000, // 5,000 CHIP per day
+  CHIP_RESERVE_TARGET: parseInt(process.env.CHIP_RESERVE_TARGET) || 500000, // 500,000 CHIP reserve target
+  
+  // AMM Pool Configuration
+  AMM_POOL_ADDRESS: process.env.AMM_POOL_ADDRESS || '',
+  AMM_ROUTER_ADDRESS: process.env.AMM_ROUTER_ADDRESS || '',
 };
 
 // Function to set server wallet address (called by TronService after init)

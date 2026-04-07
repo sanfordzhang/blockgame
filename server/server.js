@@ -19,6 +19,9 @@ const GameSettlementService = require("./services/GameSettlementService");
 const gameFlowIntegration = require("./services/GameFlowIntegration");
 const { initNFTService, getNFTService } = require("./services/NFTService");
 const { initChipService } = require("./services/ChipService");
+const LiquidityService = require("./services/LiquidityService");
+const PriceOracleService = require("./services/PriceOracleService");
+const ammApi = require("./routes/api/amm");
 // Connect and get reference to mongodb instance
 let db;
 
@@ -116,6 +119,53 @@ async function initializeBlockchainServices() {
             }
 
             console.log('[Server] Blockchain services initialized successfully');
+            
+            // Initialize AMM Services
+            const ammPoolAddress = process.env.AMM_POOL_ADDRESS;
+            const ammRouterAddress = process.env.AMM_ROUTER_ADDRESS;
+            
+            if (ammPoolAddress && ammRouterAddress && chipTokenAddress) {
+                try {
+                    console.log('[Server] Initializing AMM Services...');
+                    
+                    // Initialize LiquidityService
+                    const liquidityService = new LiquidityService(
+                        TronService.tronWeb,
+                        ammPoolAddress,
+                        chipTokenAddress
+                    );
+                    await liquidityService.initialize();
+                    
+                    // Initialize PriceOracleService
+                    const priceOracleService = new PriceOracleService(
+                        TronService.tronWeb,
+                        ammPoolAddress,
+                        chipTokenAddress
+                    );
+                    await priceOracleService.initialize();
+                    
+                    // Configure AMM API with services
+                    ammApi.setServices({
+                        liquidityService,
+                        priceOracleService,
+                        tronWeb: TronService.tronWeb,
+                        poolAddress: ammPoolAddress,
+                        routerAddress: ammRouterAddress,
+                        tokenAddress: chipTokenAddress
+                    });
+                    
+                    console.log('[Server] ✅ AMM Services initialized');
+                    console.log('[Server]    Pool:', ammPoolAddress);
+                    console.log('[Server]    Router:', ammRouterAddress);
+                    console.log('[Server]    Token:', chipTokenAddress);
+                } catch (ammError) {
+                    console.error('[Server] ⚠️ AMM Services initialization failed:', ammError.message);
+                    console.log('[Server] Continuing without AMM integration...');
+                }
+            } else {
+                console.log('[Server] ℹ️ AMM addresses not configured, AMM integration disabled');
+            }
+            
         } catch (error) {
             console.error('[Server] Failed to initialize blockchain services:', error.message);
             console.log('[Server] Continuing without blockchain integration...');

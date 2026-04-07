@@ -313,4 +313,212 @@ export const useTron = () => {
   return context;
 };
 
+/**
+ * useTronLink hook - Extended hook for AMM/DEX operations
+ * Provides additional wallet interaction methods for trading
+ */
+export const useTronLink = () => {
+  const tronContext = useTron();
+  
+  /**
+   * Sign and send a transaction
+   * @param {string} to - Contract address
+   * @param {number|string} value - TRX value in SUN
+   * @param {string|object} data - Transaction data (hex string or { function, parameters })
+   */
+  const signAndSendTransaction = async (to, value = 0, data = '') => {
+    if (!tronContext.isConnected || !tronContext.address) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+      const userAddress = tronContext.address;
+      
+      // Convert value to number
+      const callValue = typeof value === 'string' ? parseInt(value, 10) : (value || 0);
+      
+      // If data is provided, it's a contract call
+      if (data) {
+        let functionSelector, parameters;
+        
+        // Handle object format from API
+        if (typeof data === 'object' && data.function) {
+          functionSelector = data.function;
+          parameters = data.parameters || [];
+        } else if (typeof data === 'string' && data !== '0x' && data !== '') {
+          // Handle hex string format
+          functionSelector = data;
+          parameters = [];
+        } else {
+          // No data, simple transfer
+          const tx = await tronWeb.transactionBuilder.sendTrx(to, callValue, userAddress);
+          const signedTx = await tronWeb.trx.sign(tx);
+          const result = await tronWeb.trx.sendRawTransaction(signedTx);
+          return result?.txid || result;
+        }
+        
+        // Parse function selector to get function name and parameter types
+        const match = functionSelector.match(/^(\w+)\(([^)]*)\)$/);
+        if (!match) {
+          throw new Error(`Invalid function selector: ${functionSelector}`);
+        }
+        
+        const functionName = match[1];
+        
+        // Build ABI for this function
+        const abi = [{
+          inputs: parameters.map((p, i) => ({
+            name: `param${i}`,
+            type: p.type
+          })),
+          name: functionName,
+          outputs: [],
+          stateMutability: callValue > 0 ? 'payable' : 'nonpayable',
+          type: 'function'
+        }];
+        
+        // Build args array, replacing placeholders
+        const args = parameters.map(p => {
+          if (p.value === 'REPLACE_WITH_USER_ADDRESS') {
+            return userAddress;
+          }
+          return p.value;
+        });
+        
+        console.log('[useTronLink] Calling contract:', {
+          to,
+          functionName,
+          callValue,
+          args
+        });
+        
+        // Use contract().send() method which works better with TronLink
+        const contract = tronWeb.contract(abi, to);
+        
+        // Call the method and send
+        const result = await contract.methods[functionName](...args).send({
+          feeLimit: 100_000_000,
+          callValue: callValue,
+          shouldPollResponse: false
+        });
+        
+        return result;
+      }
+      
+      // Simple TRX transfer
+      const tx = await tronWeb.transactionBuilder.sendTrx(to, callValue, userAddress);
+      const signedTx = await tronWeb.trx.sign(tx);
+      const result = await tronWeb.trx.sendRawTransaction(signedTx);
+      
+      return result?.txid || result;
+    } catch (error) {
+      console.error('[useTronLink] signAndSendTransaction error:', error);
+      throw error;
+    }
+  };
+  
+  /**
+   * Approve token for spending
+   * @param {string} tokenAddress - Token contract address
+   * @param {string} spender - Spender address (e.g., router)
+   * @param {number} amount - Amount to approve
+   */
+  const approveToken = async (tokenAddress, spender, amount) => {
+    if (!tronContext.isConnected || !tronContext.address) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+      
+      // ERC20 approve ABI
+      const approveAbi = [{
+        inputs: [
+          { name: 'spender', type: 'address' },
+          { name: 'amount', type: 'uint256' }
+        ],
+        name: 'approve',
+        outputs: [{ name: '', type: 'bool' }],
+        stateMutability: 'nonpayable',
+        type: 'function'
+      }];
+      
+      const contract = await tronWeb.contract(approveAbi, tokenAddress);
+      const tx = await contract.approve(spender, amount).send({
+        feeLimit: 100_000_000,
+        shouldPollResponse: false
+      });
+      
+      return tx;
+    } catch (error) {
+      console.error('[useTronLink] approveToken error:', error);
+      throw error;
+    }
+  };
+  
+  /**
+   * Get token balance
+   * @param {string|null} tokenAddress - Token contract address (null for TRX)
+   * @param {string} address - Wallet address
+   */
+  const getTokenBalance = async (tokenAddress, address) => {
+    if (!address) return '0';
+    
+    try {
+      const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+      
+      if (!tronWeb) {
+        console.warn('[useTronLink] TronWeb not available');
+        return '0';
+      }
+      
+      // TRX balance
+      if (!tokenAddress || tokenAddress === 'TRX') {
+        const balance = await tronWeb.trx.getBalance(address);
+        return balance.toString();
+      }
+      
+      // Validate token address format (TRON addresses start with T and are 34 chars)
+      if (typeof tokenAddress !== 'string' || !tokenAddress.startsWith('T') || tokenAddress.length !== 34) {
+        console.warn('[useTronLink] Invalid token address:', tokenAddress);
+        return '0';
+      }
+      
+      // CHIP token or other TRC20
+      const balanceAbi = [{
+        inputs: [{ name: 'owner', type: 'address' }],
+        name: 'balanceOf',
+        outputs: [{ name: '', type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function'
+      }];
+      
+      const contract = await tronWeb.contract(balanceAbi, tokenAddress);
+      const balance = await contract.balanceOf(address).call();
+      
+      // Handle BigNumber/string
+      if (typeof balance === 'object' && balance.toString) {
+        return balance.toString();
+      }
+      return balance?.toString() || '0';
+    } catch (error) {
+      console.error('[useTronLink] getTokenBalance error:', error);
+      return '0';
+    }
+  };
+  
+  return {
+    // Connection state
+    connected: tronContext.isConnected,
+    address: tronContext.address,
+    
+    // Methods
+    connect: tronContext.connect,
+    signAndSendTransaction,
+    approveToken,
+    getTokenBalance
+  };
+};
+
 export default TronContext;

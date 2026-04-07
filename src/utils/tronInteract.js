@@ -872,6 +872,280 @@ export const getAddressLink = (address, network = currentNetwork) => {
   return `${baseUrls[network]}${address}`;
 };
 
+// ============ AMM (DEX) Functions ============
+
+// AMM Contract ABIs
+const AMM_POOL_ABI = [
+  {"inputs":[],"name":"getReserves","outputs":[{"name":"reserveTRX","type":"uint256"},{"name":"reserveCHIP","type":"uint256"},{"name":"blockTimestampLast","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"amountTRX","type":"uint256"},{"name":"amountCHIP","type":"uint256"},{"name":"amountTRXMin","type":"uint256"},{"name":"amountCHIPMin","type":"uint256"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"addLiquidity","outputs":[{"name":"liquidity","type":"uint256"}],"stateMutability":"payable","type":"function"},
+  {"inputs":[{"name":"liquidity","type":"uint256"},{"name":"amountTRXMin","type":"uint256"},{"name":"amountCHIPMin","type":"uint256"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"removeLiquidity","outputs":[{"name":"amountTRX","type":"uint256"},{"name":"amountCHIP","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"amountOut","type":"uint256"},{"name":"tokenIn","type":"address"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"swap","outputs":[{"name":"amountIn","type":"uint256"}],"stateMutability":"payable","type":"function"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":false,"name":"amountTRXIn","type":"uint256"},{"indexed":false,"name":"amountCHIPIn","type":"uint256"},{"indexed":false,"name":"liquidity","type":"uint256"}],"name":"Mint","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":false,"name":"amountTRX","type":"uint256"},{"indexed":false,"name":"amountCHIP","type":"uint256"},{"indexed":false,"name":"to","type":"address"}],"name":"Burn","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":false,"name":"amountIn","type":"uint256"},{"indexed":false,"name":"amountOut","type":"uint256"},{"indexed":true,"name":"to","type":"address"}],"name":"Swap","type":"event"}
+];
+
+const AMM_ROUTER_ABI = [
+  {"inputs":[],"name":"WTRX","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"pool","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"amountTRXDesired","type":"uint256"},{"name":"amountCHIPDesired","type":"uint256"},{"name":"amountTRXMin","type":"uint256"},{"name":"amountCHIPMin","type":"uint256"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"addLiquidity","outputs":[{"name":"amountTRX","type":"uint256"},{"name":"amountCHIP","type":"uint256"},{"name":"liquidity","type":"uint256"}],"stateMutability":"payable","type":"function"},
+  {"inputs":[{"name":"liquidity","type":"uint256"},{"name":"amountTRXMin","type":"uint256"},{"name":"amountCHIPMin","type":"uint256"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"removeLiquidity","outputs":[{"name":"amountTRX","type":"uint256"},{"name":"amountCHIP","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"amountOutMin","type":"uint256"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"swapTRXForCHIP","outputs":[{"name":"amountOut","type":"uint256"}],"stateMutability":"payable","type":"function"},
+  {"inputs":[{"name":"amountIn","type":"uint256"},{"name":"amountOutMin","type":"uint256"},{"name":"to","type":"address"},{"name":"deadline","type":"uint256"}],"name":"swapCHIPForTRX","outputs":[{"name":"amountOut","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"amountIn","type":"uint256"},{"name":"amountOutMin","type":"uint256"}],"name":"getAmountOut","outputs":[{"name":"amountOut","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
+
+const CHIP_TOKEN_ABI = [
+  {"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
+
+// AMM Contract Addresses
+const AMM_ADDRESSES = {
+  mainnet: {
+    pool: process.env.REACT_APP_MAINNET_AMM_POOL || '',
+    router: process.env.REACT_APP_MAINNET_AMM_ROUTER || '',
+    chipToken: process.env.REACT_APP_MAINNET_CHIP_TOKEN || 'THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd'
+  },
+  testnet: {
+    pool: process.env.REACT_APP_TESTNET_AMM_POOL || '',
+    router: process.env.REACT_APP_TESTNET_AMM_ROUTER || '',
+    chipToken: process.env.REACT_APP_TESTNET_CHIP_TOKEN || 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c'
+  }
+};
+
+/**
+ * Get AMM contract addresses for current network
+ */
+export const getAMMAddresses = () => {
+  return AMM_ADDRESSES[currentNetwork] || AMM_ADDRESSES.testnet;
+};
+
+/**
+ * Get AMM Pool contract instance
+ */
+export const getAMMPoolContract = async () => {
+  const addresses = getAMMAddresses();
+  if (!addresses.pool) {
+    throw new Error('AMM Pool not deployed for this network');
+  }
+  
+  const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+  return await tronWeb.contract(AMM_POOL_ABI, addresses.pool);
+};
+
+/**
+ * Get AMM Router contract instance
+ */
+export const getAMMRouterContract = async () => {
+  const addresses = getAMMAddresses();
+  if (!addresses.router) {
+    throw new Error('AMM Router not deployed for this network');
+  }
+  
+  const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+  return await tronWeb.contract(AMM_ROUTER_ABI, addresses.router);
+};
+
+/**
+ * Get CHIP Token contract instance
+ */
+export const getCHIPTokenContract = async () => {
+  const addresses = getAMMAddresses();
+  if (!addresses.chipToken) {
+    throw new Error('CHIP Token not deployed for this network');
+  }
+  
+  const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+  return await tronWeb.contract(CHIP_TOKEN_ABI, addresses.chipToken);
+};
+
+/**
+ * Get pool reserves
+ */
+export const getPoolReserves = async () => {
+  const pool = await getAMMPoolContract();
+  const reserves = await pool.getReserves().call();
+  return {
+    reserveTRX: toNumber(reserves.reserveTRX),
+    reserveCHIP: toNumber(reserves.reserveCHIP),
+    blockTimestampLast: toNumber(reserves.blockTimestampLast)
+  };
+};
+
+/**
+ * Get user's LP token balance
+ */
+export const getLPBalance = async (address) => {
+  const pool = await getAMMPoolContract();
+  const balance = await pool.balanceOf(address).call();
+  return toNumber(balance);
+};
+
+/**
+ * Get CHIP token balance
+ */
+export const getCHIPBalance = async (address) => {
+  const chipToken = await getCHIPTokenContract();
+  const balance = await chipToken.balanceOf(address).call();
+  return toNumber(balance);
+};
+
+/**
+ * Approve CHIP for spending by Router
+ */
+export const approveCHIP = async (amount) => {
+  const addresses = getAMMAddresses();
+  const chipToken = await getCHIPTokenContract();
+  
+  const tx = await chipToken.approve(addresses.router, amount).send({
+    feeLimit: 100_000_000,
+    shouldPollResponse: false
+  });
+  
+  return tx;
+};
+
+/**
+ * Check CHIP allowance for Router
+ */
+export const getCHIPAllowance = async (ownerAddress) => {
+  const addresses = getAMMAddresses();
+  const chipToken = await getCHIPTokenContract();
+  
+  const allowance = await chipToken.allowance(ownerAddress, addresses.router).call();
+  return toNumber(allowance);
+};
+
+/**
+ * Swap TRX for CHIP
+ * @param {number} amountTRX - Amount of TRX to swap (in SUN)
+ * @param {number} amountOutMin - Minimum CHIP to receive (slippage protection)
+ * @param {number} deadline - Transaction deadline timestamp
+ */
+export const swapTRXForCHIP = async (amountTRX, amountOutMin, deadline) => {
+  const router = await getAMMRouterContract();
+  const address = getCurrentAddress();
+  
+  const tx = await router.swapTRXForCHIP(amountOutMin, address, deadline).send({
+    callValue: amountTRX,
+    feeLimit: 100_000_000,
+    shouldPollResponse: false
+  });
+  
+  return tx;
+};
+
+/**
+ * Swap CHIP for TRX
+ * @param {number} amountCHIP - Amount of CHIP to swap (in SUN)
+ * @param {number} amountOutMin - Minimum TRX to receive (slippage protection)
+ * @param {number} deadline - Transaction deadline timestamp
+ */
+export const swapCHIPForTRX = async (amountCHIP, amountOutMin, deadline) => {
+  const router = await getAMMRouterContract();
+  const address = getCurrentAddress();
+  
+  // First approve router to spend CHIP
+  const allowance = await getCHIPAllowance(address);
+  if (allowance < amountCHIP) {
+    await approveCHIP(amountCHIP);
+  }
+  
+  const tx = await router.swapCHIPForTRX(amountCHIP, amountOutMin, address, deadline).send({
+    feeLimit: 100_000_000,
+    shouldPollResponse: false
+  });
+  
+  return tx;
+};
+
+/**
+ * Add liquidity to pool
+ * @param {number} amountTRX - Amount of TRX to add (in SUN)
+ * @param {number} amountCHIP - Amount of CHIP to add (in SUN)
+ * @param {number} amountTRXMin - Minimum TRX to add (slippage)
+ * @param {number} amountCHIPMin - Minimum CHIP to add (slippage)
+ * @param {number} deadline - Transaction deadline timestamp
+ */
+export const addLiquidity = async (amountTRX, amountCHIP, amountTRXMin, amountCHIPMin, deadline) => {
+  const router = await getAMMRouterContract();
+  const address = getCurrentAddress();
+  
+  // First approve router to spend CHIP
+  const allowance = await getCHIPAllowance(address);
+  if (allowance < amountCHIP) {
+    await approveCHIP(amountCHIP);
+  }
+  
+  const tx = await router.addLiquidity(
+    amountTRX,
+    amountCHIP,
+    amountTRXMin,
+    amountCHIPMin,
+    address,
+    deadline
+  ).send({
+    callValue: amountTRX,
+    feeLimit: 150_000_000,
+    shouldPollResponse: false
+  });
+  
+  return tx;
+};
+
+/**
+ * Remove liquidity from pool
+ * @param {number} liquidity - Amount of LP tokens to remove
+ * @param {number} amountTRXMin - Minimum TRX to receive (slippage)
+ * @param {number} amountCHIPMin - Minimum CHIP to receive (slippage)
+ * @param {number} deadline - Transaction deadline timestamp
+ */
+export const removeLiquidity = async (liquidity, amountTRXMin, amountCHIPMin, deadline) => {
+  const router = await getAMMRouterContract();
+  const address = getCurrentAddress();
+  
+  const tx = await router.removeLiquidity(
+    liquidity,
+    amountTRXMin,
+    amountCHIPMin,
+    address,
+    deadline
+  ).send({
+    feeLimit: 150_000_000,
+    shouldPollResponse: false
+  });
+  
+  return tx;
+};
+
+/**
+ * Get amount out for a swap
+ */
+export const getAmountOut = async (amountIn, isTRXIn = true) => {
+  const router = await getAMMRouterContract();
+  
+  const amountOut = await router.getAmountOut(amountIn, isTRXIn ? 0 : 1).call();
+  return toNumber(amountOut);
+};
+
+/**
+ * Calculate price impact
+ */
+export const calculatePriceImpact = (amountIn, reserveIn, reserveOut) => {
+  const amountOut = (amountIn * reserveOut) / (reserveIn + amountIn);
+  const marketPrice = reserveOut / reserveIn;
+  const executionPrice = amountOut / amountIn;
+  return ((marketPrice - executionPrice) / marketPrice) * 100;
+};
+
 export default {
   isTronLinkInstalled,
   connectTronLink,
@@ -900,5 +1174,21 @@ export default {
   getAddressLink,
   setNetwork,
   getCurrentNetwork,
-  NETWORKS
+  NETWORKS,
+  // AMM functions
+  getAMMAddresses,
+  getAMMPoolContract,
+  getAMMRouterContract,
+  getCHIPTokenContract,
+  getPoolReserves,
+  getLPBalance,
+  getCHIPBalance,
+  approveCHIP,
+  getCHIPAllowance,
+  swapTRXForCHIP,
+  swapCHIPForTRX,
+  addLiquidity,
+  removeLiquidity,
+  getAmountOut,
+  calculatePriceImpact
 };

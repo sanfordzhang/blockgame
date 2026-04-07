@@ -1,0 +1,25 @@
+{
+  "network": "testnet",
+  "deployer": "TW2BxbsK6VoqMiotWuc56gsupF6gaEsXuA",
+  "chipToken": "TFWScXGFALnK9D79zf5Jrnw5on7aqJiaY3",
+  "pool": "TDoYGYAgPLrWTSjsANUuAjEFaAKr3oBo3v",
+  "router": "TXfeHckcmZeigv1ixUyFkTc9q7NHNGfcPJ",
+  "initialSupply": 1000000000000,
+  "liquidity": {
+    "trx": 500000000,
+    "chip": 10000000000
+  },
+  "price": {
+    "trxToChip": 20,
+    "chipToTrx": 0.05
+  },
+  "lpTokenSupply": "2.236067977e-9",
+  "deployedAt": "2026-04-07T11:09:05.429Z",
+  "notes": [
+    "CHIP 总供应量: 1,000,000 (已优化)",
+    "初始流动性: 500 TRX + 10,000 CHIP",
+    "价格比例: 1 TRX = 20 CHIP",
+    "部署者 CHIP 储备: 990,000 CHIP (用于奖励发放)",
+    "部署者 TRX 余额: ~172 TRX"
+  ]
+}

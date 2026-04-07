@@ -9,6 +9,7 @@ import TournamentTable from '../../pages/TournamentTable';
 import NFTGallery from '../../pages/NFTGallery';
 import CHIPWallet from '../../pages/CHIPWallet';
 import DAO from '../../pages/DAO';
+import DEX from '../../pages/DEX';
 
 // Admin Components
 import {
@@ -34,6 +35,7 @@ const AppRoutes = () => {
       <Route path="/nft" element={<NFTGallery />} />
       <Route path="/wallet" element={<CHIPWallet />} />
       <Route path="/dao" element={<DAO />} />
+      <Route path="/dex" element={<DEX />} />
       
       {/* Admin Routes */}
       <Route path="/admin/login" element={<AdminLogin />} />

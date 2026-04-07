@@ -9,6 +9,7 @@ import { BrowserRouter } from 'react-router-dom'
 import WebSocketProvider from './websocket/WebsocketProvider'
 import GameState from './game/GameState'
 import { TronProvider } from './tron/TronContext'
+import { AMMProvider } from './amm/AMMContext'
 
 const Providers = ({ children }) => (
   <BrowserRouter>
@@ -18,9 +19,11 @@ const Providers = ({ children }) => (
           <WebSocketProvider>
             <GameState>
               <TronProvider>
-                <Normalize />
-                <GlobalStyles />
-                {children}
+                <AMMProvider>
+                  <Normalize />
+                  <GlobalStyles />
+                  {children}
+                </AMMProvider>
               </TronProvider>
             </GameState>
           </WebSocketProvider>

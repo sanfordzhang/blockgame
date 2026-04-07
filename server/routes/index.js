@@ -19,6 +19,9 @@ const configureRoutes = (app) => {
   // DAO Governance API
   app.use('/api/dao', require('./api/dao'));
   
+  // AMM (DEX) API - will be configured later with services
+  app.use('/api/amm', require('./api/amm').router);
+  
   // Blockchain config endpoint
   app.get('/api/blockchain/config', (req, res) => {
     const config = require('../config');

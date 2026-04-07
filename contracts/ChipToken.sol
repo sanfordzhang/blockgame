@@ -15,7 +15,7 @@ contract ChipToken is ERC20, ERC20Burnable, Ownable, Pausable {
     
     // ============ Constants ============
     
-    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 1e6; // 1 billion with 6 decimals
+    uint256 public constant MAX_SUPPLY = 1_000_000 * 1e6; // 1 million with 6 decimals (burned from original 1 billion)
     uint8 private constant DECIMALS = 6;
     
     // ============ State Variables ============
@@ -24,9 +24,10 @@ contract ChipToken is ERC20, ERC20Burnable, Ownable, Pausable {
     mapping(address => bool) public isMinter;
     address[] public minters;
     
-    // VIP thresholds
-    uint256 public vipThreshold = 10_000 * 1e6; // 10,000 CHIP for VIP status
-    uint256 public superVipThreshold = 100_000 * 1e6; // 100,000 CHIP for Super VIP
+    // VIP thresholds (adjusted for 1M total supply)
+    uint256 public vipThreshold = 1_000 * 1e6; // 1,000 CHIP for Silver VIP
+    uint256 public superVipThreshold = 10_000 * 1e6; // 10,000 CHIP for Gold VIP
+    uint256 public platinumVipThreshold = 100_000 * 1e6; // 100,000 CHIP for Platinum VIP
     
     // VIP discount rates (in basis points)
     uint256 public vipDiscount = 500;    // 5% discount for VIP

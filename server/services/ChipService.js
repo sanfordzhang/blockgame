@@ -95,6 +95,68 @@ class ChipService {
     }
 
     /**
+     * Get reward rate with daily limit and dynamic adjustment
+     * - Daily reward limit: 5,000 CHIP
+     * - Dynamic adjustment: reserve < 50% → reward rate reduced by 50%
+     */
+    async getAdjustedRewardRate(baseReward) {
+        // Check treasury balance
+        const treasuryBalance = await this.getTreasuryBalance();
+        const reserveThreshold = this.reserveTarget * 0.5;
+        const isLowReserve = treasuryBalance < reserveThreshold;
+
+        // Check daily reward usage
+        const today = new Date().toISOString().split('T')[0];
+        const dailyUsed = this.dailyRewards[today] || 0;
+        const isDailyLimitReached = dailyUsed >= this.dailyRewardLimit;
+
+        if (isDailyLimitReached) {
+            console.log(`[ChipService] Daily reward limit reached: ${dailyUsed}/${this.dailyRewardLimit} CHIP`);
+            return 0;
+        }
+
+        let adjustedReward = baseReward;
+
+        // Apply 50% reduction if reserve is low
+        if (isLowReserve) {
+            adjustedReward = Math.floor(adjustedReward * 0.5);
+            console.log(`[ChipService] Low reserve detected, reducing reward by 50%: ${baseReward} → ${adjustedReward}`);
+        }
+
+        // Ensure we don't exceed daily limit
+        const remainingDaily = this.dailyRewardLimit - dailyUsed;
+        adjustedReward = Math.min(adjustedReward, remainingDaily);
+
+        return adjustedReward;
+    }
+
+    /**
+     * Get treasury balance (server's CHIP balance)
+     */
+    async getTreasuryBalance() {
+        const privateKey = process.env.TESTNET_PRIVATE_KEY || process.env.MAINNET_PRIVATE_KEY;
+        if (!privateKey || !this.tokenContract) return 0;
+
+        const { TronWeb } = require('tronweb');
+        const tronWebWithPK = new TronWeb({
+            fullHost: this.tronWeb.fullNode.host,
+            privateKey: privateKey
+        });
+
+        const treasuryResult = await tronWebWithPK.address.fromPrivateKey(privateKey);
+        const treasuryAddress = typeof treasuryResult === 'string' ? treasuryResult : treasuryResult.address;
+
+        return await this.getOnChainBalance(treasuryAddress);
+    }
+
+    /**
+     * Track daily rewards
+     */
+    dailyRewards = {};
+    dailyRewardLimit = 5000; // 5,000 CHIP per day
+    reserveTarget = 500000; // 500,000 CHIP reserve target
+
+    /**
      * Get VIP status based on balance (legacy method for backwards compatibility)
      */
     getVipStatus(balance) {
@@ -399,7 +461,10 @@ class ChipService {
             // Calculate CHIP reward: rake (TRX) × chipRewardRate × positionMultiplier
             // e.g., 5 TRX rake × 1.0 (VIP rate) × 0.3 (2nd place) = 1.5 CHIP
             const baseReward = Math.floor(rakeAmount * vipStatus.chipRewardRate);
-            const chipReward = Math.floor(baseReward * multiplier);
+            let chipReward = Math.floor(baseReward * multiplier);
+
+            // Apply daily limit and dynamic adjustment
+            chipReward = await this.getAdjustedRewardRate(chipReward);
 
             if (chipReward <= 0) {
                 console.log(`[ChipService] No CHIP reward for ${playerAddress} (rake: ${rakeAmount}, multiplier: ${multiplier})`);
@@ -411,7 +476,12 @@ class ChipService {
             // Send CHIP from treasury to player
             const result = await this.withdrawToWallet(playerAddress, chipReward);
 
+            // Track daily rewards
+            const today = new Date().toISOString().split('T')[0];
+            this.dailyRewards[today] = (this.dailyRewards[today] || 0) + chipReward;
+
             console.log(`[ChipService] CHIP reward sent: ${chipReward} CHIP to ${playerAddress}, tx: ${result.txid}`);
+            console.log(`[ChipService] Daily rewards used: ${this.dailyRewards[today]}/${this.dailyRewardLimit} CHIP`);
 
             return {
                 success: true,
