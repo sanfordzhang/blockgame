@@ -115,6 +115,9 @@ class LiquidityService {
             poolState.calculatePrices();
             await poolState.save();
             
+            // 记录价格历史（按分钟聚合）
+            await this.recordPriceHistory(poolState);
+            
             console.log(`[LiquidityService] Synced pool state: reserveTRX=${reserveTRX}, reserveCHIP=${reserveCHIP}`);
             
             return poolState;
@@ -239,6 +242,57 @@ class LiquidityService {
         } catch (error) {
             console.error('[LiquidityService] Record swap error:', error);
             throw error;
+        }
+    }
+
+    /**
+     * 记录价格历史（定时同步时调用）
+     */
+    async recordPriceHistory(poolState) {
+        try {
+            const timestamp = Math.floor(Date.now() / 1000 / 60) * 60; // 按分钟聚合
+            const price = poolState.price0;
+            
+            let priceHistory = await PriceHistory.findOne({
+                poolAddress: this.poolAddress,
+                timestamp,
+                interval: '1m'
+            });
+            
+            if (!priceHistory) {
+                // 创建新记录
+                priceHistory = new PriceHistory({
+                    poolAddress: this.poolAddress,
+                    timestamp,
+                    interval: '1m',
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                    reserve0: poolState.reserve0,
+                    reserve1: poolState.reserve1,
+                    price0: poolState.price0,
+                    price1: poolState.price1,
+                    volumeTRX: '0',
+                    volumeCHIP: '0',
+                    txCount: 0
+                });
+                console.log(`[LiquidityService] Created new price history at ${new Date(timestamp * 1000).toLocaleTimeString()}`);
+            } else {
+                // 更新K线（只更新 high/low/close，保留 open）
+                priceHistory.high = Math.max(priceHistory.high, price);
+                priceHistory.low = Math.min(priceHistory.low, price);
+                priceHistory.close = price;
+                priceHistory.reserve0 = poolState.reserve0;
+                priceHistory.reserve1 = poolState.reserve1;
+                priceHistory.price0 = poolState.price0;
+                priceHistory.price1 = poolState.price1;
+            }
+            
+            await priceHistory.save();
+            return priceHistory;
+        } catch (error) {
+            console.error('[LiquidityService] Record price history error:', error);
         }
     }
 
