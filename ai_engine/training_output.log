@@ -1,0 +1,16 @@
+============================================================
+CFR Training for No-Limit Texas Hold'em
+============================================================
+Iterations: 10000
+Save path: /Users/yingfengzhang/1JackSource/blockchain/game-core/ai_engine/models/cfr_v1
+Seed: 42
+============================================================
+
+[1/3] Creating No-Limit Hold'em environment...
+      Num actions: 5
+      State shape: [[54], [54]]
+
+[2/3] Initializing CFR agent...
+
+[3/3] Training CFR model...
+------------------------------------------------------------
