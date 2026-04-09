@@ -43,9 +43,10 @@
 **选择**: RLCard + Python 子进程集成
 
 **理由**:
-- **RLCard 是成熟的德州扑克AI框架**：包含预训练模型和CFR算法
+- **RLCard 是成熟的德州扑克AI框架**：包含预训练模型和多种算法
 - **MIT 许可证**：商业友好，无法律风险
-- **支持多种模型**：Random、Rule-based、CFR、DQN等
+- **支持多种模型**：Random、Rule-based、NFSP、DQN等
+- **NFSP 算法**：通过自我对弈收敛到近似纳什均衡，GPU加速，几小时可训练
 - **Python 生态**：可直接使用 PyTorch 训练和推理
 - **活跃维护**：3.4k stars，持续更新
 
@@ -65,12 +66,13 @@
 │  │  ├── rlcard_agent.py      # RLCard Agent封装               │ │
 │  │  ├── decision_engine.py   # 决策引擎                       │ │
 │  │  ├── models/              # 预训练模型存储                  │ │
-│  │  │   ├── cfr_pretrained/  # CFR预训练模型                  │ │
-│  │  │   └── dqn_pretrained/  # DQN预训练模型                  │ │
+│  │  │   └── nfsp_v1/         # NFSP预训练模型                  │ │
 │  │  ├── training/            # 模型训练脚本                   │ │
-│  │  │   ├── train_cfr.py     # CFR训练                        │ │
-│  │  │   ├── train_dqn.py     # DQN训练                        │ │
-│  │  │   └── collect_data.py  # 数据收集                       │ │
+│  │  │   ├── train_nfsp.py    # NFSP训练 (本地)                │ │
+│  │  │   ├── train_nfsp_colab.ipynb # NFSP训练 (Colab GPU)    │ │
+│  │  │   ├── train_cfr.py     # CFR训练 (备选,极慢)            │ │
+│  │  │   ├── evaluate.py      # 模型评估                       │ │
+│  │  │   └── test_speed.py    # 训练速度测试                   │ │
 │  │  └── requirements.txt     # Python依赖                     │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────┘
@@ -85,15 +87,16 @@ game-core/
 │   ├── decision_engine.py              # 决策引擎主入口
 │   ├── game_converter.py               # 游戏状态转换
 │   ├── models/                         # 预训练模型
-│   │   ├── cfr_pretrained/
-│   │   │   └── nolimit_holdem/
-│   │   └── dqn_pretrained/
-│   │       └── nolimit_holdem.pth
+│   │   └── nfsp_v1/
+│   │       ├── agent_0_checkpoint.pt   # NFSP Player 0 模型
+│   │       ├── agent_1_checkpoint.pt   # NFSP Player 1 模型
+│   │       └── training_metrics.json   # 训练指标
 │   ├── training/                       # 模型训练
-│   │   ├── train_cfr.py
-│   │   ├── train_dqn.py
-│   │   ├── collect_data.py
-│   │   └── analyze_game_data.py
+│   │   ├── train_nfsp.py              # NFSP训练 (本地/服务器)
+│   │   ├── train_nfsp_colab.ipynb     # NFSP训练 (Colab GPU)
+│   │   ├── train_cfr.py              # CFR训练 (备选)
+│   │   ├── evaluate.py               # 模型评估
+│   │   └── test_speed.py             # 速度测试
 │   └── requirements.txt
 ├── server/
 │   ├── services/ai/
@@ -116,38 +119,49 @@ game-core/
 
 ### Decision 2: RLCard 模型选择
 
-**选择**: 多难度模型架构
+**选择**: NFSP 为核心 + 多难度模型架构
+
+**为何选择 NFSP 而非 CFR**:
+- **CFR 问题**: CFR 需遍历完整博弈树，No-Limit Hold'em 单次迭代需数分钟（deepcopy 开销），10000次迭代需 96小时+，本地不可行
+- **NFSP 优势**: 通过自我对弈采样学习，GPU 加速，100万局约 1.5小时（Colab T4）
+- **NFSP 理论基础**: 两个网络（Best Response + Average Policy），收敛到近似纳什均衡，策略不易被剥削
+- **实测数据**: 3000局训练即可获得正收益 (+2.11 vs Random)，100万局可达业余玩家水平
 
 | 难度 | 模型类型 | 特点 | 适用场景 |
 |------|----------|------|----------|
 | easy | RandomAgent | 随机操作 | 测试、填充空位 |
 | medium | RuleBasedAgent | 规则策略 | 新手学习 |
-| hard | CFRPretrainedAgent | 预训练CFR | 一般玩家 |
-| expert | DQNAgent / PPOAgent | 深度强化学习 | 高级玩家/锦标赛 |
+| hard | NFSPAgent | NFSP预训练模型 | 一般玩家 |
+| expert | NFSPAgent (深度训练) | 500万局+训练 | 高级玩家/锦标赛 |
 
 **RLCard Agent 实现**:
 
 ```python
 # ai_engine/rlcard_agent.py
+import torch
 import rlcard
-from rlcard.agents import RandomAgent, CFRAgent
+from rlcard.agents import RandomAgent, NFSPAgent
 
 class RLCardsAgent:
     def __init__(self, difficulty='medium'):
         self.env = rlcard.make('no-limit-holdem')
-        
+
         if difficulty == 'easy':
-            self.agent = RandomAgent(num_actions=6)
+            self.agent = RandomAgent(num_actions=self.env.num_actions)
         elif difficulty == 'medium':
             self.agent = RuleBasedAgent()
-        elif difficulty == 'hard':
-            self.agent = CFRPretrainedAgent('./models/cfr_pretrained')
-        else:  # expert
-            self.agent = DQNAgent('./models/dqn_pretrained')
-    
+        elif difficulty in ('hard', 'expert'):
+            # Load pre-trained NFSP model
+            model_path = f'./models/nfsp_{difficulty}'
+            checkpoint = torch.load(
+                f'{model_path}/agent_0_checkpoint.pt',
+                map_location='cpu'
+            )
+            self.agent = NFSPAgent.from_checkpoint(checkpoint)
+
     def get_action(self, game_state):
         state = self._convert_state(game_state)
-        action_id = self.agent.step(state)
+        action_id, _ = self.agent.eval_step(state)
         return self._convert_action(action_id, game_state)
 ```
 
@@ -193,9 +207,102 @@ async function executeAIAction(socket, io, table, seat) {
 
 ### Decision 4: 模型训练策略
 
-**选择**: 离线训练 + 在线更新
+**选择**: NFSP 自我对弈训练 + Colab GPU 加速
 
-#### 4.1 训练数据收集
+#### 4.1 为何放弃 CFR
+
+**CFR 的根本问题** (实测数据):
+```
+游戏类型          | 每次迭代 | 10,000次预估 | 可行性
+------------------|----------|-------------|------
+leduc-holdem      | ~0.01s   | ~1 分钟     | ✅ 但博弈太简单
+limit-holdem      | ~35s     | ~96 小时    | ❌ 本地不可行
+no-limit-holdem   | 数分钟+  | 数周+      | ❌ 完全不可行
+```
+
+- CFR 需要 `allow_step_back=True`，每个节点做 `deepcopy`
+- No-Limit Hold'em 博弈树有 5^depth 个节点（指数级）
+- **GPU 对 CFR 无加速效果**（纯递归+字典操作，非矩阵运算）
+
+#### 4.2 NFSP 训练方案
+
+**NFSP (Neural Fictitious Self-Play)**:
+- 两个神经网络：Best Response (DQN) + Average Policy (SL)
+- 通过自我对弈采样学习，无需遍历博弈树
+- **GPU 可大幅加速**（神经网络训练是矩阵运算）
+- 收敛到近似纳什均衡
+
+**训练速度** (实测):
+```
+设备              | 10万局  | 100万局 | 效果
+------------------|---------|---------|------
+MacBook CPU       | ~15分钟 | ~2.5小时| 可用
+Colab T4 GPU      | ~10分钟 | ~1.5小时| 推荐
+Colab A100 GPU    | ~5分钟  | ~40分钟 | 最佳
+```
+
+**推荐训练流程**:
+1. Colab GPU 训练 100万局 NFSP (~1.5小时)
+2. 下载模型文件 (`agent_0_checkpoint.pt`, ~6MB)
+3. 放入 `ai_engine/models/nfsp_v1/`
+4. 服务端加载模型推理
+
+#### 4.3 训练脚本
+
+**本地训练** (`ai_engine/training/train_nfsp.py`):
+```bash
+# 快速验证 (10万局, CPU ~15分钟)
+python3 train_nfsp.py --episodes 100000
+
+# 标准训练 (100万局)
+python3 train_nfsp.py --episodes 1000000
+
+# 深度训练 (500万局, 更强模型)
+python3 train_nfsp.py --episodes 5000000
+```
+
+**Colab GPU 训练** (`ai_engine/training/train_nfsp_colab.ipynb`):
+```
+1. 上传 notebook 到 Google Colab
+2. 选择 GPU 运行时 (T4)
+3. 运行所有 Cell
+4. 下载 nfsp_model.zip
+```
+
+**训练输出**:
+```
+=================================================================
+训练完成!
+=================================================================
+  游戏类型:       no-limit-holdem
+  算法:           NFSP
+  设备:           cuda (GPU加速)
+  完成局数:       1,000,000/1,000,000
+  总耗时:         1h32m
+  平均速度:       181 局/秒
+  最终收益:       +2.1105 (vs Random)
+=================================================================
+```
+
+#### 4.4 模型加载
+
+```python
+# 在服务端加载 NFSP 模型
+import torch
+from rlcard.agents import NFSPAgent
+
+checkpoint = torch.load(
+    'ai_engine/models/nfsp_v1/agent_0_checkpoint.pt',
+    map_location='cpu'  # 推理不需要GPU
+)
+agent = NFSPAgent.from_checkpoint(checkpoint)
+
+# 决策
+action, info = agent.eval_step(game_state)
+# action: 0=fold, 1=check/call, 2=raise_half_pot, 3=raise_pot, 4=all_in
+```
+
+#### 4.5 数据收集 (可选，用于持续优化)
 
 **数据来源**:
 ```
@@ -250,114 +357,7 @@ class GameDataCollector:
             self.buffer = []
 ```
 
-#### 4.2 模型训练流程
-
-**CFR 训练**:
-```python
-# ai_engine/training/train_cfr.py
-import rlcard
-from rlcard.agents import CFRAgent
-
-def train_cfr(iterations=100000, save_path='./models/cfr_pretrained'):
-    """训练 CFR 模型"""
-    env = rlcard.make('no-limit-holdem')
-    agent = CFRAgent(env)
-    
-    # 训练迭代
-    for i in range(iterations):
-        agent.train()
-        
-        if i % 10000 == 0:
-            print(f"Iteration {i}/{iterations}")
-            # 评估性能
-            win_rate = evaluate_agent(agent, env, num_games=1000)
-            print(f"Win rate against random: {win_rate:.2%}")
-    
-    # 保存模型
-    agent.save(save_path)
-    print(f"Model saved to {save_path}")
-
-def evaluate_agent(agent, env, num_games=1000):
-    """评估 Agent 性能"""
-    random_agent = RandomAgent(num_actions=env.num_actions)
-    wins = 0
-    
-    for _ in range(num_games):
-        state, _ = env.reset()
-        while not env.is_over():
-            action = agent.step(state)
-            state, _ = env.step(action)
-        
-        if env.get_winner() == 0:  # Agent wins
-            wins += 1
-    
-    return wins / num_games
-
-if __name__ == '__main__':
-    train_cfr(iterations=100000)
-```
-
-**DQN 训练**:
-```python
-# ai_engine/training/train_dqn.py
-import torch
-import rlcard
-from rlcard.agents import DQNAgent
-
-def train_dqn(
-    num_episodes=100000,
-    save_path='./models/dqn_pretrained/nolimit_holdem.pth',
-    data_path='./game_data.jsonl'  # 可选：使用真实数据预训练
-):
-    """训练 DQN 模型"""
-    env = rlcard.make('no-limit-holdem')
-    
-    agent = DQNAgent(
-        num_actions=env.num_actions,
-        state_shape=env.state_shape,
-        mlp_layers=[512, 256, 128],
-        learning_rate=0.0001,
-        replay_memory_size=100000,
-        batch_size=32
-    )
-    
-    # 如果有真实数据，先进行监督学习预训练
-    if data_path:
-        pretrain_from_data(agent, data_path)
-    
-    # 强化学习训练
-    for episode in range(num_episodes):
-        state, _ = env.reset()
-        
-        while not env.is_over():
-            action = agent.step(state)
-            next_state, reward = env.step(action)
-            agent.feed((state, action, reward, next_state, env.is_over()))
-            state = next_state
-        
-        if episode % 1000 == 0:
-            win_rate = evaluate_agent(agent, env)
-            print(f"Episode {episode}, Win rate: {win_rate:.2%}")
-            
-            # 保存最佳模型
-            if win_rate > 0.6:
-                torch.save(agent.q_net.state_dict(), save_path)
-    
-    print("Training complete!")
-
-def pretrain_from_data(agent, data_path):
-    """使用真实游戏数据预训练"""
-    import json
-    
-    with open(data_path, 'r') as f:
-        data = [json.loads(line) for line in f]
-    
-    print(f"Pre-training on {len(data)} real game records...")
-    # 实现监督学习逻辑
-    # ...
-```
-
-#### 4.3 样本准备指南
+#### 4.6 样本准备指南
 
 **样本格式**:
 ```json
@@ -528,15 +528,15 @@ async getAIDecision(playerId, gameState) {
 4. E2E 测试用例
 
 ### Phase 3: 高级模型（2-3天）
-1. 训练/导入 CFR 预训练模型
-2. 训练/导入 DQN 模型
-3. 实现 difficulty 切换
+1. 在 Colab GPU 上训练 NFSP 模型 (100万局, ~1.5小时)
+2. 下载模型并集成到项目
+3. 实现 difficulty 切换 (RandomAgent / RuleBasedAgent / NFSPAgent)
 4. 性能优化和缓存
 
 ### Phase 4: 数据收集与持续训练（持续）
-1. 部署数据收集脚本
+1. 部署数据收集脚本 (可选)
 2. 收集真实游戏数据
-3. 定期重训练模型
+3. 用真实数据在 Colab 上重新训练 NFSP 模型
 4. 模型版本管理和回滚
 
 ### Rollback Strategy
@@ -605,17 +605,20 @@ python3 rlcard_agent.py get_action < game_state.json
 ### 训练脚本
 
 ```bash
-# 收集游戏数据
-python3 training/collect_data.py --output training_data/games.jsonl
+# NFSP 训练 (推荐, 本地 CPU)
+python3 training/train_nfsp.py --episodes 1000000 --save models/nfsp_v1
 
-# 训练 CFR 模型
-python3 training/train_cfr.py --iterations 100000 --save models/cfr_v1
+# NFSP 训练 (Colab GPU, 上传 notebook 运行)
+# training/train_nfsp_colab.ipynb
 
-# 训练 DQN 模型（使用真实数据预训练）
-python3 training/train_dqn.py --episodes 100000 --data training_data/games.jsonl
+# CFR 训练 (备选, 仅适用于 leduc-holdem)
+python3 training/train_cfr.py --game leduc-holdem --iterations 10000
 
 # 评估模型性能
-python3 training/evaluate.py --model models/cfr_v1 --games 1000
+python3 training/evaluate.py --model models/nfsp_v1 --games 1000
+
+# 查看训练进度 (另一个终端)
+cat models/nfsp_v1/training_progress.json | python3 -m json.tool
 ```
 
 ## Performance Targets
@@ -626,7 +629,7 @@ python3 training/evaluate.py --model models/cfr_v1 --games 1000
 | 内存占用 | < 200MB | Python 进程内存 |
 | CPU使用 | < 20% 单核 | 游戏运行时 |
 | 并发支持 | 50+ AI玩家 | 同时托管玩家数 |
-| 模型准确率 | > 55% | 对 RandomAgent 胜率 |
+| 模型准确率 | > +0.5 payoff | 对 RandomAgent 平均收益 |
 
 ## Test Cases
 

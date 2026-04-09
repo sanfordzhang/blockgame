@@ -3,7 +3,9 @@
 ## Design Decisions (Updated)
 
 - **RLCard 集成**: 使用 RLCard AI 模型，无需自研规则引擎
+- **NFSP 模型**: 使用 NFSP (Neural Fictitious Self-Play) 算法训练，GPU 加速，近似纳什均衡
 - **Python 模块**: Node.js 通过子进程调用 Python AI 引擎
+- **Colab 训练**: 在 Google Colab GPU 上训练 NFSP 模型 (~1.5小时/100万局)
 - **模型训练**: 支持使用真实游戏数据持续训练优化模型
 - **锦标赛支持**: 允许锦标赛中使用AI托管（展示AI能力）
 - **NFT成就**: AI参与的手牌正常计入NFT成就，不标记AI辅助
@@ -37,8 +39,8 @@
 
 - [ ] 2.1 Implement `RandomAgent` wrapper (easy difficulty)
 - [ ] 2.2 Implement `RuleBasedAgent` (medium difficulty)
-- [ ] 2.3 Implement `CFRPretrainedAgent` (hard difficulty)
-- [ ] 2.4 Implement `DQNAgent` / `PPOAgent` (expert difficulty)
+- [ ] 2.3 Implement `NFSPAgent` loader (hard difficulty) — 加载预训练 NFSP 模型
+- [ ] 2.4 Implement `NFSPAgent` expert variant (expert difficulty) — 加载深度训练模型 (500万局+)
 - [ ] 2.5 Implement game state converter (Node.js → RLCard format)
 - [ ] 2.6 Implement action converter (RLCard → Node.js format)
 - [ ] 2.7 Add fallback decision logic for errors/timeout
@@ -145,14 +147,15 @@
 
 ## 10. 模型训练相关
 
-- [ ] 10.1 Create `ai_engine/training/` directory
-- [ ] 10.2 Create `ai_engine/training/collect_data.py` - 数据收集脚本
-- [ ] 10.3 Create `ai_engine/training/train_cfr.py` - CFR 训练脚本
-- [ ] 10.4 Create `ai_engine/training/train_dqn.py` - DQN 训练脚本
-- [ ] 10.5 Create `ai_engine/training/evaluate.py` - 模型评估脚本
-- [ ] 10.6 Create `ai_engine/training/analyze_game_data.py` - 数据分析
+- [x] 10.1 Create `ai_engine/training/` directory — 已完成
+- [x] 10.2 Create `ai_engine/training/train_nfsp.py` — NFSP 本地训练脚本 (已完成)
+- [x] 10.3 Create `ai_engine/training/train_nfsp_colab.ipynb` — Colab GPU 训练 notebook (已完成)
+- [x] 10.4 Create `ai_engine/training/train_cfr.py` — CFR 训练脚本 (备选，已完成)
+- [x] 10.5 Create `ai_engine/training/evaluate.py` — 模型评估脚本 (已完成)
+- [x] 10.6 Create `ai_engine/training/test_speed.py` — 训练速度对比测试 (已完成)
 - [ ] 10.7 Create `ai_engine/models/` directory for pre-trained models
-- [ ] 10.8 Download/create initial pre-trained models
+- [ ] 10.8 Train NFSP model on Colab GPU (100万局, ~1.5小时) and download checkpoint
+- [ ] 10.9 (可选) Train expert-level NFSP model (500万局) for tournament mode
 
 ## 11. 数据收集集成
 
@@ -418,4 +421,4 @@ describe('AI Gameplay E2E', () => {
 | 内存占用 | < 200MB | 监控系统 |
 | 测试覆盖率 | > 80% | Jest coverage |
 | E2E测试 | 全部通过 | Playwright |
-| AI胜率 | > 55% (vs random) | 评估脚本 |
+| AI收益 | > +0.5 payoff (vs random) | 评估脚本 |
