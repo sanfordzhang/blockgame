@@ -6,6 +6,7 @@ const xssClean = require('xss-clean');
 const expressRateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const cors = require('cors');
+const { corsOptions } = require('./corsConfig');
 const logger = require('./logger');
 
 const configureMiddleware = (app) => {
@@ -35,20 +36,8 @@ const configureMiddleware = (app) => {
   // Prevent http param pollution
   app.use(hpp());
 
-  // Enable CORS with specific origins
-  app.use(cors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001',
-      'http://localhost:7777',
-      'http://127.0.0.1:7777',
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-wallet-address'],
-  }));
+  // Enable dynamic CORS for localhost, LAN, tunnel, and configured origins
+  app.use(cors(corsOptions));
 
   // Custom logging middleware
   app.use(logger);

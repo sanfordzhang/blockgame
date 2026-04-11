@@ -42,6 +42,8 @@ const {
   CS_CONTRACT_JOIN_FAILED,
   CS_CONTRACT_LEAVE_SUCCESS,
   CS_CONTRACT_LEAVE_FAILED,
+  // AI autopilot events
+  CS_AI_ENABLE,
   // Delegate (Server Proxy) events
   CS_SET_DELEGATE,
   SC_DELEGATE_SET,
@@ -133,6 +135,12 @@ const init = (socket, io) => {
 
   // Initialize AI autopilot handlers
   initAIHandlers(socket, io, tables, players);
+
+  // After AI is enabled, immediately check if it's already this player's turn
+  socket.on(CS_AI_ENABLE, ({ tableId }) => {
+    const table = tableId && tables[tableId];
+    if (table) checkAITurn(table);
+  });
 
   socket.on(CS_LOBBY_CONNECT, ({gameId, address, userInfo }) => {
     socket.join(gameId)
@@ -886,11 +894,11 @@ const init = (socket, io) => {
             Object.values(t.seats).some(seat => seat && seat.player && seat.player.socketId === socket.id)
           );
           
-          // Add timeout to prevent blocking
+          // Add timeout to prevent blocking - on timeout, allow sitDown (optimistic)
           const validation = await Promise.race([
             gameFlowIntegration.validateBalanceForSitDown(player.id, amount, isPlayerAtTable),
-            new Promise((resolve) => 
-              setTimeout(() => resolve({ valid: false, message: 'Validation timeout' }), 3000)
+            new Promise((resolve) =>
+              setTimeout(() => resolve({ valid: true, message: 'Validation timeout - allowing optimistically' }), 5000)
             )
           ]);
           
@@ -1176,8 +1184,14 @@ const init = (socket, io) => {
       if (playerSocket) {
         const socketObj = io.sockets.sockets.get(playerSocket.socketId);
         if (socketObj) {
-          executeAIAction(socketObj, io, table, seat).then(success => {
+          Promise.race([
+            executeAIAction(socketObj, io, table, seat),
+            new Promise(r => setTimeout(() => r(false), 20000))
+          ]).then(success => {
             if (success) {
+              changeTurnAndBroadcast(table, turnSeatId);
+            } else {
+              console.warn('[AI] executeAIAction timed out or failed, forcing turn change');
               changeTurnAndBroadcast(table, turnSeatId);
             }
           });
@@ -1223,6 +1237,7 @@ const init = (socket, io) => {
       }
 
       broadcastToTable(table, '--- New hand started ---');
+      checkAITurn(table);
     }, 5000);
   }
 

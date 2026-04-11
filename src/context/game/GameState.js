@@ -51,6 +51,8 @@ const GameState = ({ children }) => {
   // AI state
   const [aiState, setAIState] = useState({ enabled: false, difficulty: 'medium', handsPlayed: 0, maxHands: 100 })
   const [suggestion, setSuggestion] = useState(null)
+  const [lastAIAction, setLastAIAction] = useState(null)
+  const aiStateRef = React.useRef(aiState)
 
   const currentTableRef = React.useRef(currentTable)
   const seatIdRef = React.useRef(seatId)
@@ -71,7 +73,13 @@ const GameState = ({ children }) => {
   }, [seatId])
 
   useEffect(() => {
+    aiStateRef.current = aiState
+  }, [aiState])
+
+  useEffect(() => {
     if (turn && !turnTimeOutHandle) {
+      // Skip auto-fold when AI autopilot is handling the turn
+      if (aiStateRef.current.enabled) return
       const handle = setTimeout(fold, 15000)
       setHandle(handle)
     } else {
@@ -329,6 +337,9 @@ const GameState = ({ children }) => {
 
     socket.on(SC_AI_ACTION, (data) => {
       console.log('[AI] Action:', data.action, data.amount)
+      setLastAIAction(data)
+      // Auto-clear after 4 seconds
+      setTimeout(() => setLastAIAction(null), 4000)
     })
 
     socket.on(SC_AI_STATS, (data) => {
@@ -373,6 +384,7 @@ const GameState = ({ children }) => {
         turn,
         aiState,
         suggestion,
+        lastAIAction,
         enableAI,
         disableAI,
         getSuggestion,

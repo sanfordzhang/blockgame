@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const path = require('path');
 
 class AIService {
@@ -8,6 +9,17 @@ class AIService {
     this.pythonPath = process.platform === 'darwin' ? '/usr/bin/arch' : 'python3';
     this.pythonArgs = process.platform === 'darwin' ? ['-arm64', 'python3'] : [];
     this.enginePath = path.join(__dirname, '..', '..', '..', 'ai_engine', 'decision_engine.py');
+
+    this.worker = null;
+    this.workerReady = false;
+    this.workerStartPromise = null;
+    this.pendingRequests = new Map();
+    this.responseBuffer = '';
+    this.restartAttempts = 0;
+    this.maxRestartAttempts = 5;
+    this.restartTimer = null;
+    this.startTimeoutHandle = null;
+    this.shuttingDown = false;
   }
 
   enableAI(playerId, difficulty = 'medium', maxHands = 100) {
@@ -46,7 +58,7 @@ class AIService {
     if (config.handsPlayed >= config.maxHands) {
       console.log(`[AI] Auto-disabling for ${playerId} after ${config.handsPlayed} hands`);
       config.enabled = false;
-      return false; // signal to disable
+      return false;
     }
     return true;
   }
@@ -54,7 +66,7 @@ class AIService {
   updateStats(playerId, action) {
     const config = this.aiPlayers.get(playerId);
     if (!config) return;
-    const key = action + 's'; // fold->folds, raise->raises
+    const key = action + 's';
     if (config.stats[key] !== undefined) config.stats[key]++;
   }
 
@@ -72,79 +84,257 @@ class AIService {
     };
   }
 
-  async getAIDecision(playerId, gameState, timeout = 5000) {
+  async getAIDecision(playerId, gameState, timeout = 8000) {
     const difficulty = this.getDifficulty(playerId);
-    const input = JSON.stringify({ ...gameState, difficulty });
+    // Give more time for NFSP model (hard/expert) on first load
+    const effectiveTimeout = (difficulty === 'hard' || difficulty === 'expert') ? Math.max(timeout, 15000) : timeout;
 
     try {
-      const result = await this._callPython(input, timeout);
-      const decision = JSON.parse(result);
+      const decision = await this._sendRequest({ ...gameState, difficulty }, effectiveTimeout);
       this.updateStats(playerId, decision.action);
-      console.log(`[AI] Decision for ${playerId}: ${decision.action} (${decision.confidence})`);
+      console.log(`[AI] Decision for ${playerId}: ${decision.action} (${decision.confidence}) in ${decision.decision_time_ms}ms`);
       return decision;
     } catch (err) {
       console.error(`[AI] Error getting decision: ${err.message}`);
-      return this._fallbackDecision(gameState);
+      return this._fallbackDecision(gameState, err.message);
     }
   }
 
   async getSuggestion(gameState, difficulty = 'hard') {
-    const input = JSON.stringify({ ...gameState, difficulty });
     try {
-      const result = await this._callPython(input, 5000);
-      return JSON.parse(result);
+      return await this._sendRequest({ ...gameState, difficulty }, 2000);
     } catch (err) {
-      return this._fallbackDecision(gameState);
+      return this._fallbackDecision(gameState, err.message);
     }
   }
 
-  _callPython(input, timeout) {
-    return new Promise((resolve, reject) => {
-      const python = spawn(this.pythonPath, [...this.pythonArgs, this.enginePath], {
-        cwd: path.dirname(this.enginePath),
-        timeout
-      });
+  async preload() {
+    await this._ensureWorker();
+  }
 
-      let stdout = '';
-      let stderr = '';
+  async shutdown() {
+    this.shuttingDown = true;
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
 
-      python.stdin.write(input);
-      python.stdin.end();
+    const worker = this.worker;
+    this.worker = null;
+    this.workerReady = false;
+    this.workerStartPromise = null;
 
-      python.stdout.on('data', (data) => { stdout += data.toString(); });
-      python.stderr.on('data', (data) => { stderr += data.toString(); });
+    if (!worker) return;
 
-      const timer = setTimeout(() => {
-        python.kill();
-        reject(new Error('Python timeout'));
-      }, timeout);
+    for (const [requestId, pending] of this.pendingRequests) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('AI worker shutting down'));
+      this.pendingRequests.delete(requestId);
+    }
 
-      python.on('close', (code) => {
-        clearTimeout(timer);
-        if (code === 0 && stdout.trim()) {
-          // Filter out INFO lines from rlcard
-          const lines = stdout.trim().split('\n');
-          const jsonLine = lines.filter(l => l.startsWith('{'))[0] || lines[lines.length - 1];
-          resolve(jsonLine);
-        } else {
-          reject(new Error(`Python exit ${code}: ${stderr.slice(0, 200)}`));
-        }
-      });
+    try {
+      worker.stdin.write(JSON.stringify({ command: 'shutdown', request_id: crypto.randomUUID() }) + '\n');
+    } catch (err) {
+      // Ignore and fall through to kill.
+    }
 
-      python.on('error', (err) => {
-        clearTimeout(timer);
-        reject(err);
+    await new Promise((resolve) => {
+      const forceKill = setTimeout(() => {
+        if (!worker.killed) worker.kill();
+        resolve();
+      }, 1000);
+
+      worker.once('close', () => {
+        clearTimeout(forceKill);
+        resolve();
       });
     });
   }
 
-  _fallbackDecision(gameState) {
+  _ensureWorker() {
+    if (this.worker && this.workerReady) {
+      return Promise.resolve();
+    }
+
+    if (this.workerStartPromise) {
+      return this.workerStartPromise;
+    }
+
+    this.shuttingDown = false;
+    this.workerStartPromise = new Promise((resolve, reject) => {
+      console.log('[AI Worker] Starting persistent Python worker...');
+
+      const worker = spawn(this.pythonPath, [...this.pythonArgs, this.enginePath, '--worker'], {
+        cwd: path.dirname(this.enginePath),
+        env: { ...process.env, PYTHONUNBUFFERED: '1' },
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      this.worker = worker;
+      this.workerReady = false;
+      this.responseBuffer = '';
+
+      const cleanupStart = () => {
+        if (this.startTimeoutHandle) {
+          clearTimeout(this.startTimeoutHandle);
+          this.startTimeoutHandle = null;
+        }
+      };
+
+      this.startTimeoutHandle = setTimeout(() => {
+        cleanupStart();
+        this.workerStartPromise = null;
+        if (this.worker === worker && !this.workerReady) {
+          worker.kill();
+        }
+        reject(new Error('AI worker startup timeout'));
+      }, 30000);
+
+      worker.stdout.on('data', (data) => this._processStdout(data, resolve, cleanupStart));
+
+      worker.stderr.on('data', (data) => {
+        const message = data.toString().trim();
+        if (message) console.error(`[AI Worker] ${message}`);
+      });
+
+      worker.on('error', (err) => {
+        cleanupStart();
+        if (this.worker === worker) {
+          this.worker = null;
+          this.workerReady = false;
+        }
+        this.workerStartPromise = null;
+        reject(err);
+      });
+
+      worker.on('close', (code, signal) => {
+        cleanupStart();
+        const wasStarting = this.workerStartPromise !== null;
+        if (this.worker === worker) {
+          this.worker = null;
+          this.workerReady = false;
+        }
+        this.workerStartPromise = null;
+
+        for (const [requestId, pending] of this.pendingRequests) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error(`AI worker exited (${code ?? 'null'}${signal ? `, ${signal}` : ''})`));
+          this.pendingRequests.delete(requestId);
+        }
+
+        if (!this.shuttingDown) {
+          console.warn(`[AI Worker] exited with code=${code} signal=${signal || 'none'}`);
+          this._scheduleRestart();
+        }
+
+        if (wasStarting && !this.shuttingDown && code !== 0) {
+          reject(new Error(`AI worker failed during startup (${code ?? 'null'})`));
+        }
+      });
+    });
+
+    return this.workerStartPromise;
+  }
+
+  _processStdout(data, resolveStart, cleanupStart) {
+    this.responseBuffer += data.toString();
+    const lines = this.responseBuffer.split('\n');
+    this.responseBuffer = lines.pop();
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      let response;
+      try {
+        response = JSON.parse(line);
+      } catch (err) {
+        console.warn('[AI Worker] Ignoring non-JSON stdout:', line);
+        continue;
+      }
+
+      if (response.status === 'ready') {
+        cleanupStart();
+        this.workerReady = true;
+        this.restartAttempts = 0;
+        this.workerStartPromise = null;
+        resolveStart();
+        continue;
+      }
+
+      const requestId = response.request_id;
+      if (!requestId) {
+        console.warn('[AI Worker] Response missing request_id:', response);
+        continue;
+      }
+
+      const pending = this.pendingRequests.get(requestId);
+      if (!pending) continue;
+
+      clearTimeout(pending.timer);
+      this.pendingRequests.delete(requestId);
+
+      if (response.error) {
+        pending.reject(new Error(response.error));
+      } else {
+        delete response.request_id;
+        pending.resolve(response);
+      }
+    }
+  }
+
+  _scheduleRestart() {
+    if (this.shuttingDown || this.restartTimer) return;
+    if (this.restartAttempts >= this.maxRestartAttempts) {
+      console.error('[AI Worker] Max restart attempts reached');
+      return;
+    }
+
+    const delay = Math.min(1000 * (2 ** this.restartAttempts), 10000);
+    this.restartAttempts += 1;
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = null;
+      this._ensureWorker().catch((err) => {
+        console.error(`[AI Worker] Restart failed: ${err.message}`);
+      });
+    }, delay);
+  }
+
+  async _sendRequest(payload, timeout) {
+    await this._ensureWorker();
+
+    if (!this.worker || !this.workerReady) {
+      throw new Error('AI worker unavailable');
+    }
+
+    const requestId = crypto.randomUUID();
+    const request = JSON.stringify({ ...payload, request_id: requestId }) + '\n';
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingRequests.delete(requestId);
+        reject(new Error('AI worker request timeout'));
+      }, timeout);
+
+      this.pendingRequests.set(requestId, { resolve, reject, timer });
+
+      try {
+        this.worker.stdin.write(request);
+      } catch (err) {
+        clearTimeout(timer);
+        this.pendingRequests.delete(requestId);
+        reject(err);
+      }
+    });
+  }
+
+  _fallbackDecision(gameState, errorMessage = 'Python unavailable') {
     const callAmount = gameState.callAmount || gameState.call_amount || 0;
     return {
       action: callAmount === 0 ? 'check' : 'fold',
       amount: 0,
       confidence: 0,
-      reason: 'Fallback: Python unavailable'
+      reason: `Fallback: ${errorMessage}`
     };
   }
 }

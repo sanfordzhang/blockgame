@@ -155,9 +155,11 @@ Checking page thumbnails...
 3.玩家2模拟点击操作，保证游戏可继续
 4.完善相关测试用例，自动完成所有流程操作，而不仅仅是通过接口测试验证。
 5.UI\逻辑\合约调用，端对端集成测试流程走一遍，解决相关问题
-6.不要启动新的chrome浏览器，连接现有已启动的调试chrome浏览器
-7.请参考按docs/GAME_BOT_TEST_FLOW.md文档内的测试流程进行测试，间断性的截图看状态分析，不要卡死
-8.按照docs/GAME_BOT_TEST_FLOW.md 运行游戏自测流程，启动机器人，CDP 控制浏览器 UI 真实操作，让浏览器完整走这个流程，执行cdp-play-game.js，mock 顺子牌型，重新生成NFT
+
+## 自动化测试guide
+1.不要启动新的chrome浏览器，连接现有已启动的调试chrome浏览器
+2.请参考按docs/GAME_BOT_TEST_FLOW.md文档内的测试流程进行测试，间断性的截图看状态分析，不要卡死
+3.按照docs/GAME_BOT_TEST_FLOW.md 运行游戏自测流程，启动机器人，CDP 控制浏览器 UI 真实操作，让浏览器完整走这个流程，执行cdp-play-game.js
 
 PLAYER1.address = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
 PLAYER2.address = 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4';

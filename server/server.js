@@ -8,6 +8,7 @@ const configureMiddleware = require("./middleware");
 const configureRoutes = require("./routes");
 const socketio = require("socket.io");
 const gameSocket = require("./socket/index");
+const { socketCorsOptions } = require('./middleware/corsConfig');
 
 // Then load config (which depends on env vars)
 const config = require("./config");
@@ -217,11 +218,7 @@ const server = app.listen(config.PORT, () => {
 
 //  Handle real-time poker game logic with socket.io
 const io = socketio(server, {
-    cors: {
-        origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:7777', 'http://127.0.0.1:7777'],
-        methods: ['GET', 'POST'],
-        credentials: true
-    }
+    cors: socketCorsOptions
 });
 
 io.on("connect", (socket) => gameSocket.init(socket, io));
@@ -230,9 +227,34 @@ io.on("connect", (socket) => gameSocket.init(socket, io));
 global.io = io;
 global.gameFlowIntegration = gameFlowIntegration;
 
+// Pre-load AI worker if configured
+if (config.AI_ENABLED && config.AI_WORKER_PRELOAD) {
+    const aiService = require('./services/ai/AIService');
+    aiService.preload()
+        .then(() => console.log('[Server] AI worker pre-loaded'))
+        .catch(err => console.warn('[Server] AI worker pre-load failed:', err.message));
+}
+
+// Graceful shutdown
+function gracefulShutdown(signal) {
+    console.log(`[Server] Received ${signal}, shutting down...`);
+    const aiService = require('./services/ai/AIService');
+    aiService.shutdown().catch(() => {});
+    server.close(() => {
+        if (db) db.disconnect();
+        process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Error handling - close server
 
 process.on("unhandledRejection", (err) => {
+    const aiService = require('./services/ai/AIService');
+    aiService.shutdown().catch(() => {});
     db.disconnect();
 
     console.error(`Error: ${err.message}`);

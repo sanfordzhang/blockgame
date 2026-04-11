@@ -32,6 +32,7 @@ const config = {
   // AI Configuration
   AI_ENABLED: process.env.AI_ENABLED !== 'false', // enabled by default
   AI_DEFAULT_DIFFICULTY: process.env.AI_DEFAULT_DIFFICULTY || 'medium',
+  AI_WORKER_PRELOAD: process.env.AI_WORKER_PRELOAD === 'true',
 };
 
 // Function to set server wallet address (called by TronService after init)

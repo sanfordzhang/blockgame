@@ -1,6 +1,11 @@
 import React, { useState, useContext, useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import socketContext from '../../context/websocket/socketContext';
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
 const PanelContainer = styled.div`
   position: absolute;
@@ -65,12 +70,40 @@ const StatsRow = styled.div`
   margin-top: 4px;
 `;
 
+const ACTION_COLORS = {
+  raise: '#ff8800',
+  call: '#00aa66',
+  check: '#4488ff',
+  fold: '#ff4444',
+};
+
+const ActionBanner = styled.div`
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: ${props => ACTION_COLORS[props.action] || '#555'};
+  border-radius: 5px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-transform: uppercase;
+  animation: ${fadeIn} 0.25s ease-out;
+`;
+
+const ActionDetail = styled.div`
+  font-size: 11px;
+  color: #ccc;
+  margin-top: 3px;
+  font-style: italic;
+  text-align: center;
+`;
+
 const AIControlPanel = () => {
   const { socket } = useContext(socketContext);
   const [isEnabled, setIsEnabled] = useState(false);
   const [difficulty, setDifficulty] = useState('medium');
   const [maxHands, setMaxHands] = useState(100);
   const [stats, setStats] = useState({});
+  const [lastAction, setLastAction] = useState(null);
 
   useEffect(() => {
     if (!socket) return;
@@ -78,16 +111,22 @@ const AIControlPanel = () => {
       setIsEnabled(true);
       setStats(data);
     };
-    const onDisabled = () => setIsEnabled(false);
+    const onDisabled = () => { setIsEnabled(false); setLastAction(null); };
     const onStats = (data) => setStats(data);
+    const onAction = (data) => {
+      setLastAction(data);
+      setTimeout(() => setLastAction(null), 4000);
+    };
 
     socket.on('SC_AI_ENABLED', onEnabled);
     socket.on('SC_AI_DISABLED', onDisabled);
     socket.on('SC_AI_STATS', onStats);
+    socket.on('SC_AI_ACTION', onAction);
     return () => {
       socket.off('SC_AI_ENABLED', onEnabled);
       socket.off('SC_AI_DISABLED', onDisabled);
       socket.off('SC_AI_STATS', onStats);
+      socket.off('SC_AI_ACTION', onAction);
     };
   }, [socket]);
 
@@ -141,6 +180,20 @@ const AIControlPanel = () => {
             <span>Hands played:</span>
             <span>{stats.handsPlayed || 0} / {stats.maxHands || maxHands}</span>
           </StatsRow>
+
+          {lastAction && (
+            <>
+              <ActionBanner action={lastAction.action}>
+                {lastAction.action}
+                {lastAction.action === 'raise' && lastAction.amount > 0
+                  ? ` $${lastAction.amount}`
+                  : ''}
+              </ActionBanner>
+              {lastAction.reason && (
+                <ActionDetail>{lastAction.reason}</ActionDetail>
+              )}
+            </>
+          )}
         </>
       )}
 

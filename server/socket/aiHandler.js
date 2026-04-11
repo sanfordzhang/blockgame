@@ -62,19 +62,21 @@ async function executeAIAction(socket, io, table, seat) {
     numPlayers: table.unfoldedPlayers ? table.unfoldedPlayers().length : 2
   };
 
-  // Add small delay to simulate human thinking (500-2000ms)
-  const delay = 500 + Math.random() * 1500;
+  // Add small delay to simulate human thinking (200-1000ms)
+  const delay = 200 + Math.random() * 800;
   await new Promise(r => setTimeout(r, delay));
 
   const decision = await aiService.getAIDecision(playerId, gameState);
 
-  // Notify table of AI action
-  if (io && table.id) {
-    io.to(table.id).emit(SC_AI_ACTION, {
-      playerId,
-      seatId: seat.id,
-      ...decision
-    });
+  // Notify all players at the table of AI action (broadcast per-socket like broadcastToTable)
+  const actionPayload = { playerId, seatId: seat.id, ...decision };
+  if (table.players && table.players.length > 0) {
+    for (const p of table.players) {
+      if (p.socketId) io.to(p.socketId).emit(SC_AI_ACTION, actionPayload);
+    }
+  } else {
+    // Fallback: notify the AI player's own socket
+    socket.emit(SC_AI_ACTION, actionPayload);
   }
 
   // Execute the action on the table

@@ -65,8 +65,60 @@ class DecisionEngine:
         return decision
 
 
+def worker_loop():
+    """Persistent worker mode for Node.js stdin/stdout RPC."""
+    engine = DecisionEngine()
+    print(json.dumps({"status": "ready", "pid": os.getpid()}), flush=True)
+
+    for raw_line in sys.stdin:
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        request_id = None
+        try:
+            payload = json.loads(line)
+            request_id = payload.get('request_id')
+            command = payload.get('command')
+
+            if command == 'ping':
+                print(json.dumps({"status": "pong", "request_id": request_id}), flush=True)
+                continue
+
+            if command == 'shutdown':
+                print(json.dumps({"status": "shutdown", "request_id": request_id}), flush=True)
+                break
+
+            difficulty = payload.pop('difficulty', 'medium')
+            timeout = payload.pop('timeout_ms', 100)
+            payload.pop('request_id', None)
+            payload.pop('command', None)
+
+            decision = engine.decide(payload, difficulty=difficulty, timeout_ms=timeout)
+            decision['request_id'] = request_id
+            print(json.dumps(decision), flush=True)
+        except json.JSONDecodeError as e:
+            error_result = {
+                **_fallback_decision({}, f'Invalid JSON: {e}'),
+                'request_id': request_id,
+                'error': f'Invalid JSON: {e}'
+            }
+            print(json.dumps(error_result), flush=True)
+        except Exception as e:
+            error_result = {
+                **_fallback_decision({}, str(e)),
+                'request_id': request_id,
+                'error': str(e)
+            }
+            print(json.dumps(error_result), flush=True)
+
+
 def main():
     """CLI entry point — reads JSON from stdin, outputs decision as JSON."""
+    if len(sys.argv) > 1 and sys.argv[1] == '--worker':
+        worker_loop()
+        return
+
     input_data = sys.stdin.read().strip()
 
     if not input_data:
