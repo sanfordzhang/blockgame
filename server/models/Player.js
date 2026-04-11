@@ -85,7 +85,12 @@ const playerSchema = new mongoose.Schema({
         soundEnabled: { type: Boolean, default: true },
         autoFoldEnabled: { type: Boolean, default: false },
         preferredMode: { type: String, enum: ['fun', 'real'], default: 'fun' }
-    }
+    },
+
+    // AI fields
+    aiMode: { type: Boolean, default: false },
+    aiLevel: { type: String, enum: ['easy', 'medium', 'hard', 'expert'], default: null },
+    aiLastUsedAt: { type: Date, default: null }
 });
 
 // Indexes

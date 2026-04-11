@@ -93,6 +93,7 @@ const gameFlowIntegration = require('../services/GameFlowIntegration');
 const contractService = require('../blockchain/ContractService');
 const tronService = require('../blockchain/TronService');
 const { initTournamentHandlers } = require('./tournamentHandler');
+const { initAIHandlers, executeAIAction } = require('./aiHandler');
 
 const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
@@ -129,6 +130,9 @@ const init = (socket, io) => {
 
   // Initialize tournament, NFT, CHIP, staking, and DAO handlers
   initTournamentHandlers(socket, io);
+
+  // Initialize AI autopilot handlers
+  initAIHandlers(socket, io, tables, players);
 
   socket.on(CS_LOBBY_CONNECT, ({gameId, address, userInfo }) => {
     socket.join(gameId)
@@ -1144,12 +1148,43 @@ const init = (socket, io) => {
         // Handle game end (settlement and balance updates) before starting new hand
         await handleGameEnd(table);
         initNewHand(table);
+      } else {
+        // Check if the current turn belongs to an AI player
+        checkAITurn(table);
       }
     }, 1000);
   }
 
   // Track stack before each hand for session mode settlement
   const stackBeforeHand = new Map();
+
+  // Check if the current turn belongs to an AI-controlled player
+  function checkAITurn(table) {
+    const turnSeatId = table.turn;
+    if (!turnSeatId) return;
+
+    const seat = table.seats[turnSeatId];
+    if (!seat || !seat.player) return;
+
+    const aiService = require('../services/ai/AIService');
+    const playerId = seat.player.id;
+
+    if (aiService.isAIEnabled(playerId)) {
+      console.log(`[AI] Auto-playing for player ${playerId} at seat ${turnSeatId}`);
+      // Find the socket for this player
+      const playerSocket = Object.values(players).find(p => p.id === playerId);
+      if (playerSocket) {
+        const socketObj = io.sockets.sockets.get(playerSocket.socketId);
+        if (socketObj) {
+          executeAIAction(socketObj, io, table, seat).then(success => {
+            if (success) {
+              changeTurnAndBroadcast(table, turnSeatId);
+            }
+          });
+        }
+      }
+    }
+  }
 
   // Modified to include blockchain settlement
   async function initNewHand(table) {

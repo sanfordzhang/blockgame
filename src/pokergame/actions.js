@@ -103,3 +103,14 @@ export const CS_DAO_VOTE = 'CS_DAO_VOTE';
 export const SC_DAO_VOTED = 'SC_DAO_VOTED';
 export const SC_DAO_PROPOSAL_EXECUTED = 'SC_DAO_PROPOSAL_EXECUTED';
 export const SC_DAO_PROPOSAL_STATE_CHANGED = 'SC_DAO_PROPOSAL_STATE_CHANGED';
+
+// AI Autopilot events
+export const CS_AI_ENABLE = 'CS_AI_ENABLE';
+export const SC_AI_ENABLED = 'SC_AI_ENABLED';
+export const CS_AI_DISABLE = 'CS_AI_DISABLE';
+export const SC_AI_DISABLED = 'SC_AI_DISABLED';
+export const CS_AI_STATS = 'CS_AI_STATS';
+export const SC_AI_STATS = 'SC_AI_STATS';
+export const SC_AI_ACTION = 'SC_AI_ACTION';
+export const CS_GET_SUGGESTION = 'CS_GET_SUGGESTION';
+export const SC_SUGGESTION = 'SC_SUGGESTION';

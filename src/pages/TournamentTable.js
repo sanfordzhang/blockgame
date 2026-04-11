@@ -8,6 +8,8 @@ import globalContext from '../context/global/globalContext';
 import { getPlayerBalance } from '../utils/tronInteract';
 import { TournamentGameProvider, TournamentGameContext } from '../context/game/TournamentGameContext';
 import PokerTable from '../components/game/PokerTable';
+import AIControlPanel from '../components/game/AIControlPanel';
+import DecisionSuggestion from '../components/game/DecisionSuggestion';
 import { RotateDevicePrompt } from '../components/game/RotateDevicePrompt';
 import { PositionedUISlot } from '../components/game/PositionedUISlot';
 import { PokerTableWrapper } from '../components/game/PokerTableWrapper';
@@ -955,6 +957,10 @@ const TournamentTableGame = ({ tournamentId }) => {
               call={call}
             />
           )}
+
+        {/* AI Components */}
+        {currentTable && <AIControlPanel />}
+        {currentTable && currentTable.seats[seatId] && currentTable.seats[seatId].turn && <DecisionSuggestion />}
       </Container>
     </>
   );

@@ -6,6 +6,8 @@ import gameContext from '../context/game/gameContext'
 import socketContext from '../context/websocket/socketContext'
 import globalContext from '../context/global/globalContext'
 import PokerTable from '../components/game/PokerTable'
+import AIControlPanel from '../components/game/AIControlPanel'
+import DecisionSuggestion from '../components/game/DecisionSuggestion'
 import { RotateDevicePrompt } from '../components/game/RotateDevicePrompt';
 import { PositionedUISlot } from '../components/game/PositionedUISlot';
 import { PokerTableWrapper } from '../components/game/PokerTableWrapper';
@@ -262,6 +264,9 @@ const Play = () => {
               call={call}
             />
           )}
+
+        {currentTable && <AIControlPanel />}
+        {currentTable && <DecisionSuggestion />}
       </Container>
     </>
   )

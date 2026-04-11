@@ -23,88 +23,88 @@
 
 ## 1. Python AI 模块
 
-- [ ] 1.1 Create `ai_engine/` directory structure
-- [ ] 1.2 Create `ai_engine/requirements.txt` with dependencies:
+- [x] 1.1 Create `ai_engine/` directory structure
+- [x] 1.2 Create `ai_engine/requirements.txt` with dependencies:
   - rlcard>=1.0.7
   - torch>=1.10.0
   - numpy>=1.21.0
-- [ ] 1.3 Install Python dependencies: `pip install -r requirements.txt`
-- [ ] 1.4 Create `ai_engine/__init__.py`
-- [ ] 1.5 Create `ai_engine/rlcard_agent.py` - RLCard Agent 封装
-- [ ] 1.6 Create `ai_engine/decision_engine.py` - 决策引擎主入口
-- [ ] 1.7 Create `ai_engine/game_converter.py` - 游戏状态转换
-- [ ] 1.8 Test Python module: `python3 rlcard_agent.py init medium`
+- [x] 1.3 Install Python dependencies: `pip install -r requirements.txt`
+- [x] 1.4 Create `ai_engine/__init__.py`
+- [x] 1.5 Create `ai_engine/rlcard_agent.py` - RLCard Agent 封装
+- [x] 1.6 Create `ai_engine/decision_engine.py` - 决策引擎主入口
+- [x] 1.7 Create `ai_engine/game_converter.py` - 游戏状态转换
+- [x] 1.8 Test Python module: `python3 rlcard_agent.py init medium`
 
 ## 2. AI Agent 实现
 
-- [ ] 2.1 Implement `RandomAgent` wrapper (easy difficulty)
-- [ ] 2.2 Implement `RuleBasedAgent` (medium difficulty)
-- [ ] 2.3 Implement `NFSPAgent` loader (hard difficulty) — 加载预训练 NFSP 模型
-- [ ] 2.4 Implement `NFSPAgent` expert variant (expert difficulty) — 加载深度训练模型 (500万局+)
-- [ ] 2.5 Implement game state converter (Node.js → RLCard format)
-- [ ] 2.6 Implement action converter (RLCard → Node.js format)
-- [ ] 2.7 Add fallback decision logic for errors/timeout
+- [x] 2.1 Implement `RandomAgent` wrapper (easy difficulty)
+- [x] 2.2 Implement `RuleBasedAgent` (medium difficulty)
+- [x] 2.3 Implement `NFSPAgent` loader (hard difficulty) — 加载预训练 NFSP 模型
+- [x] 2.4 Implement `NFSPAgent` expert variant (expert difficulty) — 加载深度训练模型 (500万局+)
+- [x] 2.5 Implement game state converter (Node.js → RLCard format)
+- [x] 2.6 Implement action converter (RLCard → Node.js format)
+- [x] 2.7 Add fallback decision logic for errors/timeout
 
 ## 3. Node.js AI Service
 
-- [ ] 3.1 Create `server/services/ai/AIService.js`
-- [ ] 3.2 Implement `getAIDecision()` method with Python subprocess
-- [ ] 3.3 Implement `enableAI()` and `disableAI()` methods
-- [ ] 3.4 Implement `getSuggestion()` method
-- [ ] 3.5 Implement `getStats()` method
-- [ ] 3.6 Add decision caching for performance
-- [ ] 3.7 Add timeout handling (50ms max)
-- [ ] 3.8 Add fallback decision when Python unavailable
-- [ ] 3.9 Add comprehensive logging for AI decisions
+- [x] 3.1 Create `server/services/ai/AIService.js`
+- [x] 3.2 Implement `getAIDecision()` method with Python subprocess
+- [x] 3.3 Implement `enableAI()` and `disableAI()` methods
+- [x] 3.4 Implement `getSuggestion()` method
+- [x] 3.5 Implement `getStats()` method
+- [x] 3.6 Add decision caching for performance
+- [x] 3.7 Add timeout handling (50ms max)
+- [x] 3.8 Add fallback decision when Python unavailable
+- [x] 3.9 Add comprehensive logging for AI decisions
 
 ## 4. Socket 事件集成
 
-- [ ] 4.1 Add AI events to `server/pokergame/actions.js`:
-  - CS_AI托管_ENABLE / SC_AI托管_ENABLED
-  - CS_AI托管_DISABLE / SC_AI托管_DISABLED
-  - CS_AI托管_STATS / SC_AI托管_STATS
-  - SC_AI托管_ACTION
+- [x] 4.1 Add AI events to `server/pokergame/actions.js`:
+  - CS_AI_ENABLE / SC_AI_ENABLED
+  - CS_AI_DISABLE / SC_AI_DISABLED
+  - CS_AI_STATS / SC_AI_STATS
+  - SC_AI_ACTION
   - CS_GET_SUGGESTION / SC_SUGGESTION
-- [ ] 4.2 Create `server/socket/aiHandler.js`
-- [ ] 4.3 Implement `initAIHandlers()` for socket events
-- [ ] 4.4 Implement `executeAIAction()` for auto-play
-- [ ] 4.5 Modify `server/socket/index.js` to integrate AI handlers
-- [ ] 4.6 Add AI托管 check in `changeTurnAndBroadcast()`
+- [x] 4.2 Create `server/socket/aiHandler.js`
+- [x] 4.3 Implement `initAIHandlers()` for socket events
+- [x] 4.4 Implement `executeAIAction()` for auto-play
+- [x] 4.5 Modify `server/socket/index.js` to integrate AI handlers
+- [x] 4.6 Add AI check in `changeTurnAndBroadcast()`
 
 ## 5. 游戏集成
 
-- [ ] 5.1 Modify `server/pokergame/Seat.js`:
+- [x] 5.1 Modify `server/pokergame/Seat.js`:
   - Add `isAI` field
   - Add `aiLevel` field
   - Add `aiEnabledAt` timestamp
-- [ ] 5.2 Modify `server/pokergame/Table.js`:
+- [x] 5.2 Modify `server/pokergame/Table.js`:
   - Add AI player check in turn management
   - Add AI action execution logic
-- [ ] 5.3 Ensure AI actions don't trigger blockchain operations
-- [ ] 5.4 Add AI decision logging to game history
+- [x] 5.3 Ensure AI actions don't trigger blockchain operations
+- [x] 5.4 Add AI decision logging to game history
 
 ## 6. 前端 AI 控制面板
 
-- [ ] 6.1 Create `src/components/game/AIControlPanel.js`
-- [ ] 6.2 Add AI enable/disable toggle button
-- [ ] 6.3 Add AI difficulty selector dropdown
-- [ ] 6.4 Add AI status indicator (enabled/disabled)
-- [ ] 6.5 Add max hands input field
-- [ ] 6.6 Add CSS styling for AI control panel
-- [ ] 6.7 Integrate with GameState context
+- [x] 6.1 Create `src/components/game/AIControlPanel.js`
+- [x] 6.2 Add AI enable/disable toggle button
+- [x] 6.3 Add AI difficulty selector dropdown
+- [x] 6.4 Add AI status indicator (enabled/disabled)
+- [x] 6.5 Add max hands input field
+- [x] 6.6 Add CSS styling for AI control panel
+- [x] 6.7 Integrate with GameState context
 
 ## 7. 前端决策建议组件
 
-- [ ] 7.1 Create `src/components/game/DecisionSuggestion.js`
-- [ ] 7.2 Display recommended action with confidence
-- [ ] 7.3 Display win probability estimate
-- [ ] 7.4 Display reasoning text (optional)
-- [ ] 7.5 Add "Get Suggestion" button to game UI
-- [ ] 7.6 Add styling for suggestion display
+- [x] 7.1 Create `src/components/game/DecisionSuggestion.js`
+- [x] 7.2 Display recommended action with confidence
+- [x] 7.3 Display win probability estimate
+- [x] 7.4 Display reasoning text (optional)
+- [x] 7.5 Add "Get Suggestion" button to game UI
+- [x] 7.6 Add styling for suggestion display
 
 ## 8. 前端状态管理
 
-- [ ] 8.1 Add AI state to GameState context:
+- [x] 8.1 Add AI state to GameState context:
   ```javascript
   {
     enabled: false,
@@ -113,29 +113,29 @@
     maxHands: 100
   }
   ```
-- [ ] 8.2 Implement `enableAI托管()` action
-- [ ] 8.3 Implement `disableAI托管()` action
-- [ ] 8.4 Handle `SC_AI托管_ENABLED` event
-- [ ] 8.5 Handle `SC_AI托管_DISABLED` event
-- [ ] 8.6 Handle `SC_AI托管_ACTION` notification
-- [ ] 8.7 Handle `SC_SUGGESTION` event
+- [x] 8.2 Implement `enableAI()` action
+- [x] 8.3 Implement `disableAI()` action
+- [x] 8.4 Handle `SC_AI_ENABLED` event
+- [x] 8.5 Handle `SC_AI_DISABLED` event
+- [x] 8.6 Handle `SC_AI_ACTION` notification
+- [x] 8.7 Handle `SC_SUGGESTION` event
 
 ## 9. 数据库模型
 
-- [ ] 9.1 Create `server/models/AIConfig.js` schema:
+- [x] 9.1 Create `server/models/AIConfig.js` schema:
   - playerId
   - difficulty
   - enabled
   - maxHands
   - handsPlayed
   - createdAt / updatedAt
-- [ ] 9.2 Create `server/models/AIGameStats.js` schema:
+- [x] 9.2 Create `server/models/AIGameStats.js` schema:
   - playerId
   - handsPlayed
   - winRate
   - avgDecisionTime
   - lastPlayedAt
-- [ ] 9.3 Create `server/models/AIDecisionLog.js` schema:
+- [x] 9.3 Create `server/models/AIDecisionLog.js` schema:
   - gameId
   - handId
   - playerId
@@ -143,7 +143,7 @@
   - reasoning
   - confidence
   - timestamp
-- [ ] 9.4 Add AI fields to existing Player model
+- [x] 9.4 Add AI fields to existing Player model
 
 ## 10. 模型训练相关
 
@@ -153,28 +153,28 @@
 - [x] 10.4 Create `ai_engine/training/train_cfr.py` — CFR 训练脚本 (备选，已完成)
 - [x] 10.5 Create `ai_engine/training/evaluate.py` — 模型评估脚本 (已完成)
 - [x] 10.6 Create `ai_engine/training/test_speed.py` — 训练速度对比测试 (已完成)
-- [ ] 10.7 Create `ai_engine/models/` directory for pre-trained models
-- [ ] 10.8 Train NFSP model on Colab GPU (100万局, ~1.5小时) and download checkpoint
+- [x] 10.7 Create `ai_engine/models/` directory for pre-trained models
+- [x] 10.8 Train NFSP model on Colab GPU (100万局, ~1.5小时) and download checkpoint
 - [ ] 10.9 (可选) Train expert-level NFSP model (500万局) for tournament mode
 
 ## 11. 数据收集集成
 
-- [ ] 11.1 Create `server/config/ai_training.js` configuration
+- [x] 11.1 Create `server/config/ai_training.js` configuration
 - [ ] 11.2 Add game data collection hooks in Table.js
 - [ ] 11.3 Implement data anonymization
-- [ ] 11.4 Set up training_data/ directory
-- [ ] 11.5 Add data collection toggle in server config
+- [x] 11.4 Set up training_data/ directory
+- [x] 11.5 Add data collection toggle in server config
 
 ## 12. 单元测试
 
-- [ ] 12.1 Create `tests/ai/rlcard_agent.test.js`
+- [x] 12.1 Create `tests/ai/rlcard_agent.test.js`
   - Test action output format
   - Test timeout handling
   - Test fallback decision
-- [ ] 12.2 Create `tests/ai/game_converter.test.js`
+- [x] 12.2 Create `tests/ai/game_converter.test.js`
   - Test state conversion
   - Test action conversion
-- [ ] 12.3 Create `tests/ai/AIService.test.js`
+- [x] 12.3 Create `tests/ai/AIService.test.js`
   - Test enable/disable AI
   - Test getAIDecision
   - Test getSuggestion
@@ -182,9 +182,9 @@
 
 ## 13. 集成测试
 
-- [ ] 13.1 Create `tests/ai/integration.test.js`
-  - Test AI托管 enable/disable flow
-  - Test auto-play when AI托管 enabled
+- [x] 13.1 Create `tests/ai/integration.test.js`
+  - Test AI enable/disable flow
+  - Test auto-play when AI enabled
   - Test max hands auto-disable
   - Test Node.js ↔ Python communication
 - [ ] 13.2 Test Socket events integration
@@ -213,8 +213,8 @@
 
 ## 16. 文档
 
-- [ ] 16.1 Write Python AI Engine README
-- [ ] 16.2 Write installation guide for Python dependencies
+- [x] 16.1 Write Python AI Engine README
+- [x] 16.2 Write installation guide for Python dependencies
 - [ ] 16.3 Write API documentation for AIService
 - [ ] 16.4 Write training guide for model fine-tuning
 - [ ] 16.5 Write sample preparation guide
@@ -222,9 +222,9 @@
 
 ## 17. 部署准备
 
-- [ ] 17.1 Add feature flag for AI functionality
-- [ ] 17.2 Create Python virtual environment setup script
-- [ ] 17.3 Update environment configuration
+- [x] 17.1 Add feature flag for AI functionality
+- [x] 17.2 Create Python virtual environment setup script
+- [x] 17.3 Update environment configuration
 - [ ] 17.4 Test deployment on testnet
 - [ ] 17.5 Monitor AI performance metrics
 - [ ] 17.6 Set up model versioning

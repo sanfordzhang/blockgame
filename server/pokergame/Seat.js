@@ -13,6 +13,10 @@ class Seat {
     this.folded = true;
     this.lastAction = null;
     this.sittingOut = false;
+    // AI fields
+    this.isAI = false;
+    this.aiLevel = null;
+    this.aiEnabledAt = null;
   }
 
   fold() {

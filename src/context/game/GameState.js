@@ -21,6 +21,15 @@ import {
   SC_DELEGATE_SET,
   SC_DELEGATE_ERROR,
   SC_DELEGATE_STATUS,
+  CS_AI_ENABLE,
+  CS_AI_DISABLE,
+  CS_AI_STATS,
+  CS_GET_SUGGESTION,
+  SC_AI_ENABLED,
+  SC_AI_DISABLED,
+  SC_AI_ACTION,
+  SC_AI_STATS,
+  SC_SUGGESTION,
 } from '../../pokergame/actions'
 import socketContext from '../websocket/socketContext'
 import GameContext from './gameContext'
@@ -38,6 +47,10 @@ const GameState = ({ children }) => {
   const [turn, setTurn] = useState(false)
   const [turnTimeOutHandle, setHandle] = useState(null)
   const [isLeaving, setIsLeaving] = useState(false)
+
+  // AI state
+  const [aiState, setAIState] = useState({ enabled: false, difficulty: 'medium', handsPlayed: 0, maxHands: 100 })
+  const [suggestion, setSuggestion] = useState(null)
 
   const currentTableRef = React.useRef(currentTable)
   const seatIdRef = React.useRef(seatId)
@@ -275,6 +288,71 @@ const GameState = ({ children }) => {
       socket.emit(CS_RAISE, { tableId: currentTableRef.current.id, amount })
   }
 
+  // AI actions
+  const enableAI = (difficulty = 'medium', maxHands = 100) => {
+    if (!socket || !currentTableRef.current) return
+    socket.emit(CS_AI_ENABLE, { tableId: currentTableRef.current.id, difficulty, maxHands })
+  }
+
+  const disableAI = () => {
+    if (!socket) return
+    socket.emit(CS_AI_DISABLE)
+    setAIState(prev => ({ ...prev, enabled: false }))
+  }
+
+  const getSuggestion = () => {
+    if (!socket || !currentTableRef.current || !seatIdRef.current) return
+    const seat = currentTableRef.current.seats[seatIdRef.current]
+    if (!seat) return
+    socket.emit(CS_GET_SUGGESTION, {
+      hand: seat.hand,
+      board: currentTableRef.current.board,
+      pot: currentTableRef.current.pot,
+      callAmount: currentTableRef.current.callAmount || 0,
+      minRaise: currentTableRef.current.minRaise || 0,
+      stack: seat.stack,
+      numPlayers: Object.values(currentTableRef.current.seats).filter(s => s && s.player && !s.folded).length
+    })
+  }
+
+  // AI socket listeners
+  useEffect(() => {
+    if (!socket) return
+
+    socket.on(SC_AI_ENABLED, (data) => {
+      setAIState({ enabled: true, difficulty: data.difficulty, handsPlayed: 0, maxHands: data.maxHands || 100 })
+    })
+
+    socket.on(SC_AI_DISABLED, (data) => {
+      setAIState(prev => ({ ...prev, enabled: false }))
+    })
+
+    socket.on(SC_AI_ACTION, (data) => {
+      console.log('[AI] Action:', data.action, data.amount)
+    })
+
+    socket.on(SC_AI_STATS, (data) => {
+      setAIState(prev => ({ ...prev, ...data }))
+    })
+
+    socket.on(SC_SUGGESTION, (data) => {
+      setSuggestion(data)
+    })
+
+    return () => {
+      socket.off(SC_AI_ENABLED)
+      socket.off(SC_AI_DISABLED)
+      socket.off(SC_AI_ACTION)
+      socket.off(SC_AI_STATS)
+      socket.off(SC_SUGGESTION)
+    }
+  }, [socket])
+
+  // Clear suggestion when turn changes
+  useEffect(() => {
+    setSuggestion(null)
+  }, [turn])
+
   return (
     <GameContext.Provider
       value={{
@@ -292,6 +370,12 @@ const GameState = ({ children }) => {
         call,
         raise,
         rebuy,
+        turn,
+        aiState,
+        suggestion,
+        enableAI,
+        disableAI,
+        getSuggestion,
       }}
     >
       {children}

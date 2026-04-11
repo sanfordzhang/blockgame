@@ -28,6 +28,10 @@ const config = {
   // AMM Pool Configuration
   AMM_POOL_ADDRESS: process.env.AMM_POOL_ADDRESS || '',
   AMM_ROUTER_ADDRESS: process.env.AMM_ROUTER_ADDRESS || '',
+
+  // AI Configuration
+  AI_ENABLED: process.env.AI_ENABLED !== 'false', // enabled by default
+  AI_DEFAULT_DIFFICULTY: process.env.AI_DEFAULT_DIFFICULTY || 'medium',
 };
 
 // Function to set server wallet address (called by TronService after init)
