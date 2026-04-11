@@ -135,7 +135,19 @@ const GameState = ({ children }) => {
 
       socket.on(SC_BLOCKCHAIN_ERROR, (data) => {
         console.error(SC_BLOCKCHAIN_ERROR, data)
-        addMessage(`Blockchain error: ${data.message}`)
+
+        const rawMessage = data?.message || 'Unknown blockchain error'
+        const isJoinOrBalanceIssue =
+          data?.operation === 'joinTable' ||
+          /buy-?in|insufficient|余额不足|required/i.test(rawMessage)
+
+        if (isJoinOrBalanceIssue) {
+          addMessage(`余额不足，无法开始牌局：${rawMessage}`)
+          navigate('/')
+          return
+        }
+
+        addMessage(`Blockchain error: ${rawMessage}`)
       })
 
       socket.on(SC_BLOCKCHAIN_TX_STATUS, (data) => {

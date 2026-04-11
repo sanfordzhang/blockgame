@@ -1203,6 +1203,26 @@ const init = (socket, io) => {
   // Modified to include blockchain settlement
   async function initNewHand(table) {
     console.log('[Socket] initNewHand called, active players:', table.activePlayers().length);
+
+    // Notify and remove felted players (stack = 0) before starting next hand
+    for (const seatId of Object.keys(table.seats)) {
+      const seat = table.seats[seatId];
+      if (seat && seat.player && seat.sittingOut && seat.stack <= 0) {
+        const feltedPlayer = Object.values(players).find(p => p.id === seat.player.id);
+        if (feltedPlayer) {
+          const feltedSocket = io.sockets.sockets.get(feltedPlayer.socketId);
+          if (feltedSocket) {
+            console.log(`[Socket] Player ${seat.player.name} is felted (stack=0), removing from table`);
+            feltedSocket.emit(SC_BLOCKCHAIN_ERROR, {
+              operation: 'insufficientStack',
+              message: '游戏币已耗尽，请充值后重新入桌 (In-game stack is 0, please deposit and rejoin)'
+            });
+          }
+        }
+        table.standPlayer(seat.player.socketId);
+      }
+    }
+
     if (table.activePlayers().length > 1) {
       broadcastToTable(table, '---New hand starting in 5 seconds---');
     }
