@@ -38,7 +38,8 @@ import {
   setDelegate,
   revokeDelegate,
   isAuthorizedDelegate,
-  getPlayerDelegate
+  getPlayerDelegate,
+  getContractAddress
 } from '../utils/tronInteract';
 
 const MarketingHeadline = styled(Heading)`
@@ -359,6 +360,27 @@ const Landing = () => {
 
     try {
       const amount = bankroll; // Withdraw all available balance
+
+      // Pre-flight: check contract TRX balance >= withdraw amount
+      try {
+        const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+        if (tronWeb) {
+          const contractAddress = getContractAddress();
+          const contractTrxBalance = await tronWeb.trx.getBalance(contractAddress);
+          if (contractTrxBalance < amount) {
+            setError(
+              `Contract TRX insufficient (${formatTrx(contractTrxBalance)} TRX available). ` +
+              `Please contact support — contract needs to be topped up.`
+            );
+            setWithdrawing(false);
+            return;
+          }
+        }
+      } catch (preflightErr) {
+        console.warn('[Landing] Pre-flight balance check failed (non-fatal):', preflightErr.message);
+        // Non-fatal: proceed with withdraw, let contract reject if needed
+      }
+
       console.log('Withdrawing', amount, 'SUN');
       const tx = await withdrawTrx(amount);
       console.log('Withdraw tx:', tx);
