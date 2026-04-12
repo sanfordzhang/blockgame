@@ -5,6 +5,7 @@ import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import Button from '../components/buttons/Button';
 import globalContext from '../context/global/globalContext';
+import locaContext from '../context/localization/locaContext';
 
 const WalletCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -98,6 +99,7 @@ const Tab = styled.button`
 
 const CHIPWallet = () => {
   const { walletAddress: contextWalletAddress } = useContext(globalContext);
+  const { t } = useContext(locaContext);
   
   // Get wallet address from context, URL params, or localStorage (test mode support)
   const walletAddress = useMemo(() => {
@@ -500,6 +502,7 @@ const CHIPWallet = () => {
 
       <Tabs>
         <Tab active={tab === 'wallet'} onClick={() => setTab('wallet')}>Balance</Tab>
+        <Tab active={tab === 'actions'} onClick={() => setTab('actions')}>{t('deposit')} / {t('withdraw')}</Tab>
         <Tab active={tab === 'stake'} onClick={() => setTab('stake')}>Staking</Tab>
         <Tab active={tab === 'nft'} onClick={() => setTab('nft')}>Collection</Tab>
         <Tab active={tab === 'vip'} onClick={() => setTab('vip')}>VIP Status</Tab>
@@ -510,6 +513,37 @@ const CHIPWallet = () => {
         <Text textCentered data-testid="connect-wallet-prompt">Connect your wallet to view your CHIP balance</Text>
       ) : loading ? (
         <Text textCentered data-testid="loading">Loading...</Text>
+      ) : tab === 'actions' ? (
+        <WalletCard>
+          <Heading as="h3">{t('deposit')} / {t('withdraw')}</Heading>
+          <Text color="textSecondary" style={{ marginBottom: '1.5rem' }}>
+            充值 TRX 到游戏合约，或将余额提现到钱包。
+            Deposit TRX to the game contract, or withdraw your balance back to your wallet.
+          </Text>
+          <Container flexDirection="row" gap="1rem" style={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+            <ActionButton
+              primary
+              onClick={() => window.location.href = '/'}
+              style={{ minWidth: '140px' }}
+            >
+              {t('deposit')} (TRX)
+            </ActionButton>
+            <ActionButton
+              onClick={() => setShowWithdrawModal(true)}
+              style={{ minWidth: '140px' }}
+            >
+              {t('withdraw')}
+            </ActionButton>
+          </Container>
+          <hr style={{ margin: '2rem 0', opacity: 0.2 }} />
+          <Heading as="h3">{t('register')}</Heading>
+          <Text color="textSecondary" style={{ marginBottom: '1rem' }}>
+            如果你还没有注册到游戏合约，请前往首页完成注册。
+          </Text>
+          <ActionButton onClick={() => window.location.href = '/'}>
+            前往首页注册 / Go to Register
+          </ActionButton>
+        </WalletCard>
       ) : tab === 'wallet' ? (
         <>
           <WalletCard data-testid="wallet-card">

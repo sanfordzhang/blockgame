@@ -10,6 +10,7 @@ import NFTGallery from '../../pages/NFTGallery';
 import CHIPWallet from '../../pages/CHIPWallet';
 import DAO from '../../pages/DAO';
 import DEX from '../../pages/DEX';
+import AppLayout from '../layout/AppLayout';
 
 // Admin Components
 import {
@@ -25,31 +26,33 @@ import {
 
 const AppRoutes = () => {
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/play" element={<Play />} />
-      <Route path="/tournament" element={<Tournament />} />
-      <Route path="/tournament/:tournamentId" element={<TournamentTable />} />
-      <Route path="/tournament/:tournamentId/waiting" element={<TournamentWaitingRoom />} />
-      <Route path="/tournament/:tournamentId/play" element={<TournamentTable />} />
-      <Route path="/nft" element={<NFTGallery />} />
-      <Route path="/wallet" element={<CHIPWallet />} />
-      <Route path="/dao" element={<DAO />} />
-      <Route path="/dex" element={<DEX />} />
-      
-      {/* Admin Routes */}
-      <Route path="/admin/login" element={<AdminLogin />} />
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="rake" element={<RakeManagement />} />
-        <Route path="withdraw" element={<RakeWithdraw />} />
-        <Route path="emergency" element={<EmergencyControls />} />
-        <Route path="transactions" element={<TransactionHistory />} />
-        <Route path="audit" element={<AuditLog />} />
-      </Route>
-      
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/play" element={<Play />} />
+        <Route path="/tournament" element={<Tournament />} />
+        <Route path="/tournament/:tournamentId" element={<TournamentTable />} />
+        <Route path="/tournament/:tournamentId/waiting" element={<TournamentWaitingRoom />} />
+        <Route path="/tournament/:tournamentId/play" element={<TournamentTable />} />
+        <Route path="/nft" element={<NFTGallery />} />
+        <Route path="/wallet" element={<CHIPWallet />} />
+        <Route path="/dao" element={<DAO />} />
+        <Route path="/dex" element={<DEX />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="rake" element={<RakeManagement />} />
+          <Route path="withdraw" element={<RakeWithdraw />} />
+          <Route path="emergency" element={<EmergencyControls />} />
+          <Route path="transactions" element={<TransactionHistory />} />
+          <Route path="audit" element={<AuditLog />} />
+        </Route>
+
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </AppLayout>
   );
 };
 

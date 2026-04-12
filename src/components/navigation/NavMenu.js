@@ -6,14 +6,10 @@ import Text from '../typography/Text';
 import ColoredText from '../typography/ColoredText';
 import ChipsAmount from '../user/ChipsAmount';
 import { Link } from 'react-router-dom';
-// import { Select } from '../forms/Select';
-import lobbyIcon from '../../assets/icons/lobby-icon.svg';
-import newsIcon from '../../assets/icons/news-icon.svg';
-import userIcon from '../../assets/icons/user-icon.svg';
- 
 import Markdown from 'react-remarkable';
 import socketContext from '../../context/websocket/socketContext';
 import globalContext from '../../context/global/globalContext';
+import locaContext from '../../context/localization/locaContext';
 
 const NavMenuWrapper = styled.div`
   position: fixed;
@@ -52,8 +48,9 @@ const MenuHeader = styled.div`
 
 const MenuItem = styled(Link)`
   display: flex;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
   justify-content: space-between;
+  align-items: center;
   width: 100%;
   text-align: right;
   font-family: ${(props) => props.theme.fonts.fontFamilySansSerif};
@@ -62,6 +59,7 @@ const MenuItem = styled(Link)`
   background-color: ${(props) => props.theme.colors.lightBg} !important;
   font-size: ${(props) => props.theme.fonts.fontSizeParagraph};
   font-weight: normal;
+  text-decoration: none;
 
   &:hover {
     background-color: ${(props) => props.theme.colors.goldenColor} !important;
@@ -71,6 +69,10 @@ const MenuItem = styled(Link)`
     outline: none;
     border-left: 4px solid ${(props) => props.theme.colors.primaryCta};
   }
+`;
+
+const MenuIcon = styled.span`
+  font-size: 1.2rem;
 `;
 
 const MenuBody = styled.div`
@@ -97,14 +99,6 @@ const HorizontalWrapper = styled.div`
   }
 `;
 
-// const VerticalWrapper = styled.div`
-//   display: flex;
-//   flex-direction: column;
-//   margin: 1rem auto;
-//   justify-content: center;
-//   align-items: flex-start;
-// `;
-
 const SalutationText = styled(Text)`
   font-family: ${(props) => props.theme.fonts.fontFamilySerif};
   font-size: 1.5rem;
@@ -116,30 +110,39 @@ const IconWrapper = styled.div`
   right: 0.5rem;
 `;
 
+const MENU_LINKS = [
+  { to: '/play',       icon: '♠️',  labelKey: 'navPlay' },
+  { to: '/tournament', icon: '🏆', labelKey: 'navTournament' },
+  { to: '/nft',        icon: '🎨', labelKey: 'navNFT' },
+  { to: '/wallet',     icon: '💎', labelKey: 'navWallet' },
+  { to: '/dao',        icon: '🗳️', labelKey: 'navDAO' },
+  { to: '/dex',        icon: '🔄', labelKey: 'navDEX' },
+];
+
 const NavMenu = ({
   onClose,
   logout,
   userName,
   chipsAmount,
   openModal,
-  // lang,
-  // setLang,
 }) => {
   const { players } = useContext(globalContext);
-   
   const { cleanUp } = useContext(socketContext);
+  const { t } = useContext(locaContext);
 
   const openShopModal = () =>
     openModal(
       () => (
         <Markdown>
           <Text textAlign="center">
-          We're currently working hard to get the shop up and running. Soon you'll be able to buy chip packages for competitive prices to enhance your gaming experience.
+            We're currently working hard to get the shop up and running. Soon
+            you'll be able to buy chip packages for competitive prices to
+            enhance your gaming experience.
           </Text>
         </Markdown>
       ),
-      "Shop",
-      "Close",
+      'Shop',
+      'Close',
     );
 
   return (
@@ -172,56 +175,22 @@ const NavMenu = ({
               clickHandler={openShopModal}
             />
             <Button onClick={openShopModal} small primary>
-              Shop
+              {t('buyChips')}
             </Button>
           </HorizontalWrapper>
         </MenuHeader>
         <MenuBody>
-          <MenuItem
-            as={Link}
-            to="/"
-            onClick={() => {
-              onClose();
-            }}
-          >
-            Go to Lobby
-            <img
-              src={lobbyIcon}
-              alt="Lobby"
-              width="25"
-              style={{ width: '25px' }}
-            />
-          </MenuItem>
-          <MenuItem
-            as={Link}
-            to="/dashboard"
-            onClick={() => {
-              onClose();
-            }}
-          >
-            My Dashboard
-            <img
-              src={userIcon}
-              alt="Dashboard"
-              width="25"
-              style={{ width: '25px' }}
-            />
-          </MenuItem>
-          <MenuItem
-            as={Link}
-            to="/news"
-            onClick={() => {
-              onClose();
-            }}
-          >
-            Latest News
-            <img
-              src={newsIcon}
-              alt="News"
-              width="25"
-              style={{ width: '25px' }}
-            />
-          </MenuItem>
+          {MENU_LINKS.map(({ to, icon, labelKey }) => (
+            <MenuItem
+              key={to}
+              as={Link}
+              to={to}
+              onClick={onClose}
+            >
+              {t(labelKey)}
+              <MenuIcon>{icon}</MenuIcon>
+            </MenuItem>
+          ))}
         </MenuBody>
         <MenuFooter>
           <Button

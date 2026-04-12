@@ -17,6 +17,7 @@ import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
+import locaContext from '../context/localization/locaContext';
 import { CS_FETCH_LOBBY_INFO, CS_CHECK_DELEGATE, SC_DELEGATE_STATUS } from '../pokergame/actions';
 import {
   isTronLinkInstalled,
@@ -49,6 +50,7 @@ const MarketingHeadline = styled(Heading)`
 const Landing = () => {
   const { setWalletAddress } = useContext(globalContext);
   const { socket } = useContext(socketContext);
+  const { t } = useContext(locaContext);
   const navigate = useNavigate();
   const [connecting, setConnecting] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -794,14 +796,14 @@ const Landing = () => {
                 </>
               )}
               
-              {/* Dev Mode Skip Button */}
+              {/* Enter Game Without Wallet Button */}
               <Button
                 large
                 fullWidthOnMobile
                 onClick={() => proceedToGame(walletAddress)}
                 style={{ marginTop: '0.5rem' }}
               >
-                Skip to Game (Dev Mode)
+                Enter Game (Without Wallet)
               </Button>
               
               {/* Enter Game Button */}
@@ -814,38 +816,38 @@ const Landing = () => {
                   disabled={contractBalance < 100000000}
                   style={{ marginTop: '1rem' }}
                 >
-                  {contractBalance < 100000000 ? 'Deposit Required to Play' : 'Enter Game'}
+                  {contractBalance < 100000000 ? t('deposit') + ' Required to Play' : t('enterGame')}
                 </Button>
               )}
               
               {/* Feature Entries - Show if registered */}
               {isRegistered && (
                 <FeatureSection data-testid="feature-section">
-                  <FeatureTitle>功能入口</FeatureTitle>
+                  <FeatureTitle>{t('navPlay') + ' & Explore'}</FeatureTitle>
                   <FeatureGrid>
                     <FeatureCard onClick={() => navigate('/tournament')} data-testid="feature-tournament">
                       <FeatureIcon src={queen2Img} alt="Tournament" />
-                      <FeatureName>锦标赛</FeatureName>
+                      <FeatureName>{t('navTournament')}</FeatureName>
                       <FeatureDesc>Tournament</FeatureDesc>
                     </FeatureCard>
                     <FeatureCard onClick={() => navigate('/nft')} data-testid="feature-nft">
                       <FeatureIcon src={jackImg} alt="NFT Gallery" />
-                      <FeatureName>NFT画廊</FeatureName>
+                      <FeatureName>{t('navNFT')}</FeatureName>
                       <FeatureDesc>NFT Gallery</FeatureDesc>
                     </FeatureCard>
                     <FeatureCard onClick={() => navigate('/wallet')} data-testid="feature-wallet">
                       <FeatureIcon src={queenImg} alt="CHIP Wallet" />
-                      <FeatureName>代币钱包</FeatureName>
+                      <FeatureName>{t('navWallet')}</FeatureName>
                       <FeatureDesc>CHIP Wallet</FeatureDesc>
                     </FeatureCard>
                     <FeatureCard onClick={() => navigate('/dao')} data-testid="feature-dao">
                       <FeatureIcon src={kingImg} alt="DAO" />
-                      <FeatureName>DAO治理</FeatureName>
+                      <FeatureName>{t('navDAO')}</FeatureName>
                       <FeatureDesc>Governance</FeatureDesc>
                     </FeatureCard>
                     <FeatureCard onClick={() => navigate('/dex')} data-testid="feature-dex">
                       <DEXIcon>💱</DEXIcon>
-                      <FeatureName>交易兑换</FeatureName>
+                      <FeatureName>{t('navDEX')}</FeatureName>
                       <FeatureDesc>TRX/CHIP DEX</FeatureDesc>
                     </FeatureCard>
                   </FeatureGrid>

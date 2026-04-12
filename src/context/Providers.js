@@ -10,25 +10,28 @@ import WebSocketProvider from './websocket/WebsocketProvider'
 import GameState from './game/GameState'
 import { TronProvider } from './tron/TronContext'
 import { AMMProvider } from './amm/AMMContext'
+import LocaProvider from './localization/LocaProvider'
 
 const Providers = ({ children }) => (
   <BrowserRouter>
     <ThemeProvider theme={theme}>
-      <GlobalState>
-        <ModalProvider>
-          <WebSocketProvider>
-            <GameState>
-              <TronProvider>
-                <AMMProvider>
-                  <Normalize />
-                  <GlobalStyles />
-                  {children}
-                </AMMProvider>
-              </TronProvider>
-            </GameState>
-          </WebSocketProvider>
-        </ModalProvider>
-      </GlobalState>
+      <LocaProvider>
+        <GlobalState>
+          <ModalProvider>
+            <WebSocketProvider>
+              <GameState>
+                <TronProvider>
+                  <AMMProvider>
+                    <Normalize />
+                    <GlobalStyles />
+                    {children}
+                  </AMMProvider>
+                </TronProvider>
+              </GameState>
+            </WebSocketProvider>
+          </ModalProvider>
+        </GlobalState>
+      </LocaProvider>
     </ThemeProvider>
   </BrowserRouter>
 )
