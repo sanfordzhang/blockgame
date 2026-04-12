@@ -38,7 +38,7 @@ import { leaveTableSession as contractLeaveTableSession } from '../../utils/tron
 
 const GameState = ({ children }) => {
   const { socket } = useContext(socketContext)
-  const { setChipsAmount } = useContext(globalContext)
+  const { setChipsAmount, walletAddress } = useContext(globalContext)
   const navigate = useNavigate()
 
   const [messages, setMessages] = useState([])
@@ -56,10 +56,14 @@ const GameState = ({ children }) => {
 
   const currentTableRef = React.useRef(currentTable)
   const seatIdRef = React.useRef(seatId)
+  const walletAddressRef = React.useRef(walletAddress)
+
+  useEffect(() => {
+    walletAddressRef.current = walletAddress
+  }, [walletAddress])
 
   useEffect(() => {
     currentTableRef.current = currentTable
-
     seatId &&
       currentTable &&
       currentTable.seats[seatId] &&
@@ -125,6 +129,14 @@ const GameState = ({ children }) => {
       // Blockchain event listeners
       socket.on(SC_BALANCE_SYNCED, (data) => {
         console.log(SC_BALANCE_SYNCED, data)
+        // Guard: only update if this message belongs to current wallet
+        // (prevents cross-player balance bleed when switching accounts)
+        if (data.walletAddress && walletAddressRef.current &&
+            data.walletAddress.toLowerCase() !== walletAddressRef.current.toLowerCase()) {
+          console.warn('[GameState] SC_BALANCE_SYNCED ignored: wallet mismatch',
+            data.walletAddress, '!=', walletAddressRef.current)
+          return
+        }
         // Update local chips amount when balance is synced
         if (data.available !== undefined) {
           setChipsAmount(data.available)

@@ -524,6 +524,19 @@ class GameFlowIntegration {
         console.log(`[GameFlowIntegration] Required: ${requiredAmount} SUN (${requiredAmount/1000000} TRX)`);
         console.log(`[GameFlowIntegration] Is at table: ${isPlayerAtTable}`);
 
+        // Guest players bypass blockchain validation — they use demo balance
+        const isGuest = !playerAddress || playerAddress.startsWith('guest_');
+        if (isGuest) {
+            return {
+                valid: true,
+                available: 100000000,
+                required: requiredAmount,
+                balance: 100000000,
+                locked: 0,
+                source: 'guest_demo'
+            };
+        }
+
         try {
             // Check cache first - if it was just optimistically updated (pendingSync), use it
             const pendingCache = this.playerBalances.get(playerAddress);
@@ -944,26 +957,26 @@ class GameFlowIntegration {
     async syncOnPlayerConnect(playerAddress, socketId) {
         console.log(`[GameFlowIntegration] Syncing on connect for ${playerAddress}`);
 
-        // Default balance for development mode
+        // Default balance: 0 (safe fallback - never give fake money)
         const defaultBalance = {
-            balance: 100000000000, // 100,000 TRX
+            balance: 0,
             lockedAmount: 0,
             isRegistered: false,
             registeredAt: 0
         };
 
         try {
-            // Check registration with timeout
+            // Check registration with timeout — longer for cloud/rate-limited environment
             let isRegistered = false;
             try {
                 isRegistered = await Promise.race([
                     this.checkPlayerRegistration(playerAddress),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Registration check timeout')), 3000)
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Registration check timeout')), 10000)
                     )
                 ]);
             } catch (e) {
-                console.log('[GameFlowIntegration] Registration check timed out, using default balance');
+                console.warn('[GameFlowIntegration] Registration check failed:', e.message);
                 isRegistered = false;
             }
             
@@ -998,17 +1011,18 @@ class GameFlowIntegration {
                 return defaultBalance;
             }
 
-            // Sync balance with timeout
+            // Sync balance with timeout — use longer timeout to handle rate limiting
             let balance;
             try {
                 balance = await Promise.race([
                     this.syncPlayerBalance(playerAddress),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Balance sync timeout')), 3000)
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Balance sync timeout')), 10000)
                     )
                 ]);
             } catch (e) {
-                console.log('[GameFlowIntegration] Balance sync timed out, using default');
+                console.warn('[GameFlowIntegration] Balance sync failed:', e.message, '— player will need to reconnect');
+                // Safe fallback: 0 balance, never fake money
                 balance = defaultBalance;
             }
 
@@ -1210,14 +1224,9 @@ class GameFlowIntegration {
         try {
             return await contractService.getPlayerInfo(playerAddress);
         } catch (error) {
-            // Return default balance for development
-            console.warn('[GameFlowIntegration] Balance fetch failed, using default:', error.message);
-            return {
-                balance: 100000000000, // 100,000 TRX default
-                lockedAmount: 0,
-                isRegistered: false,
-                registeredAt: 0
-            };
+            // Do NOT return fake balance - rethrow so caller can handle properly
+            console.warn('[GameFlowIntegration] Balance fetch failed:', error.message);
+            throw error;
         }
     }
 

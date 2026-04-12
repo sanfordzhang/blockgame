@@ -157,13 +157,16 @@ const init = (socket, io) => {
     io.to(gameId).emit(SC_LOBBY_CHAT, {text, userInfo})
   })
 
-  socket.on(CS_FETCH_LOBBY_INFO, async ({walletAddress, socketId, gameId, username}) => {
+  socket.on(CS_FETCH_LOBBY_INFO, async ({walletAddress, gameId, username}) => {
+    // Always use server-side socket.id, never trust client-provided socketId
+    const sid = socket.id;
 
     const found = Object.values(players).find((player) => {
         return player.id == walletAddress;
       });
 
-      if (found) {
+      if (found && found.socketId !== sid) {
+        // Same wallet reconnecting from a different socket - clean up old record
         delete players[found.socketId];
         Object.values(tables).map((table) => {
           table.removePlayer(found.socketId);
@@ -171,8 +174,8 @@ const init = (socket, io) => {
         });
       }
 
-      players[socketId] = new Player(
-        socketId,
+      players[sid] = new Player(
+        sid,
         walletAddress,
         username,
         config.INITIAL_CHIPS_AMOUNT,
@@ -180,28 +183,40 @@ const init = (socket, io) => {
 
       // Task 15.5: Sync blockchain balance on player connect
       if (config.BLOCKCHAIN_ENABLED && walletAddress) {
-        try {
-          const blockchainBalance = await gameFlowIntegration.syncOnPlayerConnect(
-            walletAddress, 
-            socket.id
-          );
-          
-          // Use blockchain balance if available
-          // Rule a: bankroll = balance (don't subtract locked)
-          if (blockchainBalance) {
-            // Rule a: bankroll = balance
-            const availableBalance = blockchainBalance.balance;
-            players[socketId].bankroll = availableBalance;
-            
-            socket.emit(SC_BALANCE_SYNCED, {
-              balance: blockchainBalance.balance,
-              locked: blockchainBalance.lockedAmount,
-              available: availableBalance
-            });
+        // Guest players (no wallet) get a demo balance, real wallets must sync from chain
+        const isGuest = !walletAddress || walletAddress.startsWith('guest_');
+        if (isGuest) {
+          // Demo mode: give guest a play balance (not real TRX)
+          players[sid].bankroll = 100000000; // 100 TRX demo
+          socket.emit(SC_BALANCE_SYNCED, {
+            walletAddress,
+            balance: 100000000,
+            locked: 0,
+            available: 100000000,
+            devMode: true
+          });
+        } else {
+          try {
+            const blockchainBalance = await gameFlowIntegration.syncOnPlayerConnect(
+              walletAddress,
+              sid
+            );
+
+            if (blockchainBalance) {
+              const availableBalance = blockchainBalance.balance;
+              players[sid].bankroll = availableBalance;
+
+              socket.emit(SC_BALANCE_SYNCED, {
+                walletAddress,
+                balance: blockchainBalance.balance,
+                locked: blockchainBalance.lockedAmount,
+                available: availableBalance
+              });
+            }
+          } catch (error) {
+            console.error('[Socket] Balance sync error:', error.message);
+            // Real wallet with sync failure: bankroll stays 0 (safe)
           }
-        } catch (error) {
-          console.error('[Socket] Balance sync error:', error.message);
-          // Continue with default balance
         }
       } else {
         console.warn('⚠️ [BLOCKCHAIN DISABLED] syncOnPlayerConnect - Blockchain is disabled, using default balance. Check BLOCKCHAIN_ENABLED in .env.local');
@@ -210,8 +225,8 @@ const init = (socket, io) => {
       socket.emit(SC_RECEIVE_LOBBY_INFO, {
         tables: getCurrentTables(),
         players: getCurrentPlayers(),
-        socketId: socket.id,
-        amount: players[socketId].bankroll
+        socketId: sid,
+        amount: players[sid].bankroll
       });
       socket.broadcast.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
   });
@@ -333,6 +348,7 @@ const init = (socket, io) => {
         
         // Notify player about balance update
         socket.emit(SC_BALANCE_SYNCED, {
+          walletAddress: player.id,
           balance: freshBalance.balance,
           locked: freshBalance.lockedAmount,
           available: freshBalance.balance,
@@ -480,6 +496,7 @@ const init = (socket, io) => {
           // Notify player with optimistic balance (EventListener will sync real value later)
           const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(player.id);
           socket.emit(SC_BALANCE_SYNCED, {
+            walletAddress: player.id,
             balance: cachedBalance?.balance || player.bankroll,
             locked: 0,
             available: cachedBalance?.balance || player.bankroll,
@@ -754,6 +771,7 @@ const init = (socket, io) => {
           
           // Notify player about synced balance
           socket.emit(SC_BALANCE_SYNCED, {
+            walletAddress: player.id,
             balance: freshBalance.balance,
             locked: freshBalance.lockedAmount,
             available: freshBalance.balance,
@@ -1023,6 +1041,7 @@ const init = (socket, io) => {
     const updatedCache = gameFlowIntegration.getPlayerBalanceCache(player.id);
     if (updatedCache) {
       socket.emit(SC_BALANCE_SYNCED, {
+        walletAddress: player.id,
         balance: updatedCache.balance,
         locked: updatedCache.lockedAmount,
         available: updatedCache.balance,
@@ -1329,6 +1348,7 @@ const init = (socket, io) => {
 
           // Notify client about balance update (for display purposes)
           io.to(socketId).emit(SC_BALANCE_SYNCED, {
+            walletAddress: winner.address,
             balance: player.bankroll,
             locked: gameFlowIntegration.getPlayerBalanceCache(winner.address)?.lockedAmount || 0,
             available: player.bankroll,

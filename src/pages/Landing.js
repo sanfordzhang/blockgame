@@ -49,7 +49,7 @@ const MarketingHeadline = styled(Heading)`
 `;
 
 const Landing = () => {
-  const { setWalletAddress } = useContext(globalContext);
+  const { setWalletAddress, setChipsAmount } = useContext(globalContext);
   const { socket } = useContext(socketContext);
   const { t } = useContext(locaContext);
   const navigate = useNavigate();
@@ -59,10 +59,24 @@ const Landing = () => {
   const [walletAddress, setLocalWalletAddress] = useState(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [tronLinkInstalled, setTronLinkInstalled] = useState(true);
-  const [contractBalance, setContractBalance] = useState(0);
+  const [contractBalance, setContractBalanceRaw] = useState(0);
   const [lockedBalance, setLockedBalance] = useState(0);
   const [walletBalance, setWalletBalanceRaw] = useState(0);
   const holdUntilRef = useRef(0); // optimistic hold: skip wallet balance updates until this timestamp
+
+  // Wrapper: update contractBalance AND sync to Navbar chipsAmount (right-top corner)
+  const setContractBalance = useCallback((val) => {
+    if (typeof val === 'function') {
+      setContractBalanceRaw(prev => {
+        const next = val(prev);
+        setChipsAmount(next);
+        return next;
+      });
+    } else {
+      setContractBalanceRaw(val);
+      setChipsAmount(val);
+    }
+  }, [setChipsAmount]);
 
   // Wrapper: skip if optimistic hold is active
   const setWalletBalance = useCallback((val) => {
@@ -687,7 +701,7 @@ const Landing = () => {
             headingClass="h6"
             textCenteredOnMobile
             dangerouslySetInnerHTML={{
-              __html: 'You receive <span style=\"color: #24516a\">100 TRX free chips</span> on connection',
+              __html: 'Deposit TRX to start playing. <span style=\"color: #24516a\">Withdraw anytime.</span>',
             }}
           />
         </Markdown>

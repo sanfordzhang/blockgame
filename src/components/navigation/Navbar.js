@@ -3,17 +3,14 @@ import LogoWithText from '../logo/LogoWithText';
 import Logo from '../logo/LogoIcon';
 import Container from '../layout/Container';
 import styled from 'styled-components';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Hider from '../layout/Hider';
 import Button from '../buttons/Button';
 import ChipsAmount from '../user/ChipsAmount';
 import HamburgerButton from '../buttons/HamburgerButton';
 import Spacer from '../layout/Spacer';
-import Text from '../typography/Text';
 import LangSwitcher from './LangSwitcher';
 import locaContext from '../../context/localization/locaContext';
-
-import Markdown from 'react-remarkable';
 
 const StyledNav = styled.nav`
   padding: 0.75rem 0;
@@ -74,21 +71,10 @@ const Navbar = ({
   className,
 }) => {
   const { t } = useContext(locaContext);
+  const navigate = useNavigate();
 
-  const openShopModal = () =>
-    openModal(
-      () => (
-        <Markdown>
-          <Text textAlign="center">
-            We're currently working hard to get the shop up and running! Soon
-            you'll be able to buy chip packages for competitive prices to
-            enhance your gaming experience.
-          </Text>
-        </Markdown>
-      ),
-      'Shop',
-      'Close',
-    );
+  // Go to home page Deposit section
+  const goToDeposit = () => navigate('/');
 
   if (!loggedIn)
     return (
@@ -132,11 +118,11 @@ const Navbar = ({
           <Spacer>
             <ChipsAmount
               chipsAmount={chipsAmount}
-              clickHandler={openShopModal}
+              clickHandler={goToDeposit}
             />
             <Hider hideOnMobile>
-              <Button to="/" primary small onClick={openShopModal}>
-                {t('buyChips')}
+              <Button to="/" primary small onClick={goToDeposit}>
+                {t('deposit')}
               </Button>
             </Hider>
             <LangSwitcher />

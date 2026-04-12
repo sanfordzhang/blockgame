@@ -63,7 +63,7 @@ class EventListener {
             const contractAddress = this.contractService.getContractAddress();
             if (!contractAddress) {
                 console.warn('[EventListener] No contract address');
-                this.pollInterval = setTimeout(() => this.pollEvents(), 5000);
+                this.pollInterval = setTimeout(() => this.pollEvents(), 10000);
                 return;
             }
 
@@ -98,12 +98,23 @@ class EventListener {
                     }
                 }
             }
-        } catch (error) {
-            console.error('[EventListener] Poll error:', error.message);
-        }
 
-        // Poll every 3 seconds
-        this.pollInterval = setTimeout(() => this.pollEvents(), 3000);
+            // Reset backoff on success, poll every 15 seconds to avoid rate limiting
+            this._backoffMs = 0;
+            this.pollInterval = setTimeout(() => this.pollEvents(), 15000);
+
+        } catch (error) {
+            // Exponential backoff on rate limit (429) or network errors
+            if (!this._backoffMs) this._backoffMs = 15000;
+            else this._backoffMs = Math.min(this._backoffMs * 2, 120000); // max 2 min
+
+            if (error.message && error.message.includes('429')) {
+                console.warn(`[EventListener] Rate limited (429). Backing off ${this._backoffMs / 1000}s`);
+            } else {
+                console.error('[EventListener] Poll error:', error.message);
+            }
+            this.pollInterval = setTimeout(() => this.pollEvents(), this._backoffMs);
+        }
     }
 
     /**
