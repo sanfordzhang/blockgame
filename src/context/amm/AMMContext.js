@@ -7,9 +7,10 @@ import axios from 'axios';
 
 const AMMContext = createContext(null);
 
-const API_BASE = process.env.REACT_APP_SERVER_PORT 
-  ? `http://127.0.0.1:${process.env.REACT_APP_SERVER_PORT}`
-  : 'http://127.0.0.1:7778';
+const API_BASE = process.env.REACT_APP_SERVER_URI
+  || (process.env.REACT_APP_SERVER_PORT
+    ? `http://127.0.0.1:${process.env.REACT_APP_SERVER_PORT}`
+    : 'http://127.0.0.1:7777');
 
 export function AMMProvider({ children, tronLink }) {
     // 池状态

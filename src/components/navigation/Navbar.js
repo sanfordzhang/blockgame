@@ -98,21 +98,6 @@ const Navbar = ({
             <LogoWithText />
           </Link>
 
-          <Hider hideOnMobile>
-            <Spacer>
-              {location.pathname !== '/register' && (
-                <Button as={Link} to="/register" primary small>
-                  Register
-                </Button>
-              )}
-              {location.pathname !== '/login' && (
-                <Button as={Link} to="/login" secondary small>
-                  Login
-                </Button>
-              )}
-            </Spacer>
-          </Hider>
-
           <LangSwitcher />
           <HamburgerButton clickHandler={openNavMenu} />
         </Container>

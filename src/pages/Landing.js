@@ -164,6 +164,19 @@ const Landing = () => {
     fetchServerAddress();
   }, []);
 
+  // Sync balance on landing page: emit CS_FETCH_LOBBY_INFO when socket+wallet are both ready
+  useEffect(() => {
+    if (socket && socket.connected && walletAddress) {
+      const username = walletAddress.slice(0, 8);
+      socket.emit(CS_FETCH_LOBBY_INFO, {
+        walletAddress,
+        socketId: socket.id,
+        gameId: '1',
+        username,
+      });
+    }
+  }, [socket, walletAddress]);
+
   // Check delegate authorization when socket is connected and player is registered
   useEffect(() => {
     if (socket && socket.connected && walletAddress && isRegistered) {
@@ -229,7 +242,7 @@ const Landing = () => {
           setIsRegistered(registered);
           // User stays on Landing page to see registration/deposit options
         } else {
-          setError(result.error || '连接 TronLink 失败');
+        setError(result.error || t('errConnectTronLink'));
         }
       } else {
         // Fallback to MetaMask
@@ -241,20 +254,27 @@ const Landing = () => {
           setWalletAddress(address);
           proceedToHomepage(address);
         } else if (result?.event === 'No Wallet') {
-          setError('请先安装 TronLink 或 MetaMask 钱包');
+          setError(t('errInstallWallet'));
           setTronLinkInstalled(false);
         } else if (result?.event === 'Wrong Chain') {
-          setError('请切换到正确的网络');
+          setError(t('errWrongNetwork'));
         }
       }
     } catch (err) {
-      setError(err.message || '连接钱包失败');
+      setError(err.message || t('errConnectWallet'));
     } finally {
       setConnecting(false);
     }
   };
 
   const handleRegister = async () => {
+    // Check TronLink first
+    if (!isTronLinkInstalled()) {
+      setError('Please install TronLink wallet to register on blockchain.');
+      setTronLinkInstalled(false);
+      return;
+    }
+
     setRegistering(true);
     setError(null);
 
@@ -272,7 +292,7 @@ const Landing = () => {
       
     } catch (err) {
       console.error('Registration error:', err);
-      setError(err.message || '注册失败，请重试');
+      setError(err.message || t('errRegister'));
     } finally {
       setRegistering(false);
     }
@@ -285,7 +305,7 @@ const Landing = () => {
     try {
       const amount = parseTrx(depositAmount);
       if (amount <= 0) {
-        setError('请输入有效的充值金额');
+        setError(t('errDepositAmount'));
         return;
       }
 
@@ -315,7 +335,7 @@ const Landing = () => {
       
     } catch (err) {
       console.error('Deposit error:', err);
-      setError(err.message || '充值失败，请重试');
+      setError(err.message || t('errDepositFailed'));
     } finally {
       setDepositing(false);
     }
@@ -324,13 +344,13 @@ const Landing = () => {
   // Withdraw handler
   const handleWithdraw = async () => {
     if (!bankroll || bankroll <= 0) {
-      setError('没有可用余额可提现');
+      setError(t('errNoBalance'));
       return;
     }
 
     // Check if there's locked balance
     if (lockedBalance > 0) {
-      setError(`有 ${formatTrx(lockedBalance)} TRX 正在游戏中使用，请先离开游戏后再提现`);
+      setError(t('errLockedInGame')(formatTrx(lockedBalance)));
       return;
     }
 
@@ -365,7 +385,7 @@ const Landing = () => {
 
     } catch (err) {
       console.error('Withdraw error:', err);
-      setError(err.message || '提现失败，请重试');
+      setError(err.message || t('errWithdrawFailed'));
     } finally {
       setWithdrawing(false);
     }
@@ -376,18 +396,18 @@ const Landing = () => {
     const totalBalance = gameBalance; // Total game balance
 
     if (!totalBalance || totalBalance <= 0) {
-      setError('没有余额可提现');
+      setError(t('errNoWithdrawBal'));
       return;
     }
 
     // If there's locked balance, show warning
     if (lockedBalance > 0) {
-      const confirmWithdraw = window.confirm(
-        `您有 ${formatTrx(lockedBalance)} TRX 正在游戏中。\n` +
-        `提现可用余额 ${formatTrx(bankroll)} TRX 后，锁定余额将保留在游戏中。\n` +
-        `确定要继续吗？`
+      const confirmWithdrawAll = window.confirm(
+        `You have ${formatTrx(lockedBalance)} TRX locked in an active game.\n` +
+        `Withdrawing available balance ${formatTrx(bankroll)} TRX — locked balance will remain.\n` +
+        `Continue?`
       );
-      if (!confirmWithdraw) return;
+      if (!confirmWithdrawAll) return;
     }
 
     setWithdrawing(true);
@@ -418,7 +438,7 @@ const Landing = () => {
 
     } catch (err) {
       console.error('Withdraw error:', err);
-      setError(err.message || '提现失败，请重试');
+      setError(err.message || t('errWithdrawFailed'));
     } finally {
       setWithdrawing(false);
     }
@@ -427,7 +447,7 @@ const Landing = () => {
   // Handle unlock locked balance
   const handleUnlockLocked = async () => {
     if (!lockedBalance || lockedBalance <= 0) {
-      setError('没有锁定余额需要解锁');
+      setError(t('errNoLocked'));
       return;
     }
 
@@ -454,12 +474,12 @@ const Landing = () => {
       // Show more helpful error message
       const errMsg = err.message || '';
       if (errMsg.includes('Player not in this table')) {
-        setError('解锁失败：您不在该桌子中。可能是不同的 tableId，请尝试其他方法。');
+        setError('Unlock failed: You are not in that table. The tableId may differ — please try another method.');
       } else if (errMsg.includes('No locked funds')) {
-        setError('没有锁定资金可解锁。');
+        setError('No locked funds to unlock.');
         setLockedBalance(0);
       } else {
-        setError(`解锁失败: ${errMsg}`);
+        setError(`Unlock failed: ${errMsg}`);
       }
     } finally {
       setUnlocking(false);
@@ -472,9 +492,9 @@ const Landing = () => {
       // Request server address if not available
       if (socket && socket.connected) {
         socket.emit(CS_CHECK_DELEGATE, { walletAddress });
-        setError('正在获取服务器地址，请稍后重试');
+        setError(t('errServerAddr'));
       } else {
-        setError('服务器地址未配置，请刷新页面');
+        setError(t('errNoServerAddr'));
       }
       return;
     }
@@ -487,7 +507,7 @@ const Landing = () => {
       console.log('[Landing] Checking registration before authorize...');
       const registered = await isPlayerRegistered(walletAddress);
       if (!registered) {
-        setError('您还未在合约中注册，请先点击 "Register on Blockchain" 按钮');
+        setError(t('errNotRegistered'));
         setIsRegistered(false);
         return;
       }
@@ -513,10 +533,10 @@ const Landing = () => {
       // Handle specific contract errors
       const errMsg = err.message || '';
       if (errMsg.includes('REVERT') || errMsg.includes('not registered')) {
-        setError('授权失败：您还未在合约中注册。请先注册后再授权。');
+        setError('Authorization failed: Not registered. Please register first.');
         setIsRegistered(false);
       } else {
-        setError(errMsg || '授权失败，请重试');
+        setError(errMsg || 'Authorization failed, please try again');
       }
     } finally {
       setAuthorizing(false);
@@ -546,10 +566,10 @@ const Landing = () => {
       console.error('[Landing] Revoke error:', err);
       const errMsg = err.message || '';
       if (errMsg.includes('No delegate')) {
-        setError('没有授权可取消');
+        setError(t('errNoAuth'));
         setDelegateAuthorized(false);
       } else {
-        setError(errMsg || '取消授权失败，请重试');
+        setError(errMsg || 'Revocation failed, please try again');
       }
     } finally {
       setRevoking(false);
@@ -557,20 +577,50 @@ const Landing = () => {
   };
 
   const proceedToGame = (address) => {
-    const username = address.slice(0, 8);
+    const safeAddress = address || 'guest_' + Math.random().toString(36).slice(2, 8);
+    const username = safeAddress.slice(0, 8);
     const gameId = '1';
 
-    if (socket && socket.connected) {
-      socket.emit(CS_FETCH_LOBBY_INFO, {
-        walletAddress: address,
-        socketId: socket.id,
+    // Use window.socket as fallback (set by WebsocketProvider)
+    const activeSocket = (socket && socket.connected) ? socket : window.socket;
+
+    const doEnter = (sock) => {
+      sock.emit(CS_FETCH_LOBBY_INFO, {
+        walletAddress: safeAddress,
+        socketId: sock.id,
         gameId,
         username
       });
       navigate('/play');
-    } else {
-      setError('Socket 未连接，请刷新页面重试');
+    };
+
+    if (activeSocket && activeSocket.connected) {
+      doEnter(activeSocket);
+      return;
     }
+
+    // Socket not yet connected — wait up to 5s
+    setError('Connecting to server...');
+    const sock = activeSocket || window.socket;
+    if (!sock) {
+      setError('Socket not connected, please refresh the page');
+      return;
+    }
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        setError('Connection timeout, please refresh the page');
+      }
+    }, 5000);
+    sock.once('connect', () => {
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        setError(null);
+        doEnter(sock);
+      }
+    });
   };
 
 
@@ -588,7 +638,7 @@ const Landing = () => {
       //navigate('/play');
       navigate('/');
     } else {
-      setError('Socket 未连接，请刷新页面重试');
+      setError('Socket not connected, please refresh the page');
     }
   };
 
@@ -641,7 +691,7 @@ const Landing = () => {
               {/* Registration Section - Always visible */}
               <RegistrationSection>
                 {isRegistered ? (
-                  <RegisteredBadge>✓ 已注册</RegisteredBadge>
+                  <RegisteredBadge>{t('registered')}</RegisteredBadge>
                 ) : (
                   <>
                     <InfoText>
@@ -689,7 +739,7 @@ const Landing = () => {
                     onClick={refreshAllBalances} 
                     disabled={refreshing}
                   >
-                    {refreshing ? '⟳' : '↻'} 刷新余额
+                    {refreshing ? '⟳' : '↻'} {t('refreshBalance')}
                   </RefreshButton>
                   <DepositSection>
                     <DepositInput
@@ -710,10 +760,10 @@ const Landing = () => {
                   </DepositSection>
                   <WithdrawSection>
                     <WithdrawInfo>
-                      <span>可提现: {formatTrx(bankroll)} TRX</span>
+                      <span>{t('withdrawable')} {formatTrx(bankroll)} TRX</span>
                       {lockedBalance > 0 && (
                         <LockedWarning>
-                          ⚠️ {formatTrx(lockedBalance)} TRX 已锁定
+                          ⚠️ {formatTrx(lockedBalance)} TRX {t('locked')}
                         </LockedWarning>
                       )}
                     </WithdrawInfo>
@@ -723,7 +773,7 @@ const Landing = () => {
                         disabled={withdrawing || bankroll <= 0}
                         style={{ flex: 1 }}
                       >
-                        {withdrawing ? '提现中...' : `提现 ${formatTrx(bankroll)} TRX`}
+                        {withdrawing ? t('withdrawing') : t('withdrawAmount')(formatTrx(bankroll))}
                       </Button>
                     </WithdrawButtons>
                     {lockedBalance > 0 && (
@@ -733,10 +783,10 @@ const Landing = () => {
                           disabled={unlocking}
                           style={{ width: '100%', background: '#f0883e', borderColor: '#f0883e' }}
                         >
-                          {unlocking ? '解锁中...' : `尝试解锁 ${formatTrx(lockedBalance)} TRX`}
+                          {unlocking ? t('unlocking') : t('tryUnlock')(formatTrx(lockedBalance))}
                         </Button>
                         <UnlockHint>
-                          💡 锁定余额通常在游戏结束时自动释放。如果游戏异常结束，请点击上方按钮尝试解锁。
+                          {t('lockedHint')}
                         </UnlockHint>
                       </UnlockSection>
                     )}
@@ -750,18 +800,18 @@ const Landing = () => {
                   {/* Server Authorization Section */}
                   <DelegateSection>
                     <DelegateHeader>
-                      <span>服务器授权</span>
+                      <span>{t('serverAuth')}</span>
                       {delegateAuthorized ? (
-                        <AuthorizedBadge>✓ 已授权</AuthorizedBadge>
+                        <AuthorizedBadge>{t('authorized')}</AuthorizedBadge>
                       ) : (
-                        <NotAuthorizedBadge>未授权</NotAuthorizedBadge>
+                        <NotAuthorizedBadge>{t('notAuthorized')}</NotAuthorizedBadge>
                       )}
                     </DelegateHeader>
                     <DelegateInfo>
                       {delegateAuthorized ? (
-                        <span>✅ 已授权服务器代理操作，进入/退出游戏无需签名</span>
+                        <span>{t('authorizedDesc')}</span>
                       ) : (
-                        <span>⚠️ 授权后，服务器可代为执行游戏操作，无需每次签名</span>
+                        <span>{t('authWarning')}</span>
                       )}
                     </DelegateInfo>
                     {!delegateAuthorized && (
@@ -775,7 +825,7 @@ const Landing = () => {
                           marginTop: '0.5rem'
                         }}
                       >
-                        {authorizing ? '授权中...' : '授权服务器 (一次签名)'}
+                        {authorizing ? t('authorizing') : t('authorizeServer')}
                       </Button>
                     )}
                     {delegateAuthorized && (
@@ -789,7 +839,7 @@ const Landing = () => {
                           marginTop: '0.5rem'
                         }}
                       >
-                        {revoking ? '取消中...' : '取消服务器授权'}
+                        {revoking ? t('revoking') : t('revokeAuth')}
                       </Button>
                     )}
                   </DelegateSection>

@@ -24,6 +24,8 @@ import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas';
 import './Play.scss';
 
+const API_BASE = process.env.REACT_APP_SERVER_URI || 'http://127.0.0.1:7777';
+
 // NFT Achievement types mapping
 const achievementTypes = {
   'STRAIGHT': { name: '顺子', icon: '🃏' },
@@ -104,7 +106,7 @@ const TournamentTableGame = ({ tournamentId }) => {
   const fetchChipBalance = useCallback(async () => {
     if (!walletAddress) return 0;
     try {
-      const res = await fetch(`http://127.0.0.1:7778/api/chip/onchain/balance/${walletAddress}`);
+      const res = await fetch(`${API_BASE}/api/chip/onchain/balance/${walletAddress}`);
       const data = await res.json();
       return data.balance || 0;
     } catch (e) {
@@ -368,7 +370,7 @@ const TournamentTableGame = ({ tournamentId }) => {
 
               // Update database with txHash and onchainTokenId
               try {
-                await fetch(`${process.env.REACT_APP_SERVER_URL || 'http://127.0.0.1:7778'}/api/nft/confirm-mint`, {
+                await fetch(`${API_BASE}/api/nft/confirm-mint`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({

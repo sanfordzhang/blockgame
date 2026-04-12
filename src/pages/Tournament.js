@@ -5,13 +5,14 @@ import Container from '../components/layout/Container';
 import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
+import locaContext from '../context/localization/locaContext';
 import modalContext from '../context/modal/modalContext';
 import { useTron } from '../context/tron/TronContext';
 import clientConfig from '../clientConfig';
 
 // API base URL helper
 const getApiUrl = (path) => {
-  const baseUrl = clientConfig.socketURI || 'http://127.0.0.1:7778/';
+  const baseUrl = process.env.REACT_APP_SERVER_URI || clientConfig.socketURI || 'http://127.0.0.1:7777/';
   return baseUrl.replace(/\/$/, '') + path;
 };
 
@@ -229,6 +230,7 @@ const EmptyState = styled.div`
 const Tournament = () => {
   const navigate = useNavigate();
   const { walletAddress, setWalletAddress } = useContext(globalContext);
+  const { t } = useContext(locaContext);
   const { openModal } = useContext(modalContext);
   const { connect, isConnecting, isConnected, address } = useTron();
 
@@ -252,9 +254,9 @@ const Tournament = () => {
 
   // 默认测试配置（当合约未配置时使用）
   const DEFAULT_CONFIGS = [
-    { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, name: '6人赛 (100 TRX)' },
-    { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, name: '4人赛 (100 TRX)' },
-    { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, name: '2人赛 (100 TRX)' },
+    { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, name: t('players')(6) + ' (100 TRX)' },
+    { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, name: t('players')(4) + ' (100 TRX)' },
+    { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, name: t('players')(2) + ' (100 TRX)' },
   ];
 
   useEffect(() => {
@@ -275,11 +277,11 @@ const Tournament = () => {
       if (data.success) {
         setTournaments(data.tournaments || []);
       } else {
-        setError(data.error || '获取锦标赛列表失败');
+        setError(data.error || t('errLoadFailed'));
       }
     } catch (error) {
       console.error('Failed to fetch tournaments:', error);
-      setError('网络错误，请检查服务器连接');
+      setError(t('errNetworkError'));
     }
     setLoading(false);
   };
@@ -304,7 +306,7 @@ const Tournament = () => {
   // 创建测试锦标赛
   const handleCreateTestTournament = async (configId) => {
     if (!configId) {
-      setError('请选择锦标赛配置');
+      setError(t('errNoConfig'));
       return;
     }
     
@@ -324,11 +326,11 @@ const Tournament = () => {
       if (data.success) {
         fetchTournaments();
       } else {
-        setError('创建失败: ' + data.error);
+        setError(t('errCreateFailed') + data.error);
       }
     } catch (error) {
       console.error('Failed to create tournament:', error);
-      setError('创建失败: ' + error.message);
+      setError(t('errCreateFailed') + error.message);
     }
     setCreating(false);
   };
@@ -341,7 +343,7 @@ const Tournament = () => {
           await connect();
           // connect 成功后会触发 useEffect 同步地址
         } catch (err) {
-          setError('连接钱包失败: ' + err.message);
+          setError(t('errConnectFailed') + err.message);
         }
       };
       
@@ -357,7 +359,7 @@ const Tournament = () => {
     // 使用 TronContext 的地址（更可靠）
     const currentAddress = address || walletAddress;
     if (!currentAddress) {
-      setError('无法获取钱包地址');
+      setError(t('errNoAddress'));
       return;
     }
 
@@ -382,11 +384,11 @@ const Tournament = () => {
           // 导航到游戏页面，传递钱包地址参数
           navigate(`/tournament/${tournamentId}/play?address=${currentAddress}`);
         } else {
-          setError('加入失败: ' + (data.error || '未知错误'));
+          setError(t('errJoinFailed') + (data.error || 'Unknown error'));
         }
       } catch (error) {
         console.error('Failed to join tournament:', error);
-        setError('加入失败: ' + error.message);
+        setError(t('errJoinFailed') + error.message);
       }
     };
 
@@ -416,7 +418,7 @@ const Tournament = () => {
       const data = await response.json();
 
       if (!data.success) {
-        setError('获取排名失败: ' + data.error);
+        setError(t('errGetRankFailed') + data.error);
         return;
       }
 
@@ -481,7 +483,7 @@ const Tournament = () => {
       );
     } catch (error) {
       console.error('Failed to fetch rankings:', error);
-      setError('获取排名失败: ' + error.message);
+      setError(t('errGetRankFailed') + error.message);
     }
   };
 
@@ -495,7 +497,7 @@ const Tournament = () => {
       <Heading as="h1" textCentered>Tournaments</Heading>
       
       <InfoBanner>
-        <Text>💡 点击状态为 <strong>WAITING</strong> 的锦标赛卡片即可报名参赛</Text>
+        <Text>{t("tournamentHint")}</Text>
       </InfoBanner>
       
       {/* Mock 游戏开关 */}
@@ -512,16 +514,16 @@ const Tournament = () => {
             }}
             data-testid="mock-game-checkbox"
           />
-          <MockInfo>🎮 Mock 游戏模式</MockInfo>
+          <MockInfo>{t("mockMode")}</MockInfo>
         </MockCheckbox>
         <Text size="0.8rem" color="textSecondary">
-          {mockGame ? '开启 - 玩家1将获得顺子牌型' : '关闭 - 正常游戏模式'}
+          {mockGame ? t('mockModeOn') : t('mockModeOff')}
         </Text>
       </MockSection>
       
       {/* 测试：创建锦标赛按钮 - 始终显示 */}
       <CreateSection data-testid="create-tournament-section">
-        <Text size="0.85rem">测试模式：快速创建锦标赛</Text>
+        <Text size="0.85rem">{t("testModeTitle")}</Text>
         <CreateButtons>
           {configs.map(config => (
             <CreateButton 
@@ -530,7 +532,7 @@ const Tournament = () => {
               disabled={creating}
               data-testid={`create-tournament-btn-${config.id}`}
             >
-              {creating ? '创建中...' : config.name || `${config.playerCount}人赛 (${config.buyIn/1e6} TRX)`}
+              {creating ? t('creating') : config.name || t('players')(config.playerCount) + ' (' + config.buyIn/1e6 + ' TRX)'}
             </CreateButton>
           ))}
         </CreateButtons>
@@ -559,7 +561,7 @@ const Tournament = () => {
       ) : tournaments.length === 0 ? (
         <EmptyState data-testid="empty-state">
           <Text textCentered>No tournaments available</Text>
-          <Text size="0.85rem" color="textSecondary">点击上方绿色按钮创建一个锦标赛</Text>
+          <Text size="0.85rem" color="textSecondary">{t("noTournaments")}</Text>
         </EmptyState>
       ) : (
         <TournamentGrid>

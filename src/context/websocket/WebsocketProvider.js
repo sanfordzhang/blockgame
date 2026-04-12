@@ -66,14 +66,11 @@ const WebSocketProvider = ({ children }) => {
 
   function connect() {
     const socket = io(config.socketURI, {
-      transports: ['websocket', 'polling'],
-      upgrade: true,
+      transports: ['polling', 'websocket'],
+      upgrade: false,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
-      cors: {
-        origin: '*',
-      }
     })
     registerCallbacks(socket)
     window.socket = socket

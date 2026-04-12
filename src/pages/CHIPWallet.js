@@ -197,12 +197,12 @@ const CHIPWallet = () => {
     }
 
     if (!stakingContractAddress) {
-      window.alert('质押合约地址未加载，请刷新页面重试');
+      window.alert(t('errNoStakingContract'));
       return;
     }
 
     if (!chipTokenAddress) {
-      window.alert('CHIP代币合约地址未加载，请刷新页面重试');
+      window.alert(t('errNoChipContract'));
       return;
     }
 
@@ -210,17 +210,17 @@ const CHIPWallet = () => {
     const lockDays = parseInt(stakeLockDays);
 
     if (!amount || amount < 100) {
-      window.alert('质押金额至少100 CHIP');
+      window.alert(t('errStakeMin'));
       return;
     }
 
     if (!lockDays || lockDays < 30) {
-      window.alert('锁定期至少30天');
+      window.alert(t('errLockMin'));
       return;
     }
 
     if (amount > onChainBalance) {
-      window.alert(`链上余额不足。您只有 ${onChainBalance} CHIP 可质押`);
+      window.alert(t('errInsufficientStake')(onChainBalance));
       return;
     }
 
@@ -257,11 +257,11 @@ const CHIPWallet = () => {
       setStakeAmount('');
       setStakeLockDays('30');
       fetchData();
-      window.alert(`✅ 质押成功！\n\n交易: ${stakeTx}\n\n查看: https://nile.tronscan.org/#/transaction/${stakeTx}`);
+      window.alert(`✅ Stake successful!\n\nTx: ${stakeTx}\n\nView: https://nile.tronscan.org/#/transaction/${stakeTx}`);
 
     } catch (error) {
       console.error('Failed to stake:', error);
-      window.alert('质押失败: ' + (error.message || 'Unknown error'));
+      window.alert('Stake failed: ' + (error.message || 'Unknown error'));
     }
     setStaking(false);
   };
@@ -274,7 +274,7 @@ const CHIPWallet = () => {
     }
 
     if (!stakingContractAddress) {
-      alert('质押合约地址未加载，请刷新页面重试');
+      alert(t('errNoStakingContract'));
       return;
     }
 
@@ -286,7 +286,7 @@ const CHIPWallet = () => {
     if (now < unlockTime) {
       const daysLeft = Math.ceil((unlockTime - now) / (1000 * 60 * 60 * 24));
       const penalty = stake.amount * 0.1; // 10% 提前解除惩罚
-      if (!window.confirm(`⚠️ 质押尚未解锁！\n\n还剩 ${daysLeft} 天解锁\n提前解除将扣除 10% 惩罚金：${penalty.toFixed(2)} CHIP\n\n确定要提前解除吗？`)) {
+      if (!window.confirm(t('errUnstakeEarly')(daysLeft, penalty.toFixed(2) + ' CHIP'))) {
         return;
       }
     }
@@ -318,11 +318,11 @@ const CHIPWallet = () => {
       });
 
       fetchData();
-      alert(`✅ 解除质押成功！\n\n交易: ${tx}\n\n查看: https://nile.tronscan.org/#/transaction/${tx}`);
+      alert(`✅ Unstake successful!\n\nTx: ${tx}\n\nView: https://nile.tronscan.org/#/transaction/${tx}`);
 
     } catch (error) {
       console.error('Failed to unstake:', error);
-      alert('解除质押失败: ' + (error.message || 'Unknown error'));
+      alert(t('errUnstakeFailed') + (error.message || 'Unknown error'));
     }
   };
 
@@ -334,7 +334,7 @@ const CHIPWallet = () => {
     }
 
     if (!stakingContractAddress) {
-      alert('质押合约地址未加载，请刷新页面重试');
+      alert(t('errNoStakingContract'));
       return;
     }
 
@@ -355,24 +355,24 @@ const CHIPWallet = () => {
       // 如果记录金额会导致Game Balance双重计算
 
       fetchData();
-      alert(`✅ 领取奖励成功！\n\n交易: ${tx}\n\n查看: https://nile.tronscan.org/#/transaction/${tx}`);
+      alert(`✅ Reward claimed!\n\nTx: ${tx}\n\nView: https://nile.tronscan.org/#/transaction/${tx}`);
 
     } catch (error) {
       console.error('Failed to claim reward:', error);
-      alert('领取奖励失败: ' + (error.message || 'Unknown error'));
+      alert(t('errClaimFailed') + (error.message || 'Unknown error'));
     }
   };
 
   // 提现到区块链钱包
   const handleWithdraw = async () => {
     if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
-      alert('请输入有效的提现金额');
+      alert(t('errWithdrawAmountInvalid'));
       return;
     }
 
     const amount = parseFloat(withdrawAmount);
     if (amount > balance.chip) {
-      alert(`余额不足。您只有 ${balance.chip} CHIP 可提现`);
+      alert(t('errInsufficientChip')(balance.chip));
       return;
     }
 
@@ -393,13 +393,13 @@ const CHIPWallet = () => {
         setShowWithdrawModal(false);
         setWithdrawAmount('');
         fetchData();
-        alert(`✅ 提现成功！\n\n交易: ${data.txid}\n\n查看: https://nile.tronscan.org/#/transaction/${data.txid}`);
+        alert(`✅ Withdrawal successful!\n\nTx: ${data.txid}\n\nView: https://nile.tronscan.org/#/transaction/${data.txid}`);
       } else {
-        alert('提现失败: ' + data.error);
+        alert(t('errWithdrawChipFailed') + data.error);
       }
     } catch (error) {
       console.error('Failed to withdraw:', error);
-      alert('提现失败: ' + error.message);
+      alert(t('errWithdrawChipFailed') + error.message);
     }
     setWithdrawing(false);
   };
@@ -420,7 +420,7 @@ const CHIPWallet = () => {
     setTransferring(true);
     try {
       if (!chipTokenAddress) {
-        alert('CHIP代币合约地址未加载，请刷新页面重试');
+        alert(t('errNoChipContract'));
         setTransferring(false);
         return;
       }
@@ -517,8 +517,7 @@ const CHIPWallet = () => {
         <WalletCard>
           <Heading as="h3">{t('deposit')} / {t('withdraw')}</Heading>
           <Text color="textSecondary" style={{ marginBottom: '1.5rem' }}>
-            充值 TRX 到游戏合约，或将余额提现到钱包。
-            Deposit TRX to the game contract, or withdraw your balance back to your wallet.
+            {t('depositWithdrawDesc')}
           </Text>
           <Container flexDirection="row" gap="1rem" style={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
             <ActionButton
@@ -538,16 +537,16 @@ const CHIPWallet = () => {
           <hr style={{ margin: '2rem 0', opacity: 0.2 }} />
           <Heading as="h3">{t('register')}</Heading>
           <Text color="textSecondary" style={{ marginBottom: '1rem' }}>
-            如果你还没有注册到游戏合约，请前往首页完成注册。
+            {t('registerDesc')}
           </Text>
           <ActionButton onClick={() => window.location.href = '/'}>
-            前往首页注册 / Go to Register
+            {t('goToRegister')}
           </ActionButton>
         </WalletCard>
       ) : tab === 'wallet' ? (
         <>
           <WalletCard data-testid="wallet-card">
-            <Text color="textSecondary">游戏内余额 (Game Balance)</Text>
+            <Text color="textSecondary">{t('gameBalance')} (Game Balance)</Text>
             <BalanceDisplay data-testid="chip-balance">{balance.chip?.toLocaleString() || 0} CHIP</BalanceDisplay>
             <Container flexDirection="row" gap="1rem" marginTop="1rem">
               <ActionButton primary data-testid="transfer-btn" onClick={() => setShowTransferModal(true)}>Transfer</ActionButton>
@@ -556,18 +555,18 @@ const CHIPWallet = () => {
                 style={{ background: '#4CAF50', color: 'white', border: 'none' }}
                 onClick={() => setShowWithdrawModal(true)}
               >
-                提现到钱包
+                {t('withdrawToWallet')}
               </ActionButton>
             </Container>
           </WalletCard>
 
           <WalletCard>
-            <Text color="textSecondary">区块链余额 (On-Chain Balance)</Text>
+            <Text color="textSecondary">{t('onChainBalance')} (On-Chain Balance)</Text>
             <BalanceDisplay style={{ color: '#4CAF50' }} data-testid="onchain-balance">
               {onChainBalance?.toLocaleString() || 0} CHIP
             </BalanceDisplay>
             <Text size="0.8rem" color="textSecondary">
-              TronLink钱包余额 • 合约: {chipTokenAddress || '加载中...'}
+              {t('tronLinkBalance')} {chipTokenAddress || '...'}
             </Text>
           </WalletCard>
 
@@ -814,32 +813,32 @@ const CHIPWallet = () => {
       {/* Withdraw Modal */}
       {showWithdrawModal && (
         <WalletCard style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, minWidth: '400px' }}>
-          <Heading as="h3">提现 CHIP 到区块链钱包</Heading>
+          <Heading as="h3">{t('withdrawChipTitle')}</Heading>
           <Container flexDirection="column" gap="1rem" marginTop="1rem">
             <div>
-              <Text size="0.8rem" color="textSecondary">提现金额</Text>
+              <Text size="0.8rem" color="textSecondary">{t('withdrawAmountLabel')}</Text>
               <input
                 type="number"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
-                placeholder="输入提现金额"
+                placeholder={t("withdrawAmountPlh")}
                 style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
               />
             </div>
             
             <Container flexDirection="row" gap="0.5rem">
-              <Text size="0.8rem" color="textSecondary">游戏内余额: {balance.chip?.toLocaleString() || 0} CHIP</Text>
+              <Text size="0.8rem" color="textSecondary">{t('gameBalanceLabel')} {balance.chip?.toLocaleString() || 0} CHIP</Text>
               <button 
                 onClick={() => setWithdrawAmount(balance.chip?.toString() || '0')}
                 style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
               >
-                全部
+                {t('all')}
               </button>
             </Container>
             
             <div style={{ background: '#d4edda', padding: '0.75rem', borderRadius: '4px', fontSize: '0.85rem' }}>
               <Text size="0.8rem" color="#155724">
-                ✅ 提现将把游戏内CHIP转到您的TronLink钱包（区块链）
+                {t('withdrawChipNote')}
               </Text>
             </div>
 
@@ -850,10 +849,10 @@ const CHIPWallet = () => {
                 disabled={withdrawing}
                 style={{ background: '#4CAF50', border: 'none' }}
               >
-                {withdrawing ? '提现中...' : '确认提现'}
+                {withdrawing ? t('withdrawingText') : t('confirmWithdraw')}
               </ActionButton>
               <ActionButton onClick={() => setShowWithdrawModal(false)}>
-                取消
+                {t('cancel')}
               </ActionButton>
             </Container>
           </Container>
@@ -863,46 +862,46 @@ const CHIPWallet = () => {
       {/* Stake Modal */}
       {showStakeModal && (
         <WalletCard style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, minWidth: '400px' }}>
-          <Heading as="h3">质押 CHIP</Heading>
+          <Heading as="h3">{t('stakeChip')}</Heading>
           <Container flexDirection="column" gap="1rem" marginTop="1rem">
             <div>
-              <Text size="0.8rem" color="textSecondary">质押金额 (最少100 CHIP)</Text>
+              <Text size="0.8rem" color="textSecondary">{t('stakeAmountLabel')}</Text>
               <input
                 type="number"
                 value={stakeAmount}
                 onChange={(e) => setStakeAmount(e.target.value)}
-                placeholder="输入质押金额"
+                placeholder={t("stakeAmountPlh")}
                 style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
               />
             </div>
 
             <div>
-              <Text size="0.8rem" color="textSecondary">锁定期 (天，最少30天)</Text>
+              <Text size="0.8rem" color="textSecondary">{t('lockPeriodLabel')}</Text>
               <input
                 type="number"
                 value={stakeLockDays}
                 onChange={(e) => setStakeLockDays(e.target.value)}
-                placeholder="输入锁定期"
+                placeholder={t("lockPeriodPlh")}
                 style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
               />
             </div>
 
             <Container flexDirection="row" gap="0.5rem">
-              <Text size="0.8rem" color="textSecondary">链上余额: {onChainBalance?.toLocaleString() || 0} CHIP</Text>
+              <Text size="0.8rem" color="textSecondary">{t('onChainBalanceLabel')} {onChainBalance?.toLocaleString() || 0} CHIP</Text>
               <button
                 onClick={() => setStakeAmount(onChainBalance?.toString() || '0')}
                 style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
               >
-                全部
+                {t('all')}
               </button>
             </Container>
 
             <div style={{ background: '#fff3cd', padding: '0.75rem', borderRadius: '4px', fontSize: '0.85rem' }}>
               <Text size="0.8rem" color="#856404">
-                ⚠️ 质押期间CHIP将被锁定。提前解押将扣除10%惩罚金。
+                {t('stakeWarning')}
               </Text>
               <Text size="0.75rem" color="#856404" style={{ marginTop: '0.5rem' }}>
-                奖励规则: 每日奖励 = clamp(最大质押 × 用户占比 / 30, 1 CHIP, 1000 CHIP)
+                {t('stakeRewardRule')}
               </Text>
             </div>
 
@@ -912,10 +911,10 @@ const CHIPWallet = () => {
                 onClick={handleStake}
                 disabled={staking}
               >
-                {staking ? '质押中...' : '确认质押'}
+                {staking ? t('staking') : t('confirmStake')}
               </ActionButton>
               <ActionButton onClick={() => setShowStakeModal(false)}>
-                取消
+                {t('cancel')}
               </ActionButton>
             </Container>
           </Container>

@@ -3,6 +3,8 @@ import socket from '../../socket';
 import globalContext from '../global/globalContext';
 import { SC_NFT_ACHIEVEMENT_EARNED, SC_NFT_MINT_READY } from '../../pokergame/actions';
 
+const API_BASE = process.env.REACT_APP_SERVER_URI || 'http://127.0.0.1:7777';
+
 export const TournamentGameContext = createContext();
 
 /**
@@ -135,7 +137,7 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       
       // First, join the tournament via API (this adds player to the tournament)
       try {
-        const response = await fetch(`http://127.0.0.1:7778/api/tournament/${tournamentId}/join`, {
+        const response = await fetch(`${API_BASE}/api/tournament/${tournamentId}/join`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

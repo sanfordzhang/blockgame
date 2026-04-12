@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import GlobalContext from './globalContext';
 
 const GlobalState = ({ children }) => {
@@ -9,7 +9,17 @@ const GlobalState = ({ children }) => {
   const [chipsAmount, setChipsAmount] = useState(null);
   const [tables, setTables] = useState(null);
   const [players, setPlayers] = useState(null);
-  const [walletAddress, setWalletAddress] = useState('');
+  const [walletAddress, setWalletAddressRaw] = useState('');
+
+  // Clear chipsAmount when wallet address changes, preventing balance bleed between accounts
+  const setWalletAddress = useCallback((addr) => {
+    setWalletAddressRaw((prev) => {
+      if (prev && addr && prev !== addr) {
+        setChipsAmount(null);
+      }
+      return addr;
+    });
+  }, []);
 
   return (
     <GlobalContext.Provider
