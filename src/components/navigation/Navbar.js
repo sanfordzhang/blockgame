@@ -120,11 +120,6 @@ const Navbar = ({
               chipsAmount={chipsAmount}
               clickHandler={goToDeposit}
             />
-            <Hider hideOnMobile>
-              <Button to="/" primary small onClick={goToDeposit}>
-                {t('deposit')}
-              </Button>
-            </Hider>
             <LangSwitcher />
             <HamburgerButton clickHandler={openNavMenu} />
           </Spacer>
