@@ -63,6 +63,15 @@ class Table {
       return;
     }
     
+    // Prevent same player from sitting at multiple seats on the same table
+    const existingSeat = Object.values(this.seats).find(
+      seat => seat && seat.player && seat.player.id === player.id
+    );
+    if (existingSeat) {
+      console.warn(`[Table] Player ${player.id} is already seated at seat ${existingSeat.id}, cannot sit at seat ${seatId}`);
+      return { error: 'already_seated', message: 'You are already seated at this table' };
+    }
+    
     // Validate buy-in amount - must be at least big blind
     const bigBlind = this.minBet * 2;
     const minBuyIn = bigBlind * 20; // 20 big blinds minimum

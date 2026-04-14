@@ -476,7 +476,7 @@ const CHIPWallet = () => {
       return;
     }
 
-    const onChainBal = balance?.onchainBalance || 0;
+    const onChainBal = onChainBalance || 0;
     const maxDeposit = Math.floor(onChainBal);
     
     if (maxDeposit <= 0) {

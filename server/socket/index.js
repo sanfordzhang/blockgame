@@ -170,11 +170,32 @@ const init = (socket, io) => {
 
       if (found && found.socketId !== sid) {
         // Same wallet reconnecting from a different socket - clean up old record
-        delete players[found.socketId];
-        Object.values(tables).map((table) => {
+        console.log(`[Socket] Cleaning up old session for wallet ${walletAddress}: oldSocket=${found.socketId} newSocket=${sid}`);
+        
+        // Remove old player from all table SEATS (not just players array)
+        Object.values(tables).forEach((table) => {
+          // Remove from seats
+          for (const [seatId, seat] of Object.entries(table.seats)) {
+            if (seat && seat.player && seat.player.socketId === found.socketId) {
+              console.log(`[Socket] Removing old player from table ${table.id} seat ${seatId}`);
+              table.standUp(seatId);
+            }
+          }
+          // Also remove from players array
           table.removePlayer(found.socketId);
           broadcastToTable(table);
         });
+
+        // Clean up AI autopilot state for old session
+        try {
+          const aiService = require('../services/ai/AIService');
+          if (aiService.isAIEnabled(found.id)) {
+            console.log(`[Socket] Auto-disabling AI for reconnected wallet ${found.id}`);
+            aiService.disableAI(found.id);
+          }
+        } catch (e) { /* ignore if AI service not available */ }
+
+        delete players[found.socketId];
       }
 
       players[sid] = new Player(
@@ -906,6 +927,16 @@ const init = (socket, io) => {
     console.log('[Socket] sitDown called:', { tableId, seatId, amount, player: player?.id });
     
     if (player) {
+      // CRITICAL FIX #1: Check if this player is already seated at this table
+      const existingSeat = Object.values(table.seats).find(
+        (seat) => seat && seat.player && seat.player.id === player.id
+      );
+      if (existingSeat && existingSeat.id !== parseInt(seatId)) {
+        console.warn(`[Socket] Player ${player.id} already at seat ${existingSeat.id}, standing up old seat before sitting at ${seatId}`);
+        table.standPlayer(player.socketId || socket.id);
+        broadcastToTable(table, `${player.name} moved seats`);
+      }
+      
       // Task 15.3: Validate contract balance before sitting down
       if (config.BLOCKCHAIN_ENABLED) {
         try {
@@ -954,7 +985,18 @@ const init = (socket, io) => {
       }
       
       console.log('[Socket] Calling table.sitPlayer...');
-      table.sitPlayer(player, seatId, amount);
+      const sitResult = table.sitPlayer(player, seatId, amount);
+      
+      // Check if sitPlayer rejected the sit (e.g., already seated)
+      if (sitResult && sitResult.error) {
+        console.warn('[Socket] sitPlayer rejected:', sitResult.message);
+        socket.emit(SC_BLOCKCHAIN_ERROR, {
+          operation: 'sitDown',
+          message: sitResult.message
+        });
+        return;
+      }
+      
       let message = `${player.name} sat down in Seat ${seatId}`;
 
       // Note: In blockchain mode, bankroll is managed by blockchain cache
@@ -1102,6 +1144,18 @@ const init = (socket, io) => {
     if (seat) {
       updatePlayerBankroll(seat.player, seat.stack);
     }
+
+    // Clean up AI autopilot state for disconnected player
+    try {
+      const player = players[socket.id];
+      if (player && player.id) {
+        const aiService = require('../services/ai/AIService');
+        if (aiService.isAIEnabled(player.id)) {
+          console.log(`[Socket] Auto-disabling AI on disconnect: ${player.id}`);
+          aiService.disableAI(player.id);
+        }
+      }
+    } catch (e) { /* ignore */ }
 
     // Clean up notification callback
     gameFlowIntegration.removeNotificationCallback(socket.id);

@@ -211,6 +211,10 @@ const GameState = ({ children }) => {
         socket.off('SC_REQUEST_PLAYER_LEAVE')
         try {
           if (socket && socket.connected) {
+            // Disable AI autopilot when leaving game context to prevent ghost actions
+            if (socket.connected) {
+              socket.emit(CS_AI_DISABLE)
+            }
             leaveTable()
           }
         } catch (e) {
@@ -250,6 +254,8 @@ const GameState = ({ children }) => {
 
     if (socket && socket.connected) {
       setIsLeaving(true)
+      // Disable AI autopilot when leaving table
+      try { socket.emit(CS_AI_DISABLE) } catch(e) {}
       // Wait for SC_TABLE_LEFT before navigating so socket stays alive during blockchain leave
       socket.once(SC_TABLE_LEFT, () => {
         console.log('[GameState] SC_TABLE_LEFT received, navigating home')

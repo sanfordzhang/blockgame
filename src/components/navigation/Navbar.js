@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Hider from '../layout/Hider';
 import Button from '../buttons/Button';
-import ChipsAmount from '../user/ChipsAmount';
 import HamburgerButton from '../buttons/HamburgerButton';
 import Spacer from '../layout/Spacer';
 import LangSwitcher from './LangSwitcher';
@@ -64,7 +63,6 @@ const NAV_LINKS = [
 
 const Navbar = ({
   loggedIn,
-  chipsAmount,
   location,
   openModal,
   openNavMenu,
@@ -116,10 +114,6 @@ const Navbar = ({
 
           {/* 右侧工具区 */}
           <Spacer>
-            <ChipsAmount
-              chipsAmount={chipsAmount}
-              clickHandler={goToDeposit}
-            />
             <LangSwitcher />
             <HamburgerButton clickHandler={openNavMenu} />
           </Spacer>

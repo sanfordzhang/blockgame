@@ -37,9 +37,9 @@ import {
   getContractAddress
 } from '../utils/tronInteract';
 
-// Lazy load illustrations - don't block initial render
-const illustrationMobile = lazy(() => import('../assets/img/main-illustration-mobile@2x.png').then(m => ({ default: m.default })));
-const illustrationDesktop = lazy(() => import('../assets/img/main-illustration-desktop@2x.png').then(m => ({ default: m.default })));
+// Static import illustrations for reliable loading
+import illustrationMobile from '../assets/img/main-illustration-mobile@2x.png';
+import illustrationDesktop from '../assets/img/main-illustration-desktop@2x.png';
 
 const MarketingHeadline = styled(Heading)`
   @media screen and (min-width: 1024px) {

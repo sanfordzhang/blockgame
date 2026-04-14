@@ -4,7 +4,6 @@ import CloseButton from '../buttons/CloseButton';
 import Button from '../buttons/Button';
 import Text from '../typography/Text';
 import ColoredText from '../typography/ColoredText';
-import ChipsAmount from '../user/ChipsAmount';
 import { Link } from 'react-router-dom';
 import Markdown from 'react-remarkable';
 import socketContext from '../../context/websocket/socketContext';
@@ -123,7 +122,6 @@ const NavMenu = ({
   onClose,
   logout,
   userName,
-  chipsAmount,
   openModal,
 }) => {
   const { players } = useContext(globalContext);
@@ -170,10 +168,6 @@ const NavMenu = ({
             </SalutationText>
           )}
           <HorizontalWrapper>
-            <ChipsAmount
-              chipsAmount={chipsAmount}
-              clickHandler={openShopModal}
-            />
             <Button onClick={openShopModal} small primary>
               {t('buyChips')}
             </Button>
