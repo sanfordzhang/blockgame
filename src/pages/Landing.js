@@ -1,16 +1,10 @@
-import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Container from '../components/layout/Container';
 import CenteredBlock from '../components/layout/CenteredBlock';
 import Heading from '../components/typography/Heading';
 import Button from '../components/buttons/Button';
 import Hider from '../components/layout/Hider';
-import illustrationMobile from '../assets/img/main-illustration-mobile@2x.png';
-import illustrationDesktop from '../assets/img/main-illustration-desktop@2x.png';
-import jackImg from '../assets/img/jack-rounded-img@2x.png';
-import kingImg from '../assets/img/king-rounded-img@2x.png';
-import queenImg from '../assets/img/queen-rounded-img@2x.png';
-import queen2Img from '../assets/img/queen2-rounded-img@2x.png';
 import styled from 'styled-components';
 import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
@@ -42,6 +36,10 @@ import {
   getPlayerDelegate,
   getContractAddress
 } from '../utils/tronInteract';
+
+// Lazy load illustrations - don't block initial render
+const illustrationMobile = lazy(() => import('../assets/img/main-illustration-mobile@2x.png').then(m => ({ default: m.default })));
+const illustrationDesktop = lazy(() => import('../assets/img/main-illustration-desktop@2x.png').then(m => ({ default: m.default })));
 
 const MarketingHeadline = styled(Heading)`
   @media screen and (min-width: 1024px) {
@@ -118,9 +116,12 @@ const Landing = () => {
 
   useScrollToTopOnPageLoad();
 
-  // Check TronLink installation on mount
+  // Check TronLink installation on mount (delayed to let page render first)
   useEffect(() => {
     const checkTronLink = async () => {
+      // Delay wallet detection by 500ms so landing page renders first
+      await new Promise(r => setTimeout(r, 500));
+      
       // Wait for TronLink to inject
       const ready = await waitForTronLink(2000);
       setTronLinkInstalled(ready);
@@ -138,11 +139,19 @@ const Landing = () => {
     checkTronLink();
   }, []);
 
-  // Preload game assets while user is on landing page (reduces game loading time)
+  // Preload game assets - ONLY after page is fully rendered and user has been idle
   useEffect(() => {
-    const timer = setTimeout(() => {
-      preloadGameAssets();
-    }, 2000); // Start after 2s - let landing page load first
+    // Use requestIdleCallback to wait for main thread to be free
+    const startPreload = () => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => preloadGameAssets(), { timeout: 5000 });
+      } else {
+        setTimeout(() => preloadGameAssets(), 3000);
+      }
+    };
+    
+    // Start preloading after 3 seconds of page being visible
+    const timer = setTimeout(startPreload, 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -693,7 +702,9 @@ const Landing = () => {
     <Container fullHeight contentCenteredMobile padding="4rem 2rem 2rem 2rem">
       <CenteredBlockWithAnimation>
         <Hider hideOnDesktop>
-          <MobileIllustration src={illustrationMobile} alt="Vintage Poker" />
+          <Suspense fallback={<div style={{ width: '70%', maxWidth: '380px', margin: '1rem auto', height: '200px', background: '#f0f0f0', borderRadius: '8px' }}></div>}>
+            <MobileIllustration src={illustrationMobile} alt="Vintage Poker" />
+          </Suspense>
         </Hider>
         <Markdown>
           <MarketingHeadline
@@ -893,16 +904,6 @@ const Landing = () => {
                 </>
               )}
               
-              {/* Enter Game Without Wallet Button */}
-              <Button
-                large
-                fullWidthOnMobile
-                onClick={() => proceedToGame(walletAddress)}
-                style={{ marginTop: '0.5rem' }}
-              >
-                Enter Game (Without Wallet)
-              </Button>
-              
               {/* Enter Game Button */}
               {isRegistered && (
                 <Button
@@ -915,40 +916,6 @@ const Landing = () => {
                 >
                   {contractBalance < 100000000 ? t('deposit') + ' Required to Play' : t('enterGame')}
                 </Button>
-              )}
-              
-              {/* Feature Entries - Show if registered */}
-              {isRegistered && (
-                <FeatureSection data-testid="feature-section">
-                  <FeatureTitle>{t('navPlay') + ' & Explore'}</FeatureTitle>
-                  <FeatureGrid>
-                    <FeatureCard onClick={() => navigate('/tournament')} data-testid="feature-tournament">
-                      <FeatureIcon src={queen2Img} alt="Tournament" />
-                      <FeatureName>{t('navTournament')}</FeatureName>
-                      <FeatureDesc>Tournament</FeatureDesc>
-                    </FeatureCard>
-                    <FeatureCard onClick={() => navigate('/nft')} data-testid="feature-nft">
-                      <FeatureIcon src={jackImg} alt="NFT Gallery" />
-                      <FeatureName>{t('navNFT')}</FeatureName>
-                      <FeatureDesc>NFT Gallery</FeatureDesc>
-                    </FeatureCard>
-                    <FeatureCard onClick={() => navigate('/wallet')} data-testid="feature-wallet">
-                      <FeatureIcon src={queenImg} alt="CHIP Wallet" />
-                      <FeatureName>{t('navWallet')}</FeatureName>
-                      <FeatureDesc>CHIP Wallet</FeatureDesc>
-                    </FeatureCard>
-                    <FeatureCard onClick={() => navigate('/dao')} data-testid="feature-dao">
-                      <FeatureIcon src={kingImg} alt="DAO" />
-                      <FeatureName>{t('navDAO')}</FeatureName>
-                      <FeatureDesc>Governance</FeatureDesc>
-                    </FeatureCard>
-                    <FeatureCard onClick={() => navigate('/dex')} data-testid="feature-dex">
-                      <DEXIcon>💱</DEXIcon>
-                      <FeatureName>{t('navDEX')}</FeatureName>
-                      <FeatureDesc>TRX/CHIP DEX</FeatureDesc>
-                    </FeatureCard>
-                  </FeatureGrid>
-                </FeatureSection>
               )}
             </>
           )}
@@ -964,7 +931,9 @@ const Landing = () => {
         )}
       </CenteredBlockWithAnimation>
       <Hider hideOnMobile>
-        <DesktopIllustration src={illustrationDesktop} alt="Vintage Poker" />
+        <Suspense fallback={<div style={{ width: '400px', height: '400px', background: '#f0f0f0', borderRadius: '8px' }}></div>}>
+          <DesktopIllustration src={illustrationDesktop} alt="Vintage Poker" />
+        </Suspense>
       </Hider>
     </Container>
   );
@@ -1316,96 +1285,6 @@ const FeatureSection = styled.div`
   padding-top: 1rem;
   border-top: 1px solid rgba(36, 81, 106, 0.2);
   width: 100%;
-`;
-
-const FeatureTitle = styled.h3`
-  text-align: center;
-  color: #24516a;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-`;
-
-const FeatureGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  
-  @media screen and (min-width: 624px) {
-    grid-template-columns: repeat(4, 1fr);
-  }
-`;
-
-const FeatureCard = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.75rem 0.5rem;
-  background: rgba(36, 81, 106, 0.05);
-  border: 1px solid rgba(36, 81, 106, 0.15);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background: rgba(36, 81, 106, 0.1);
-    border-color: rgba(36, 81, 106, 0.3);
-    transform: translateY(-2px);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const FeatureIcon = styled.img`
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  margin-bottom: 0.5rem;
-  
-  @media screen and (max-width: 468px) {
-    width: 36px;
-    height: 36px;
-  }
-`;
-
-const DEXIcon = styled.div`
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  background: linear-gradient(135deg, #00d9ff, #00ff88);
-  
-  @media screen and (max-width: 468px) {
-    width: 36px;
-    height: 36px;
-    font-size: 22px;
-  }
-`;
-
-const FeatureName = styled.span`
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #24516a;
-  text-align: center;
-  
-  @media screen and (max-width: 468px) {
-    font-size: 0.75rem;
-  }
-`;
-
-const FeatureDesc = styled.span`
-  font-size: 0.7rem;
-  color: #888;
-  text-align: center;
-  
-  @media screen and (max-width: 468px) {
-    font-size: 0.6rem;
-  }
 `;
 
 export default Landing;

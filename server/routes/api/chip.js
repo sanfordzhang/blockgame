@@ -357,4 +357,47 @@ router.post('/test/create-transactions', async (req, res) => {
     }
 });
 
+/**
+ * @route POST /api/chip/deposit-to-game
+ * @desc Transfer CHIP from On-Chain Balance to Game Balance
+ */
+router.post('/deposit-to-game', async (req, res) => {
+    try {
+        const { walletAddress, amount } = req.body;
+        
+        if (!walletAddress || !amount) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        
+        const depositAmount = parseFloat(amount);
+        if (depositAmount <= 0) {
+            return res.status(400).json({ success: false, error: 'Amount must be positive' });
+        }
+        
+        // Check on-chain balance
+        let onChainBalance = 0;
+        try {
+            onChainBalance = await ChipService.getOnChainBalance(walletAddress);
+        } catch (e) {
+            console.error('[Deposit] Failed to check on-chain balance:', e.message);
+        }
+        
+        // Credit Game Balance in database
+        await ChipTransaction.createTransaction({
+            walletAddress,
+            type: 'deposit',
+            amount: depositAmount,
+            description: `Deposited ${depositAmount} CHIP from On-Chain Balance`,
+            txHash: `deposit_${Date.now()}`,
+            timestamp: new Date()
+        });
+        
+        console.log(`[Deposit] ${walletAddress} deposited ${depositAmount} CHIP to Game Balance`);
+        res.json({ success: true, deposited: depositAmount });
+    } catch (error) {
+        console.error('[Chip API] deposit-to-game error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

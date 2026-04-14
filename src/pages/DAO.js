@@ -4,6 +4,7 @@ import Container from '../components/layout/Container';
 import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
+import { useTronLink } from '../context/tron/TronContext';
 
 const ProposalCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -141,7 +142,8 @@ const Tab = styled.button`
 `;
 
 const DAO = () => {
-  const { walletAddress } = useContext(globalContext);
+  const { walletAddress, setWalletAddress } = useContext(globalContext);
+  const { address: tronLinkAddress } = useTronLink();
   const [tab, setTab] = useState('active');
   const [proposals, setProposals] = useState([]);
   const [votingPower, setVotingPower] = useState(0);
@@ -150,6 +152,13 @@ const DAO = () => {
   const [newProposal, setNewProposal] = useState({ title: '', description: '' });
   const [error, setError] = useState('');
   const [createMsg, setCreateMsg] = useState('');
+
+  // Sync TronLink address to global context (fixes navbar on refresh)
+  useEffect(() => {
+    if (tronLinkAddress && tronLinkAddress !== walletAddress) {
+      setWalletAddress(tronLinkAddress);
+    }
+  }, [tronLinkAddress, walletAddress, setWalletAddress]);
 
   useEffect(() => {
     fetchProposals();

@@ -469,42 +469,57 @@ const CHIPWallet = () => {
     setTransferring(false);
   };
 
-  // Deposit TRX to get CHIP (on-chain)
-  const handleDepositTrx = async () => {
-    if (!window.tronWeb) {
-      alert('TronLink wallet not detected! Please install TronLink extension.');
+  // Deposit CHIP from On-Chain Balance to Game Balance
+  const handleDepositChip = async () => {
+    if (!walletAddress) {
+      alert('Please connect your wallet first.');
       return;
     }
 
-    const amount = prompt('Enter TRX amount to deposit:', '100');
+    const onChainBal = balance?.onchainBalance || 0;
+    const maxDeposit = Math.floor(onChainBal);
+    
+    if (maxDeposit <= 0) {
+      alert(`No CHIP available in On-Chain Balance.\n\nCurrent: ${onChainBal.toFixed(2)} CHIP\n\nPlease use DEX to buy CHIP or Claim rewards first.`);
+      return;
+    }
+
+    const amount = prompt(
+      `Enter CHIP amount to deposit to Game Balance:\n(Available: ${maxDeposit} CHIP)`,
+      Math.min(maxDeposit, 100).toString()
+    );
     if (!amount || parseFloat(amount) <= 0) return;
+
+    const depositAmount = parseFloat(amount);
+    if (depositAmount > maxDeposit) {
+      alert(`Insufficient On-Chain Balance. Max available: ${maxDeposit} CHIP`);
+      return;
+    }
 
     setDepositing(true);
     try {
-      // Get game contract address
-      const configRes = await fetch('/api/blockchain/config');
-      const config = await configRes.json();
-      const contractAddr = config.contractAddress || config.gameContract || 
-        (process.env.REACT_APP_NETWORK === 'mainnet' ? 'THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd' : 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9hEJnU4c');
-
-      const trxAmt = Math.floor(parseFloat(amount) * 1e6); // Convert to SUN
-      const tx = await window.tronWeb.transactionBuilder.sendTrx(
-        contractAddr,
-        trxAmt,
-        walletAddress
-      );
-      const signedTx = await window.tronWeb.trx.sign(tx);
-      const result = await window.tronWeb.trx.sendRawTransaction(signedTx);
+      // Step 1: Call server to execute on-chain transfer (from player's chain wallet to treasury)
+      // and credit Game Balance
+      const response = await fetch('/api/chip/deposit-to-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress,
+          amount: depositAmount
+        })
+      });
       
-      if (result.result || result.txid) {
-        fetchData();
-        alert(`✅ Deposited ${amount} TRX! Tx: ${result.txid}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchData(); // Refresh all balances
+        alert(`✅ Deposited ${depositAmount} CHIP to Game Balance!\n\nTx: ${data.txId || 'completed'}`);
       } else {
-        alert('Deposit transaction failed');
+        alert('Deposit failed: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Failed to deposit:', error);
-      alert('Deposit failed: ' + (error.message || 'Unknown error'));
+      console.error('Failed to deposit CHIP:', error);
+      alert('Deposit failed: ' + (error.message || 'Network error'));
     }
     setDepositing(false);
   };
@@ -578,11 +593,11 @@ const CHIPWallet = () => {
           <Container flexDirection="row" gap="1rem" style={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
             <ActionButton
               primary
-              onClick={handleDepositTrx}
+              onClick={handleDepositChip}
               disabled={depositing || !walletAddress}
               style={{ minWidth: '140px' }}
             >
-              {depositing ? 'Depositing...' : `${t('deposit')} (TRX)`}
+              {depositing ? 'Depositing...' : `${t('deposit')} (CHIP)`}
             </ActionButton>
             <ActionButton
               onClick={() => setShowWithdrawModal(true)}

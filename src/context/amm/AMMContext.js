@@ -197,22 +197,41 @@ export function AMMProvider({ children, tronLink }) {
         setLoading(false);
     }, [fetchPoolState, fetchPrice, fetchPriceHistory, fetchSwapHistory, fetchUserLiquidity, userAddress]);
     
-    // 初始化
+    // 初始化 - 延迟到页面加载完成后再开始
     useEffect(() => {
-        const init = async () => {
-            await fetchConfig();
-            await refreshAll();
+        // Don't start fetching immediately - wait for page to render first
+        const initTimer = setTimeout(async () => {
+            try {
+                await fetchConfig();
+                // Only do full refresh on DEX page (check path)
+                if (window.location.pathname === '/dex') {
+                    await refreshAll();
+                } else {
+                    // On other pages just fetch config, lazy load rest
+                    await Promise.all([fetchPrice(), fetchPoolState()]);
+                }
+            } catch(e) { /* ignore */ }
+        }, 3000); // 3s delay
+        
+        // 定时刷新（只在DEX页面频繁刷新，其他页面30秒一次）
+        let interval;
+        const startInterval = () => {
+            interval = setInterval(() => {
+                if (window.location.pathname === '/dex' || window.location.pathname.startsWith('/dex')) {
+                    fetchPrice();
+                    fetchPoolState();
+                }
+                // Other pages don't need frequent AMM updates
+            }, window.location.pathname === '/dex' ? 10000 : 30000);
         };
         
-        init();
+        // Start interval after initial load
+        setTimeout(startInterval, 4000);
         
-        // 定时刷新（10秒）
-        const interval = setInterval(() => {
-            fetchPrice();
-            fetchPoolState();
-        }, 10000);
-        
-        return () => clearInterval(interval);
+        return () => {
+            clearTimeout(initTimer);
+            clearInterval(interval);
+        };
     }, [fetchConfig, refreshAll, fetchPrice, fetchPoolState]);
     
     // 监听用户地址变化

@@ -2,111 +2,66 @@
  * Game Resource Preloader
  * Preloads game assets while user is on the landing page
  * to eliminate loading delays when entering the game
+ *
+ * Strategy:
+ * - P0: Only background + table (the 2 biggest images that block first paint)
+ * - P1: UI elements (avatars, dealer, chips) - loaded via idle callback
+ * - P2: 52 card SVGs - loaded lazily in batches (only needed when cards are dealt)
  */
 
-// P0 - Critical: Visible immediately when game starts
+// P0 - Critical: Only the 2 largest images that block game rendering
 import bgImage from '../assets/img/background.png';
 import tableImage from '../assets/game/table.webp';
-import cardBack from '../assets/game/card_back.png';
-import avatarImg from '../assets/game/avatar.png';
-import rotateGif from '../assets/game/rotate.gif';
 
 // P1 - High: Needed shortly after game loads
-import dealerPng from '../assets/game/dealer.png';
-import smallBlind from '../assets/game/small_blind.png';
-import bigBlind from '../assets/game/big_blind.png';
-import chipsGreen from '../assets/game/gglab_green.png';
+import cardBack from '../assets/game/card_back.png';
+import avatarImg from '../assets/game/avatar.png';
 
-// Player avatars
-import player1 from '../assets/game/player1.png';
-import player2 from '../assets/game/player2.png';
-import player3 from '../assets/game/player3.png';
-import player4 from '../assets/game/player4.png';
-import player5 from '../assets/game/player5.png';
-import player6 from '../assets/game/player6.png';
+// P2 - UI elements (load during idle time)
+let dealerPng, smallBlind, bigBlind, chipsGreen;
+let player1, player2, player3, player4, player5, player6;
 
-// All 52 card SVGs
-import c2 from '../assets/game/cards-svg/c2.svg';
-import c3 from '../assets/game/cards-svg/c3.svg';
-import c4 from '../assets/game/cards-svg/c4.svg';
-import c5 from '../assets/game/cards-svg/c5.svg';
-import c6 from '../assets/game/cards-svg/c6.svg';
-import c7 from '../assets/game/cards-svg/c7.svg';
-import c8 from '../assets/game/cards-svg/c8.svg';
-import c9 from '../assets/game/cards-svg/c9.svg';
-import c10 from '../assets/game/cards-svg/c10.svg';
-import cJ from '../assets/game/cards-svg/cJ.svg';
-import cQ from '../assets/game/cards-svg/cQ.svg';
-import cK from '../assets/game/cards-svg/cK.svg';
-import cA from '../assets/game/cards-svg/cA.svg';
-import d2 from '../assets/game/cards-svg/d2.svg';
-import d3 from '../assets/game/cards-svg/d3.svg';
-import d4 from '../assets/game/cards-svg/d4.svg';
-import d5 from '../assets/game/cards-svg/d5.svg';
-import d6 from '../assets/game/cards-svg/d6.svg';
-import d7 from '../assets/game/cards-svg/d7.svg';
-import d8 from '../assets/game/cards-svg/d8.svg';
-import d9 from '../assets/game/cards-svg/d9.svg';
-import d10 from '../assets/game/cards-svg/d10.svg';
-import dJ from '../assets/game/cards-svg/dJ.svg';
-import dQ from '../assets/game/cards-svg/dQ.svg';
-import dK from '../assets/game/cards-svg/dK.svg';
-import dA from '../assets/game/cards-svg/dA.svg';
-import h2 from '../assets/game/cards-svg/h2.svg';
-import h3 from '../assets/game/cards-svg/h3.svg';
-import h4 from '../assets/game/cards-svg/h4.svg';
-import h5 from '../assets/game/cards-svg/h5.svg';
-import h6 from '../assets/game/cards-svg/h6.svg';
-import h7 from '../assets/game/cards-svg/h7.svg';
-import h8 from '../assets/game/cards-svg/h8.svg';
-import h9 from '../assets/game/cards-svg/h9.svg';
-import h10 from '../assets/game/cards-svg/h10.svg';
-import hJ from '../assets/game/cards-svg/hJ.svg';
-import hQ from '../assets/game/cards-svg/hQ.svg';
-import hK from '../assets/game/cards-svg/hK.svg';
-import hA from '../assets/game/cards-svg/hA.svg';
-import s2 from '../assets/game/cards-svg/s2.svg';
-import s3 from '../assets/game/cards-svg/s3.svg';
-import s4 from '../assets/game/cards-svg/s4.svg';
-import s5 from '../assets/game/cards-svg/s5.svg';
-import s6 from '../assets/game/cards-svg/s6.svg';
-import s7 from '../assets/game/cards-svg/s7.svg';
-import s8 from '../assets/game/cards-svg/s8.svg';
-import s9 from '../assets/game/cards-svg/s9.svg';
-import s10 from '../assets/game/cards-svg/s10.svg';
-import sJ from '../assets/game/cards-svg/sJ.svg';
-import sQ from '../assets/game/cards-svg/sQ.svg';
-import sK from '../assets/game/cards-svg/sK.svg';
-import sA from '../assets/game/cards-svg/sA.svg';
+// P3 - Card SVGs (lazy load, only when needed)
+const CARD_IMPORTS = () => [
+  import('../assets/game/cards-svg/c2.svg'), import('../assets/game/cards-svg/c3.svg'),
+  import('../assets/game/cards-svg/c4.svg'), import('../assets/game/cards-svg/c5.svg'),
+  import('../assets/game/cards-svg/c6.svg'), import('../assets/game/cards-svg/c7.svg'),
+  import('../assets/game/cards-svg/c8.svg'), import('../assets/game/cards-svg/c9.svg'),
+  import('../assets/game/cards-svg/c10.svg'), import('../assets/game/cards-svg/cJ.svg'),
+  import('../assets/game/cards-svg/cQ.svg'), import('../assets/game/cards-svg/cK.svg'),
+  import('../assets/game/cards-svg/cA.svg'), import('../assets/game/cards-svg/d2.svg'),
+  import('../assets/game/cards-svg/d3.svg'), import('../assets/game/cards-svg/d4.svg'),
+  import('../assets/game/cards-svg/d5.svg'), import('../assets/game/cards-svg/d6.svg'),
+  import('../assets/game/cards-svg/d7.svg'), import('../assets/game/cards-svg/d8.svg'),
+  import('../assets/game/cards-svg/d9.svg'), import('../assets/game/cards-svg/d10.svg'),
+  import('../assets/game/cards-svg/dJ.svg'), import('../assets/game/cards-svg/dQ.svg'),
+  import('../assets/game/cards-svg/dK.svg'), import('../assets/game/cards-svg/dA.svg'),
+  import('../assets/game/cards-svg/h2.svg'), import('../assets/game/cards-svg/h3.svg'),
+  import('../assets/game/cards-svg/h4.svg'), import('../assets/game/cards-svg/h5.svg'),
+  import('../assets/game/cards-svg/h6.svg'), import('../assets/game/cards-svg/h7.svg'),
+  import('../assets/game/cards-svg/h8.svg'), import('../assets/game/cards-svg/h9.svg'),
+  import('../assets/game/cards-svg/h10.svg'), import('../assets/game/cards-svg/hJ.svg'),
+  import('../assets/game/cards-svg/hQ.svg'), import('../assets/game/cards-svg/hK.svg'),
+  import('../assets/game/cards-svg/hA.svg'), import('../assets/game/cards-svg/s2.svg'),
+  import('../assets/game/cards-svg/s3.svg'), import('../assets/game/cards-svg/s4.svg'),
+  import('../assets/game/cards-svg/s5.svg'), import('../assets/game/cards-svg/s6.svg'),
+  import('../assets/game/cards-svg/s7.svg'), import('../assets/game/cards-svg/s8.svg'),
+  import('../assets/game/cards-svg/s9.svg'), import('../assets/game/cards-svg/s10.svg'),
+  import('../assets/game/cards-svg/sJ.svg'), import('../assets/game/cards-svg/sQ.svg'),
+  import('../assets/game/cards-svg/sK.svg'), import('../assets/game/cards-svg/sA.svg'),
+];
 
 // Resource lists by priority
 const CRITICAL_ASSETS = [
-  // Background and table - largest files that block rendering
+  // Only the 2 biggest images that block first paint
   bgImage,
   tableImage,
+];
+
+// High priority - needed after game starts showing
+const HIGH_PRIORITY_ASSETS = [
   cardBack,
   avatarImg,
-  rotateGif,
-];
-
-const HIGH_PRIORITY_ASSETS = [
-  dealerPng,
-  smallBlind,
-  bigBlind,
-  chipsGreen,
-  player1,
-  player2,
-  player3,
-  player4,
-  player5,
-  player6,
-];
-
-const CARD_ASSETS = [
-  c2, c3, c4, c5, c6, c7, c8, c9, c10, cJ, cQ, cK, cA,
-  d2, d3, d4, d5, d6, d7, d8, d9, d10, dJ, dQ, dK, dA,
-  h2, h3, h4, h5, h6, h7, h8, h9, h10, hJ, hQ, hK, hA,
-  s2, s3, s4, s5, s6, s7, s8, s9, s10, sJ, sQ, sK, sA,
 ];
 
 let preloadCache = new Set();
@@ -127,7 +82,7 @@ const preloadImage = (src) => {
 };
 
 /**
- * Preload batch of images sequentially (to avoid overwhelming network)
+ * Preload batch of images with concurrency control
  */
 const preloadBatch = async (urls, batchSize = 4, delayMs = 100) => {
   for (let i = 0; i < urls.length; i += batchSize) {
@@ -140,44 +95,83 @@ const preloadBatch = async (urls, batchSize = 4, delayMs = 100) => {
 };
 
 /**
+ * Lazy load UI assets using dynamic import
+ */
+const lazyLoadUIAssets = async () => {
+  try {
+    const mods = await Promise.all([
+      import('../assets/game/dealer.png'),
+      import('../assets/game/small_blind.png'),
+      import('../assets/game/big_blind.png'),
+      import('../assets/game/gglab_green.png'),
+      import('../assets/game/player1.png'),
+      import('../assets/game/player2.png'),
+      import('../assets/game/player3.png'),
+      import('../assets/game/player4.png'),
+      import('../assets/game/player5.png'),
+      import('../assets/game/player6.png'),
+    ]);
+    // Preload all imported images
+    await Promise.all(mods.map(m => preloadImage(m.default)));
+    console.log('[Preload] UI assets loaded via dynamic import');
+  } catch (e) {
+    console.warn('[Preload] Failed to load some UI assets:', e.message);
+  }
+};
+
+/**
+ * Lazy load card SVGs using dynamic import (only when user is likely to enter game)
+ */
+const lazyLoadCards = async () => {
+  try {
+    const cardModules = await CARD_IMPORTS();
+    await Promise.all(cardModules.map(m => preloadImage(m.default)));
+    console.log('[Preload] All 52 card SVGs loaded');
+  } catch (e) {
+    console.warn('[Preload] Failed to load some card assets:', e.message);
+  }
+};
+
+/**
  * Main preload function - call from Landing page
  * Uses requestIdleCallback for non-blocking loading
+ * Optimized: only loads 2 critical images upfront, rest is lazy
  */
 export const preloadGameAssets = () => {
-  console.log('[Preload] Starting game asset preloading...');
+  console.log('[Preload] Starting game asset preloading (optimized)...');
   const startTime = performance.now();
   
-  // Phase 1: Critical assets - load immediately
-  preloadBatch(CRITICAL_ASSETS).then(() => {
+  // Phase 0: Only 2 critical images - background + table (the biggest blockers)
+  // These are already imported at module level so they're in the bundle
+  preloadBatch(CRITICAL_ASSETS, 2, 0).then(() => {
     console.log(`[Preload] Critical assets loaded (${(performance.now() - startTime).toFixed(0)}ms)`);
   });
   
-  // Phase 2: High priority - short delay then load
+  // Phase 1: Card back + avatar (needed right after game renders)
+  const runPhase1 = () => {
+    preloadBatch(HIGH_PRIORITY_ASSETS, 2, 0).then(() => {
+      console.log(`[Preload] High-priority assets loaded (${(performance.now() - startTime).toFixed(0)}ms)`);
+    });
+  };
+  
   if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => {
-      preloadBatch(HIGH_PRIORITY_ASSETS).then(() => {
-        console.log(`[Preload] High-priority assets loaded (${(performance.now() - startTime).toFixed(0)}ms)`);
-      });
-    }, { timeout: 2000 });
+    requestIdleCallback(runPhase1, { timeout: 1000 });
   } else {
-    setTimeout(() => {
-      preloadBatch(HIGH_PRIORITY_ASSETS);
-    }, 1500);
+    setTimeout(runPhase1, 800);
   }
   
-  // Phase 3: Card SVGs - load during idle time
+  // Phase 2: UI elements (dealer, chips, avatars) - dynamic import, not in initial bundle
   if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => {
-      // Cards are smaller but many - use larger batches
-      preloadBatch(CARD_ASSETS, 8, 50).then(() => {
-        console.log(`[Preload] All ${CARD_ASSETS.length} cards loaded (${(performance.now() - startTime).toFixed(0)}ms)`);
-        console.log('[Preload] Game assets fully preloaded!');
-      });
-    }, { timeout: 5000 });
+    requestIdleCallback(() => lazyLoadUIAssets(), { timeout: 3000 });
   } else {
-    setTimeout(() => {
-      preloadBatch(CARD_ASSETS, 8, 50);
-    }, 4000);
+    setTimeout(lazyLoadUIAssets, 2500);
+  }
+  
+  // Phase 3: Card SVGs - only load if user stays on page for a while
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => lazyLoadCards(), { timeout: 8000 });
+  } else {
+    setTimeout(lazyLoadCards, 6000);
   }
 };
 
@@ -185,9 +179,14 @@ export const preloadGameAssets = () => {
  * Quick emergency preload for when user clicks "Enter Game"
  * Only preloads the most critical remaining assets
  */
-export const emergencyPreload = () => {
-  // Just ensure critical assets are loaded
-  preloadBatch(CRITICAL_ASSETS, 2, 0);
+export const emergencyPreload = async () => {
+  // Ensure all critical and high-priority are ready
+  await Promise.all([
+    ...CRITICAL_ASSETS.map(preloadImage),
+    ...HIGH_PRIORITY_ASSETS.map(preloadImage),
+  ]);
+  // Also start UI assets loading immediately
+  lazyLoadUIAssets();
 };
 
 export default {
