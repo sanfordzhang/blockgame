@@ -1,127 +1,102 @@
 const CDP = require('chrome-remote-interface');
+(async () => {
+  const client = await CDP({ port: 9222 });
+  const { Page, Network, Runtime, DOM } = client;
+  await Page.enable();
+  await Network.enable();
 
-async function verify() {
-  let client;
-  try {
-    // Use a fresh connection with longer timeout
-    client = await CDP({ port: 9222, maxRetries: 3, retryInterval: 1000 });
-    
-    const { Page, Runtime, Network } = client;
-    await Promise.all([Page.enable(), Runtime.enable()]);
-    await Network.enable();
-    
-    const fs = require('fs');
+  // Clear all caches and navigate fresh
+  await Runtime.evaluate({ expression: 'caches.keys().then(k => k.forEach(n => caches.delete(n)))' });
+  await Network.clearBrowserCache();
+  
+  const url = 'http://43.163.114.175:3001/';
+  console.log(`=== Navigating to ${url} ===`);
+  
+  let requests = [];
+  let dclTime = null;
+  let loadTime = null;
 
-    // Step 1: Clear cache via JS (safer than Network.clearBrowserCache which can disconnect)
-    console.log('Clearing caches via JS...');
-    await Runtime.evaluate({
-      expression: `
-        (async () => {
-          try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
-          try { const ks = await caches.keys(); for(const k of ks) await caches.delete(k); } catch(e) {}
-          if(navigator.serviceWorker) {
-            const regs = await navigator.serviceWorker.getRegistrations().catch(()=>[]);
-            for(const r of regs) await r.unregister().catch(()=>{});
-          }
-          return 'done';
-        })()
-      `,
-      returnByValue: true,
-      awaitPromise: true
-    }).then(r => console.log('Cache clear:', r.result.value));
-
-    // Disable network cache
-    await Network.setCacheDisabled({ cacheDisabled: true });
-    console.log('Network cache disabled');
-    
-    // Navigate with cache-busting query
-    const t0 = Date.now();
-    const url = 'http://43.163.114.175:3001/?_nocache=' + Date.now();
-    console.log('Navigating to:', url);
-    await Page.navigate({ url });
-    console.log('Navigation command sent');
-
-    // Wait and poll
-    let contentVisible = false;
-    let firstContentTime = 0;
-
-    for (let i = 0; i < 20; i++) {
-      await new Promise(r => setTimeout(r, 800));
-      const elapsed = Date.now() - t0;
-      
-      if (i === 0 || i % 4 === 0 || elapsed > 12000) {
-        const ss = `/tmp/cdp-clean-t${elapsed}ms.png`;
-        try {
-          await Page.captureScreenshot({ format: 'png', fromSurface: true })
-            .then(({ data }) => fs.writeFileSync(ss, data, 'base64'));
-        } catch(e) { /* screenshot may fail */ }
-      }
-
-      const check = await Runtime.evaluate({
-        expression: `({
-          hasH2: !!document.querySelector('h2'),
-          h2text: document.querySelector('h2')?.innerText?.substring(0,60)||'',
-          txtLen: document.body.innerText.length,
-          imgs: document.querySelectorAll('img').length,
-          visImgs: Array.from(document.querySelectorAll('img')).filter(i=>i.naturalWidth>0).length,
-        })`,
-        returnByValue: true
-      });
-
-      const s = check.result.value;
-      
-      if (!contentVisible && s.hasH2) {
-        contentVisible = true;
-        firstContentTime = elapsed;
-        console.log(`\\n*** CONTENT FIRST VISIBLE at T+${firstContentTime}ms ***`);
-        console.log(`    h2="${s.h2text}" imgs=${s.imgs}/${s.visImgs}`);
-      }
-
-      if (contentVisible && elapsed > firstContentTime + 2000) break;
-      if (elapsed > 18000 && !contentVisible) break;
+  Network.requestWillBeSent((params) => {
+    requests.push(params);
+    const u = params.request.url;
+    if (u.includes('player') || u.includes('dealer') || u.includes('background') || u.includes('table.webp') || u.includes('card_back')) {
+      const t = Date.now() - startTime;
+      console.log(`T+${t}ms [GAME-ASSET] ${u.split('/').pop()}`);
     }
+  });
 
-    const totalElapsed = Date.now() - t0;
-    console.log(`\\nTotal time: ${totalElapsed}ms`);
-
-    // Resource analysis
-    const res = await Runtime.evaluate({
-      expression: `
-        performance.getEntriesByType('resource').map(e=>({
-          n:e.name.split('/').slice(-2).join('/'),
-          t:e.initiatorType,
-          d:Math.round(e.duration),
-          kb:Math.round(e.transferSize/1024),
-          s:Math.round(e.startTime),
-          g:/player[1-6]|dealer\\.png|background\\.png|table\\.webp|card_back|big_blind|small_blind|cards-svg/.test(e.name)
-        })).sort((a,b)=>a.s-b.s)
-      `,
-      returnByValue: true
-    });
-
-    const allRes = res.result.value || [];
-    const gameAssets = allRes.filter(r => r.g);
-    
-    console.log(`\\nResources: ${allRes.length} total, ${gameAssets.length} game assets`);
-    
-    if (gameAssets.length === 0) {
-      console.log('>>> NO GAME ASSETS IN INITIAL LOAD <<< FIX VERIFIED!');
-    } else {
-      gameAssets.forEach(a => console.log(`  GAME [${a.s}ms +${a.d}ms ${a.kb}KB] ${a.n}`));
+  Network.responseReceived((params) => {
+    if (!dclTime && params.type === 'Document') {
+      dclTime = Date.now();
+      console.log(`T+${Date.now()-startTime}ms DCL (document)`);
     }
+  });
 
-    // Show timeline of significant resources
-    console.log('\\n--- Timeline (resources >30KB or >200ms or game assets) ---');
-    allRes.filter(r => r.kb > 30 || r.d > 200 || r.g)
-         .forEach(r => console.log(`  [${r.s}ms +${r.d}ms ${r.kb}KB] ${r.t}: ${r.n}${r.g?' [GAME]':''}`));
+  Page.loadEventFired(() => {
+    loadTime = Date.now();
+    console.log(`T+${Date.now()-startTime}ms Load Event`);
+  });
 
-    // Re-enable cache
-    await Network.setCacheDisabled({ cacheDisabled: false });
+  const startTime = Date.now();
+  await Page.navigate({ url });
 
-  } catch(e) {
-    console.error('Error:', e.message);
-  } finally {
-    if(client) try { await client.close(); } catch(ex) {}
-  }
-}
-verify().catch(console.error);
+  // Wait for initial render + idle time for prefetch to start
+  console.log('Waiting for page render...');
+  await new Promise(r => setTimeout(r, 2000));
+  
+  // Screenshot at T+2s - should show full Landing content
+  await Page.captureScreenshot({ format: 'png', saveToFile: '/tmp/pf-dcl.png' });
+  console.log('T+2000ms: Screenshot saved (Landing should be fully visible)');
+
+  // Wait until prefetch window (4s delay from Landing useEffect)
+  console.log('Waiting for prefetch trigger (4s total from mount)...');
+  await new Promise(r => setTimeout(r, 3000)); // total ~5s
+  
+  // Check if prefetch has started by looking at network activity
+  const gameRequests = requests.filter(r => 
+    r.request.url.includes('.chunk') && !r.request.url.includes('main.') && !r.request.url.includes('runtime')
+  );
+  console.log(`T+5000ms: Non-main chunk requests so far: ${gameRequests.length}`);
+  gameRequests.forEach(r => {
+    console.log(`  chunk: ${r.request.url.split('/').pop()}`);
+  });
+
+  // Screenshot after prefetch starts
+  await Page.captureScreenshot({ format: 'png', saveToFile: '/tmp/pf-prefetch.png' });
+  console.log('T+5000ms: Screenshot saved (prefetch may be active)');
+
+  // Wait longer for prefetch to complete
+  console.log('Waiting for prefetch completion...');
+  await new Promise(r => setTimeout(r, 8000));
+  
+  const allGameChunks = requests.filter(r =>
+    r.request.url.includes('.chunk') && !r.request.url.includes('main.') && !r.request.url.includes('runtime')
+  );
+  console.log(`T+13000ms: Total lazy chunks requested: ${allGameChunks.length}`);
+  
+  const gameAssets = requests.filter(r => {
+    const u = r.request.url;
+    return (u.includes('player') || u.includes('dealer') || u.includes('background') || 
+            u.includes('table.webp') || u.includes('card_back')) && u.includes('.png|.webp|jpg'.split('|'));
+  });
+  
+  await Page.captureScreenshot({ format: 'png', saveToFile: '/tmp/pf-done.png' });
+  console.log(`T+13000ms: Final screenshot saved`);
+  console.log(`\n=== SUMMARY ===`);
+  console.log(`Total requests: ${requests.length}`);
+  console.log(`DCL: ${dclTime ? dclTime-startTime : '?'}ms`);
+  console.log(`Load: ${loadTime ? loadTime-startTime : '?'}ms`);
+  console.log(`Lazy chunks loaded: ${allGameChunks.length}`);
+
+  // Check console logs for preload messages
+  const logs = [];
+  Runtime.consoleAPICalled((msg) => {
+    if (msg.args[0]) {
+      logs.push(`${msg.type}: ${msg.args[0].value || JSON.stringify(msg.args[0])}`);
+    }
+  });
+  console.log('\nConsole messages:');
+  logs.forEach(l => console.log('  ', l));
+
+  await client.close();
+})().catch(e => { console.error(e.message); process.exit(1); });

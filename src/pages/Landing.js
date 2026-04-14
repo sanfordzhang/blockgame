@@ -139,19 +139,28 @@ const Landing = () => {
     checkTronLink();
   }, []);
 
-  // Preload game assets - ONLY after page is fully rendered and user has been idle
+  // Preload game assets — ONLY after page is fully rendered and user has been idle.
+  // Uses a two-stage approach:
+  //   Stage 1: Wait 4 seconds for Landing UI + wallet data to fully render
+  //   Stage 2: Use requestIdleCallback to prefetch at lowest priority
+  // This ensures game resource preloading NEVER blocks or slows down the Landing experience.
   useEffect(() => {
-    // Use requestIdleCallback to wait for main thread to be free
     const startPreload = () => {
+      console.log('[Landing] Starting delayed game asset prefetch...');
+      
       if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => preloadGameAssets(), { timeout: 5000 });
+        // Browser will run this only when main thread is idle
+        requestIdleCallback(
+          () => preloadGameAssets(),
+          { timeout: 8000 } // fallback if browser never goes idle
+        );
       } else {
-        setTimeout(() => preloadGameAssets(), 3000);
+        setTimeout(() => preloadGameAssets(), 2000);
       }
     };
-    
-    // Start preloading after 3 seconds of page being visible
-    const timer = setTimeout(startPreload, 3000);
+
+    // Delay: wait for Landing to be fully interactive (wallet connected, balances shown)
+    const timer = setTimeout(startPreload, 4000);
     return () => clearTimeout(timer);
   }, []);
 
