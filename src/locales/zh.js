@@ -113,7 +113,7 @@ const zh = {
   mockMode:              '🎮 Mock 游戏模式',
   mockModeOn:            '开启 - 玩家1将获得顺子牌型',
   mockModeOff:           '关闭 - 正常游戏模式',
-  testModeTitle:         '测试模式：快速创建锦标赛',
+  testModeTitle:         '快速创建锦标赛',
   creating:              '创建中...',
   noTournaments:         '点击上方绿色按钮创建一个锦标赛',
   players:               (n) => `${n}人赛`,

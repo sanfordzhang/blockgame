@@ -83,6 +83,20 @@ const DecisionSuggestion = () => {
       {suggestion && suggestion.action ? (
         <>
           <div style={{ marginBottom: 8, fontWeight: 'bold' }}>AI Suggestion</div>
+          {suggestion.fallback && (
+            <div style={{
+              marginBottom: 6,
+              padding: '4px 8px',
+              background: '#ff444433',
+              border: '1px solid #ff4444',
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: '#ff8888',
+              textAlign: 'center'
+            }}>
+              NFSP engine unavailable, using basic strategy
+            </div>
+          )}
           <ActionBadge action={suggestion.action}>
             {suggestion.action} {suggestion.amount > 0 ? `$${suggestion.amount}` : ''}
           </ActionBadge>

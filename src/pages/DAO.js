@@ -148,6 +148,8 @@ const DAO = () => {
   const [threshold, setThreshold] = useState(0);
   const [loading, setLoading] = useState(true);
   const [newProposal, setNewProposal] = useState({ title: '', description: '' });
+  const [error, setError] = useState('');
+  const [createMsg, setCreateMsg] = useState('');
 
   useEffect(() => {
     fetchProposals();
@@ -196,14 +198,21 @@ const DAO = () => {
       const data = await response.json();
       if (data.success) {
         fetchProposals();
+      } else {
+        setError(`Vote failed: ${data.error || 'Unknown error'}`);
+        setTimeout(() => setError(''), 3000);
       }
     } catch (error) {
       console.error('Failed to vote:', error);
+      setError('Network error while voting');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
   const handleCreateProposal = async (e) => {
     e.preventDefault();
+    setError('');
+    setCreateMsg('');
     try {
       const response = await fetch('/api/dao/proposals/create', {
         method: 'POST',
@@ -213,11 +222,18 @@ const DAO = () => {
       const data = await response.json();
       if (data.success) {
         setNewProposal({ title: '', description: '' });
+        setCreateMsg('Proposal created successfully!');
         setTab('active');
-        fetchProposals();
+        setTimeout(() => {
+          fetchProposals();
+          setCreateMsg('');
+        }, 1000);
+      } else {
+        setError(data.error || 'Failed to create proposal');
       }
     } catch (error) {
       console.error('Failed to create proposal:', error);
+      setError('Network error. Please try again.');
     }
   };
 
@@ -235,17 +251,27 @@ const DAO = () => {
     >
       <Heading as="h1" textCentered>DAO Governance</Heading>
 
-      {walletAddress && (
-        <Container flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="1.5rem">
-          <div>
-            <Text color="textSecondary">Your Voting Power</Text>
-            <Text size="1.5rem" fontWeight="bold">{votingPower.toLocaleString()} CHIP</Text>
-          </div>
-          <div>
-            <Text color="textSecondary">Proposal Threshold</Text>
-            <Text size="1.5rem" fontWeight="bold">{threshold.toLocaleString()} CHIP</Text>
-          </div>
+      {error && (
+        <Container background="#f44336" color="white" padding="0.75rem 1rem" borderRadius="0.5rem" marginBottom="1rem">
+          {error}
         </Container>
+      )}
+
+      <Container flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="1.5rem">
+        <div>
+          <Text color="textSecondary">Your Voting Power</Text>
+          <Text size="1.5rem" fontWeight="bold">{votingPower.toLocaleString()} CHIP</Text>
+        </div>
+        <div>
+          <Text color="textSecondary">Proposal Threshold</Text>
+          <Text size="1.5rem" fontWeight="bold">{threshold.toLocaleString()} CHIP</Text>
+        </div>
+      </Container>
+
+      {!walletAddress && (
+        <Text color="textSecondary" textCentered marginBottom="1rem">
+          Please connect your wallet to vote or create proposals
+        </Text>
       )}
 
       <Tabs>
@@ -258,6 +284,22 @@ const DAO = () => {
       {tab === 'create' ? (
         <CreateProposalForm>
           <Heading as="h3">Create New Proposal</Heading>
+          {error && (
+            <Text color="#f44336" marginBottom="1rem">{error}</Text>
+          )}
+          {createMsg && (
+            <Text color="#4CAF50" marginBottom="1rem" fontWeight="bold">{createMsg}</Text>
+          )}
+          {!walletAddress && (
+            <Text color="textSecondary" marginBottom="1rem">
+              Connect wallet to create proposals
+            </Text>
+          )}
+          {votingPower > 0 && votingPower < threshold && (
+            <Text color="textSecondary" marginBottom="1rem">
+              Need at least {threshold.toLocaleString()} CHIP to create a proposal (you have {votingPower.toLocaleString()})
+            </Text>
+          )}
           <form onSubmit={handleCreateProposal}>
             <Input
               type="text"
@@ -273,7 +315,7 @@ const DAO = () => {
               required
             />
             <ActionButton primary type="submit" disabled={!walletAddress || votingPower < threshold}>
-              Create Proposal
+              {votingPower >= threshold ? 'Create Proposal' : `Need ${threshold.toLocaleString()} CHIP`}
             </ActionButton>
           </form>
         </CreateProposalForm>

@@ -143,20 +143,40 @@ router.post('/proposals/:proposalId/vote', authMiddleware, async (req, res) => {
             if (hasVoted) {
                 return res.status(400).json({ success: false, error: 'Already voted' });
             }
+            // Get real voting weight from CHIP balance
+            let weight = 0;
+            try {
+                weight = await DAOService.getVotingPower(walletAddress);
+            } catch (e) {}
+            // Fallback to chip balance if getVotingPower fails
+            if (!weight) {
+                try {
+                    weight = await DAOService.getChipBalance(walletAddress);
+                } catch (e) {}
+            }
             const vote = new Vote({
                 proposalId,
                 voterAddress: walletAddress.toLowerCase(),
                 support: support ? 1 : 0,
-                weight: 1000
+                weight: weight || 1
             });
             await vote.save();
         }
 
-        // Update vote counts
+        // Update vote counts - use the same real voting power
+        let voteWeight = 1000;
+        try {
+            voteWeight = await DAOService.getVotingPower(walletAddress);
+        } catch (e) {}
+        if (!voteWeight) {
+            try {
+                voteWeight = await DAOService.getChipBalance(walletAddress);
+            } catch (e) {}
+        }
         if (support) {
-            proposal.forVotes += 1000;
+            proposal.forVotes += (voteWeight || 1);
         } else {
-            proposal.againstVotes += 1000;
+            proposal.againstVotes += (voteWeight || 1);
         }
         await proposal.save();
 
@@ -201,14 +221,20 @@ router.get('/votes/:walletAddress', async (req, res) => {
 router.get('/voting-power/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
-        // Try from DAOService (on-chain), fall back to test value
+        // Try from DAOService (on-chain) first
         let votingPower = 0;
         try {
             votingPower = await DAOService.getVotingPower(walletAddress);
         } catch (e) {}
-        // For test: give connected wallets a non-zero power
+        // Fallback to CHIP balance if on-chain query fails
         if (!votingPower) {
-            votingPower = 5000;
+            try {
+                votingPower = await DAOService.getChipBalance(walletAddress);
+            } catch (e) {}
+        }
+        // Only use test fallback if both methods fail (for demo purposes)
+        if (!votingPower) {
+            votingPower = 5000;  // Test fallback for wallets with no CHIP
         }
         res.json({ success: true, votingPower });
     } catch (error) {

@@ -133,8 +133,10 @@ const init = (socket, io) => {
   // Initialize tournament, NFT, CHIP, staking, and DAO handlers
   initTournamentHandlers(socket, io);
 
-  // Initialize AI autopilot handlers
-  initAIHandlers(socket, io, tables, players);
+  // Initialize AI autopilot handlers (pass changeTurnAndBroadcast for immediate execution)
+  initAIHandlers(socket, io, tables, players, {
+    onAIActionComplete: (table, seatId) => changeTurnAndBroadcast(table, seatId)
+  });
 
   // After AI is enabled, immediately check if it's already this player's turn
   socket.on(CS_AI_ENABLE, ({ tableId }) => {
@@ -228,6 +230,7 @@ const init = (socket, io) => {
         socketId: sid,
         amount: players[sid].bankroll
       });
+      console.log(`[Socket] SC_RECEIVE_LOBBY_INFO sent to ${walletAddress}: bankroll=${players[sid].bankroll}, socketId=${sid}`);
       socket.broadcast.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
   });
 
@@ -1347,11 +1350,14 @@ const init = (socket, io) => {
           });
 
           // Notify client about balance update (for display purposes)
+          const balanceCache = gameFlowIntegration.getPlayerBalanceCache(winner.address);
+          const actualBalance = balanceCache?.balance || player.bankroll;
+          const actualLocked = balanceCache?.lockedAmount || 0;
           io.to(socketId).emit(SC_BALANCE_SYNCED, {
             walletAddress: winner.address,
-            balance: player.bankroll,
-            locked: gameFlowIntegration.getPlayerBalanceCache(winner.address)?.lockedAmount || 0,
-            available: player.bankroll,
+            balance: actualBalance,
+            locked: actualLocked,
+            available: actualBalance,
             reason: 'game_won',
             amount: winner.amount
           });

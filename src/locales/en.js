@@ -113,7 +113,7 @@ const en = {
   mockMode:              '🎮 Mock Game Mode',
   mockModeOn:            'ON - Player 1 will receive a straight hand',
   mockModeOff:           'OFF - Normal game mode',
-  testModeTitle:         'Test Mode: Quick Create Tournament',
+  testModeTitle:         'Quick Create Tournament',
   creating:              'Creating...',
   noTournaments:         'Click the green button above to create a tournament',
   players:               (n) => `${n}-Player`,

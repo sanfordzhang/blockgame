@@ -11,12 +11,34 @@ const {
 } = require('../pokergame/actions');
 const aiService = require('../services/ai/AIService');
 
-function initAIHandlers(socket, io, tables, players) {
+function initAIHandlers(socket, io, tables, players, options = {}) {
+  const { onAIActionComplete } = options;
+
   // Enable AI autopilot
   socket.on(CS_AI_ENABLE, ({ tableId, difficulty, maxHands }) => {
     const playerId = cycleMap(players, socket.id)?.id || socket.id;
     const result = aiService.enableAI(playerId, difficulty, maxHands);
     socket.emit(SC_AI_ENABLED, result);
+
+    // If it's currently this player's turn, execute AI action immediately
+    const player = cycleMap(players, socket.id);
+    const tId = tableId || player?.tableId;
+    if (tId && tables[tId]) {
+      const table = tables[tId];
+      const turnSeatId = table.turn;
+      if (turnSeatId) {
+        const seat = table.seats[turnSeatId];
+        if (seat && seat.player && seat.player.id === playerId) {
+          console.log(`[AI] Player enabled AI during their turn, executing immediately`);
+          setTimeout(async () => {
+            const success = await executeAIAction(socket, io, table, seat);
+            if (success && onAIActionComplete) {
+              onAIActionComplete(table, turnSeatId);
+            }
+          }, 500);
+        }
+      }
+    }
   });
 
   // Disable AI autopilot

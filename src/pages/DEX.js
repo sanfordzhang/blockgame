@@ -2,10 +2,11 @@
  * DEX Page
  * 去中心化交易所页面
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import styled from 'styled-components';
 import { useAMM } from '../context/amm/AMMContext';
 import { useTronLink } from '../context/tron/TronContext';
+import globalContext from '../context/global/globalContext';
 import TradingPanel from '../components/amm/TradingPanel';
 import LiquidityPanel from '../components/amm/LiquidityPanel';
 import PriceChart from '../components/amm/PriceChart';
@@ -13,7 +14,7 @@ import PriceChart from '../components/amm/PriceChart';
 const PageContainer = styled.div`
     min-height: 100vh;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    padding: 20px;
+    padding: 6rem 2rem 2rem 2rem;
     color: #fff;
 `;
 
@@ -145,6 +146,14 @@ const LoadingContainer = styled.div`
 function DEX() {
     const { poolState, price, priceHistory, loading, userAddress, setUserAddress } = useAMM();
     const { address, connected, connect } = useTronLink();
+    const { walletAddress: globalWalletAddr, setWalletAddress } = useContext(globalContext);
+    
+    // Sync TronLink address to global context (fixes navbar on refresh)
+    useEffect(() => {
+        if (address && address !== globalWalletAddr) {
+            setWalletAddress(address);
+        }
+    }, [address, globalWalletAddr, setWalletAddress]);
     
     const [activeTab, setActiveTab] = useState('swap'); // 'swap' | 'liquidity'
     

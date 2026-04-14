@@ -90,7 +90,13 @@ const nftClaimSchema = new mongoose.Schema({
         type: String,
         default: 'png'
     },
-    
+
+    // Display name (custom name for NFT, overrides default)
+    displayName: {
+        type: String,
+        default: null
+    },
+
     // Year-month for monthly tracking
     yearMonth: {
         type: Number,
@@ -156,19 +162,6 @@ nftClaimSchema.pre('save', function(next) {
         this.rarity = rarityMap[this.achievementType] || 'COMMON';
     }
     next();
-});
-
-// Virtual for display name
-nftClaimSchema.virtual('displayName').get(function() {
-    const typeNames = {
-        'ROYAL_FLUSH': 'Royal Flush',
-        'STRAIGHT_FLUSH': 'Straight Flush',
-        'FOUR_OF_A_KIND': 'Four of a Kind',
-        'FULL_HOUSE': 'Full House',
-        'FLUSH': 'Flush',
-        'STRAIGHT': 'Straight'
-    };
-    return typeNames[this.achievementType] || this.achievementType;
 });
 
 // Ensure virtuals are included

@@ -11,8 +11,8 @@ function cliclick(cmd) {
     try { execSync(`cliclick ${cmd}`, { encoding: 'utf-8' }); } catch (e) { /* ignore */ }
 }
 
-const API_URL = 'http://127.0.0.1:7778';
-const BASE_URL = 'http://127.0.0.1:3001';
+const API_URL = 'http://43.163.114.175:7778';
+const BASE_URL = 'http://43.163.114.175:3001';
 
 const PLAYER1 = { address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv' };
 const BOT = { address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4' };
@@ -35,7 +35,7 @@ function httpPost(url, data) {
 async function startBot(tournamentId) {
     const botState = { tournamentId, lastTurnKey: '', lastActionTime: 0 };
     return new Promise((resolve) => {
-        const ws = new WebSocket(`ws://127.0.0.1:7778/socket.io/?EIO=4&transport=websocket`);
+        const ws = new WebSocket(`ws://43.163.114.175:7778/socket.io/?EIO=4&transport=websocket`);
         ws.on('open', () => { ws.send('40'); });
         ws.on('message', raw => {
             const data = raw.toString();
@@ -184,16 +184,10 @@ async function test() {
                 if (btn) btn.click();
             })()`);
             log('已点击铸造NFT按钮，等待TronLink签名弹窗...');
-            await sleep(2000);
+            await sleep(3000);
             await screenshot('nft-tronlink-popup');
-            // 自动点击TronLink签名按钮（尽快点击避免交易过期）
-            log(`点击TronLink签名按钮 (${SIGN_BUTTON_COORDS.x}, ${SIGN_BUTTON_COORDS.y})`);
-            cliclick(`m:${SIGN_BUTTON_COORDS.x},${SIGN_BUTTON_COORDS.y}`);
-            await sleep(500);
-            cliclick(`c:${SIGN_BUTTON_COORDS.x},${SIGN_BUTTON_COORDS.y}`);
-            await sleep(1000);
-            cliclick(`c:${SIGN_BUTTON_COORDS.x},${SIGN_BUTTON_COORDS.y}`);
-            await sleep(2000);
+            log('⚠️  请在 TronLink 中手动点击签名确认！等待60秒...');
+            await sleep(60000);
             await screenshot('nft-after-sign');
             break;
         }

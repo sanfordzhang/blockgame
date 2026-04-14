@@ -6,6 +6,7 @@ import Text from '../components/typography/Text';
 import Button from '../components/buttons/Button';
 import globalContext from '../context/global/globalContext';
 import locaContext from '../context/localization/locaContext';
+import { useTronLink } from '../context/tron/TronContext';
 
 const WalletCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -98,7 +99,8 @@ const Tab = styled.button`
 `;
 
 const CHIPWallet = () => {
-  const { walletAddress: contextWalletAddress } = useContext(globalContext);
+  const { walletAddress: contextWalletAddress, setWalletAddress } = useContext(globalContext);
+  const { address: tronLinkAddress } = useTronLink();
   const { t } = useContext(locaContext);
   
   // Get wallet address from context, URL params, or localStorage (test mode support)
@@ -129,6 +131,14 @@ const CHIPWallet = () => {
   const [stakeLockDays, setStakeLockDays] = useState('30');
   const [staking, setStaking] = useState(false);
   const [chipTokenAddress, setChipTokenAddress] = useState(null);
+  const [depositing, setDepositing] = useState(false);
+
+  // Sync TronLink address to global context (fixes navbar on refresh)
+  useEffect(() => {
+    if (tronLinkAddress && tronLinkAddress !== contextWalletAddress) {
+      setWalletAddress(tronLinkAddress);
+    }
+  }, [tronLinkAddress, contextWalletAddress, setWalletAddress]);
 
   useEffect(() => {
     if (walletAddress) {
@@ -354,8 +364,14 @@ const CHIPWallet = () => {
       // 注意：不记录金额到后端，因为链上已直接转账到钱包
       // 如果记录金额会导致Game Balance双重计算
 
-      fetchData();
-      alert(`✅ Reward claimed!\n\nTx: ${tx}\n\nView: https://nile.tronscan.org/#/transaction/${tx}`);
+      alert(`✅ Reward claimed! Waiting for confirmation...\n\nTx: ${tx}`);
+      
+      // Delay refresh to allow blockchain to confirm (5 seconds)
+      setTimeout(() => {
+        fetchData();
+        // Refresh again after 10 more seconds for full confirmation
+        setTimeout(() => fetchData(), 10000);
+      }, 5000);
 
     } catch (error) {
       console.error('Failed to claim reward:', error);
@@ -453,6 +469,46 @@ const CHIPWallet = () => {
     setTransferring(false);
   };
 
+  // Deposit TRX to get CHIP (on-chain)
+  const handleDepositTrx = async () => {
+    if (!window.tronWeb) {
+      alert('TronLink wallet not detected! Please install TronLink extension.');
+      return;
+    }
+
+    const amount = prompt('Enter TRX amount to deposit:', '100');
+    if (!amount || parseFloat(amount) <= 0) return;
+
+    setDepositing(true);
+    try {
+      // Get game contract address
+      const configRes = await fetch('/api/blockchain/config');
+      const config = await configRes.json();
+      const contractAddr = config.contractAddress || config.gameContract || 
+        (process.env.REACT_APP_NETWORK === 'mainnet' ? 'THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd' : 'TQiG3UXV9uSLyW5Ax7Pa9WwcT9hEJnU4c');
+
+      const trxAmt = Math.floor(parseFloat(amount) * 1e6); // Convert to SUN
+      const tx = await window.tronWeb.transactionBuilder.sendTrx(
+        contractAddr,
+        trxAmt,
+        walletAddress
+      );
+      const signedTx = await window.tronWeb.trx.sign(tx);
+      const result = await window.tronWeb.trx.sendRawTransaction(signedTx);
+      
+      if (result.result || result.txid) {
+        fetchData();
+        alert(`✅ Deposited ${amount} TRX! Tx: ${result.txid}`);
+      } else {
+        alert('Deposit transaction failed');
+      }
+    } catch (error) {
+      console.error('Failed to deposit:', error);
+      alert('Deposit failed: ' + (error.message || 'Unknown error'));
+    }
+    setDepositing(false);
+  };
+
   // 游戏内转账（数据库）
   const handleTransfer = async () => {
     if (!transferTo || !transferAmount) {
@@ -522,10 +578,11 @@ const CHIPWallet = () => {
           <Container flexDirection="row" gap="1rem" style={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
             <ActionButton
               primary
-              onClick={() => window.location.href = '/'}
+              onClick={handleDepositTrx}
+              disabled={depositing || !walletAddress}
               style={{ minWidth: '140px' }}
             >
-              {t('deposit')} (TRX)
+              {depositing ? 'Depositing...' : `${t('deposit')} (TRX)`}
             </ActionButton>
             <ActionButton
               onClick={() => setShowWithdrawModal(true)}

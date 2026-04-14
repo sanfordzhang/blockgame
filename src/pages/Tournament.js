@@ -500,7 +500,8 @@ const Tournament = () => {
         <Text>{t("tournamentHint")}</Text>
       </InfoBanner>
       
-      {/* Mock 游戏开关 */}
+      {/* Mock 游戏开关 - 仅测试网显示 */}
+      {process.env.REACT_APP_NETWORK === 'testnet' && (
       <MockSection data-testid="mock-game-section">
         <MockCheckbox>
           <input
@@ -520,6 +521,7 @@ const Tournament = () => {
           {mockGame ? t('mockModeOn') : t('mockModeOff')}
         </Text>
       </MockSection>
+      )}
       
       {/* 测试：创建锦标赛按钮 - 始终显示 */}
       <CreateSection data-testid="create-tournament-section">

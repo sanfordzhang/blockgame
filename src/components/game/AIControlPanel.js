@@ -115,7 +115,9 @@ const AIControlPanel = () => {
     const onStats = (data) => setStats(data);
     const onAction = (data) => {
       setLastAction(data);
-      setTimeout(() => setLastAction(null), 4000);
+      // Show fallback warning longer
+      const duration = data.fallback ? 6000 : 4000;
+      setTimeout(() => setLastAction(null), duration);
     };
 
     socket.on('SC_AI_ENABLED', onEnabled);
@@ -183,6 +185,20 @@ const AIControlPanel = () => {
 
           {lastAction && (
             <>
+              {lastAction.fallback && (
+                <div style={{
+                  marginTop: '6px',
+                  padding: '4px 8px',
+                  background: '#ff444433',
+                  border: '1px solid #ff4444',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  color: '#ff8888',
+                  textAlign: 'center'
+                }}>
+                  AI Engine Unavailable - Using Fallback
+                </div>
+              )}
               <ActionBanner action={lastAction.action}>
                 {lastAction.action}
                 {lastAction.action === 'raise' && lastAction.amount > 0

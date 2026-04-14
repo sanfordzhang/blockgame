@@ -109,7 +109,7 @@ class TournamentService {
                 prizeDistribution: defaultConfig.prizeDistribution,
                 tournamentType: 'SNG',
                 startMode: 'INSTANT',
-                name: `${defaultConfig.playerCount}人赛 (${defaultConfig.buyIn/1e6} TRX)`
+                name: `${defaultConfig.playerCount}-Player (${defaultConfig.buyIn/1e6} TRX)`
             },
             buyIn: defaultConfig.buyIn,
             playerCount: defaultConfig.playerCount,
@@ -131,9 +131,9 @@ class TournamentService {
         // All tournaments use 100 TRX buy-in
         // prizeDistribution uses basis points: 1% = 100 basis points
         const DEFAULT_CONFIGS = [
-            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },  // 50%/30%/20%
-            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },         // 60%/40%
-            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }            // 100%
+            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000], name: '6-Player (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },  // 50%/30%/20%
+            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000], name: '4-Player (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },         // 60%/40%
+            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000], name: '2-Player (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }            // 100%
         ];
 
         // Always use default configs (100 TRX for all tournaments)
@@ -834,9 +834,9 @@ module.exports = {
         // Default configs for test mode
         // prizeDistribution uses basis points: 1% = 100 basis points
         const DEFAULT_CONFIGS = [
-            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000], name: '6人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },  // 50%/30%/20%
-            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000], name: '4人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },         // 60%/40%
-            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000], name: '双人赛 (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }            // 100%
+            { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000], name: '6-Player (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },  // 50%/30%/20%
+            { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [6000, 4000], name: '4-Player (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' },         // 60%/40%
+            { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [10000], name: '2-Player (100 TRX)', tournamentType: 'SNG', startMode: 'INSTANT' }            // 100%
         ];
         
         if (!tournamentServiceInstance) return DEFAULT_CONFIGS;
@@ -864,7 +864,7 @@ module.exports = {
                     ...config,
                     tournamentType: 'SNG',
                     startMode: 'INSTANT',
-                    name: `${config.playerCount}人赛 (${config.buyIn/1e6} TRX)`
+                    name: `${config.playerCount}-Player (${config.buyIn/1e6} TRX)`
                 },
                 buyIn: config.buyIn,
                 playerCount: config.playerCount,

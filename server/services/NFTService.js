@@ -597,11 +597,31 @@ module.exports = {
     getNFTMetadata: async (tokenId) => {
         const idNum = parseInt(tokenId);
         const nft = await NFTClaim.findOne({ $or: [{ tokenId: idNum }, { onchainTokenId: idNum }] });
-        if (!nft) return {
-            name: 'Poker Achievement NFT',
-            description: 'Poker Achievement NFT',
-            image: 'https://via.placeholder.com/400x400?text=Poker+NFT'
-        };
+        if (!nft) {
+            // 数据库中没有记录，返回通用元数据（历史NFT或数据丢失）
+            const svg = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">` +
+                `<rect width="400" height="400" fill="#1a1a2e"/>` +
+                `<rect x="15" y="15" width="370" height="370" rx="20" fill="#16213e" stroke="#4ecca3" stroke-width="3"/>` +
+                `<text x="200" y="60" font-size="14" fill="#888" text-anchor="middle" font-family="Arial">Poker Achievement NFT</text>` +
+                `<text x="200" y="110" font-size="28" fill="#4ecca3" text-anchor="middle" font-weight="bold" font-family="Arial">POKER HAND</text>` +
+                `<text x="200" y="145" font-size="14" fill="#666" text-anchor="middle" font-family="Arial">COMMON</text>` +
+                `<text x="200" y="220" font-size="20" fill="#ffffff" text-anchor="middle" font-family="monospace">Historic Achievement</text>` +
+                `<text x="200" y="320" font-size="18" fill="#4ecca3" text-anchor="middle" font-family="Arial">#${idNum}</text>` +
+                `<text x="200" y="365" font-size="12" fill="#555" text-anchor="middle" font-family="Arial">Hello World Poker</text>` +
+                `</svg>`;
+            const imageUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+            return {
+                name: `Poker Achievement #${idNum}`,
+                description: `Historic poker achievement NFT #${idNum}. Original game data not available.`,
+                image: imageUrl,
+                attributes: [
+                    { trait_type: 'Achievement', value: 'POKER_HAND' },
+                    { trait_type: 'Rarity', value: 'COMMON' },
+                    { trait_type: 'Token ID', value: idNum, display_type: 'number' },
+                    { trait_type: 'Status', value: 'Historic' }
+                ]
+            };
+        }
 
         // 构建cards属性
         const cardsAttribute = nft.cards && nft.cards.length > 0

@@ -6,8 +6,18 @@ class AIService {
   constructor() {
     this.aiPlayers = new Map(); // playerId -> { difficulty, handsPlayed, maxHands, stats }
     // On macOS with mixed architectures, prefer arch -arm64 python3
-    this.pythonPath = process.platform === 'darwin' ? '/usr/bin/arch' : 'python3';
-    this.pythonArgs = process.platform === 'darwin' ? ['-arm64', 'python3'] : [];
+    // On Linux, use venv python if available
+    const venvPython = path.join(__dirname, '..', '..', '..', 'ai_venv', 'bin', 'python3');
+    if (process.platform === 'darwin') {
+      this.pythonPath = '/usr/bin/arch';
+      this.pythonArgs = ['-arm64', 'python3'];
+    } else if (require('fs').existsSync(venvPython)) {
+      this.pythonPath = venvPython;
+      this.pythonArgs = [];
+    } else {
+      this.pythonPath = 'python3';
+      this.pythonArgs = [];
+    }
     this.enginePath = path.join(__dirname, '..', '..', '..', 'ai_engine', 'decision_engine.py');
 
     this.worker = null;
@@ -330,11 +340,13 @@ class AIService {
 
   _fallbackDecision(gameState, errorMessage = 'Python unavailable') {
     const callAmount = gameState.callAmount || gameState.call_amount || 0;
+    console.warn(`[AI] Using fallback decision: ${errorMessage}`);
     return {
       action: callAmount === 0 ? 'check' : 'fold',
       amount: 0,
       confidence: 0,
-      reason: `Fallback: ${errorMessage}`
+      reason: `AI engine unavailable: ${errorMessage}`,
+      fallback: true
     };
   }
 }

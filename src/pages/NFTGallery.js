@@ -6,6 +6,7 @@ import Text from '../components/typography/Text';
 import Button from '../components/buttons/Button';
 import globalContext from '../context/global/globalContext';
 import modalContext from '../context/modal/modalContext';
+import { useTronLink } from '../context/tron/TronContext';
 import socket from '../socket';
 import PokerCard from '../components/game/PokerCard';
 
@@ -339,6 +340,8 @@ const CardDisplay = styled.div`
 
 const NFTGallery = () => {
   const contextWalletAddress = useContext(globalContext)?.walletAddress;
+  const { setWalletAddress } = useContext(globalContext);
+  const { address: tronLinkAddress } = useTronLink();
   const { openModal, closeModal } = useContext(modalContext);
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -347,6 +350,13 @@ const NFTGallery = () => {
   const [monthlyLimits, setMonthlyLimits] = useState({});
   const [enlargedScreenshot, setEnlargedScreenshot] = useState(null);
   
+  // Sync TronLink address to global context (fixes navbar on refresh)
+  useEffect(() => {
+    if (tronLinkAddress && tronLinkAddress !== contextWalletAddress) {
+      setWalletAddress(tronLinkAddress);
+    }
+  }, [tronLinkAddress, contextWalletAddress, setWalletAddress]);
+
   // Get wallet address from context, URL params, or localStorage
   const walletAddress = useMemo(() => {
     if (contextWalletAddress) return contextWalletAddress;

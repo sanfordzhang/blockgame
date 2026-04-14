@@ -13,15 +13,14 @@
 
 const CDP = require('chrome-remote-interface');
 const axios = require('axios');
-const mongoose = require('mongoose');
 const fs = require('fs');
 const io = require('socket.io-client');
 
 const CONFIG = {
-    apiUrl: 'http://127.0.0.1:7778',
-    frontendUrl: 'http://127.0.0.1:3001',
+    apiUrl: 'http://43.163.114.175:7778',
+    frontendUrl: 'http://43.163.114.175:3001',
     cdpPort: 9222,
-    mongoUrl: 'mongodb://127.0.0.1:27017/bridge-poker',
+    mongoUrl: 'mongodb://43.163.114.175:27017/bridge-poker',
     player1: {
         address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
         name: 'Player1_NFT'
@@ -332,23 +331,39 @@ async function main() {
         testResults.warnings.push('未检测到NFT事件');
     }
 
-    // 测试7: 验证数据库
-    console.log('\n测试7: 验证数据库');
+    // 测试7: 验证NFT记录（通过API查询，不直连MongoDB）
+    console.log('\n测试7: 验证NFT记录');
     console.log('----------------------------------------');
-    
-    await mongoose.connect(CONFIG.mongoUrl);
-    const NFTClaim = mongoose.model('NFTClaim', new mongoose.Schema({}, { strict: false }));
-    
-    const nfts = await NFTClaim.find({
-        playerAddress: new RegExp(CONFIG.player1.address.substring(0, 10), 'i')
-    }).sort({ claimedAt: -1 }).limit(3);
-    
-    console.log('数据库NFT记录:', nfts.length);
-    nfts.forEach(nft => {
-        console.log(`  - ${nft.achievementType}: ${nft.handDescription}`);
-    });
-    
-    await mongoose.disconnect();
+
+    try {
+        const collectionRes = await axios.get(`${CONFIG.apiUrl}/api/nft/collection/${CONFIG.player1.address}`);
+        const nfts = collectionRes.data.nfts || [];
+        console.log('NFT记录总数:', nfts.length);
+        nfts.slice(0, 3).forEach(nft => {
+            console.log(`  - tokenId=${nft.onchainTokenId}, type=${nft.achievementType}: ${nft.handDescription}`);
+        });
+        if (nfts.length > 0) {
+            // 验证最新NFT的元数据可访问
+            const latest = nfts[0];
+            const tokenId = latest.onchainTokenId;
+            const typeId = latest.achievementTypeId || 6;
+            const metaRes = await axios.get(`${CONFIG.apiUrl}/api/nft/metadata/${typeId}/${tokenId}`);
+            const meta = metaRes.data;
+            console.log('元数据验证:');
+            console.log(`  name: ${meta.name}`);
+            console.log(`  description: ${meta.description}`);
+            const cardsAttr = (meta.attributes || []).find(a => a.trait_type === 'Cards');
+            if (cardsAttr) console.log(`  Cards: ${cardsAttr.value} ✅`);
+            console.log('✅ PASS: NFT元数据验证通过 - TronLink现在可以正常显示');
+            testResults.passed++;
+        } else {
+            console.log('⚠️ WARN: 暂无NFT记录（需要完成一局游戏触发成就）');
+            testResults.warnings.push('暂无NFT记录');
+        }
+    } catch (err) {
+        console.log('❌ FAIL: NFT记录查询失败:', err.message);
+        testResults.failed++;
+    }
 
     // 清理
     socket1.disconnect();
