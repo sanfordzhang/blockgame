@@ -101,6 +101,7 @@ const tables = {
   1: new Table(1, 'Table 1', config.INITIAL_CHIPS_AMOUNT),
 };
 const players = {};
+global.players = players; // Expose for EventListener to find player sockets
 const delegateCache = {}; // { [walletAddress]: { isAuthorized, serverAddress, ts } }
 
 function getCurrentPlayers() {

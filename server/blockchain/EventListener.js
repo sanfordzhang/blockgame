@@ -213,6 +213,18 @@ class EventListener {
         console.log(`[EventListener] ${player} joined table ${tableId} with ${buyIn} SUN`);
     }
 
+    // Find the socket ID for a player by wallet address
+    _findPlayerSocket(walletAddress) {
+        if (!global.players) return null;
+        const normalizedAddress = walletAddress?.toLowerCase();
+        for (const [socketId, player] of Object.entries(global.players)) {
+            if (player.id?.toLowerCase() === normalizedAddress) {
+                return socketId;
+            }
+        }
+        return null;
+    }
+
     onJoinedTableFor(event) {
         const player = event.result.player || event.result[0];
         const tableId = event.result.tableId || event.result[1];
@@ -224,12 +236,17 @@ class EventListener {
             global.gameFlowIntegration.syncPlayerBalance(tronPlayer).then(balance => {
                 console.log(`[EventListener] Balance synced after JoinedTableFor: locked=${balance.lockedAmount/1e6} TRX`);
                 if (global.io) {
-                    global.io.emit('SC_BALANCE_SYNCED', {
-                        balance: balance.balance,
-                        locked: balance.lockedAmount,
-                        available: balance.balance,
-                        reason: 'join_confirmed'
-                    });
+                    // Find the socket for this specific player, don't broadcast to everyone
+                    const playerSocket = this._findPlayerSocket(tronPlayer);
+                    if (playerSocket) {
+                        global.io.to(playerSocket).emit('SC_BALANCE_SYNCED', {
+                            walletAddress: tronPlayer,
+                            balance: balance.balance,
+                            locked: balance.lockedAmount,
+                            available: balance.balance,
+                            reason: 'join_confirmed'
+                        });
+                    }
                 }
             }).catch(e => console.warn('[EventListener] Failed to sync after JoinedTableFor:', e.message));
         }
@@ -251,12 +268,17 @@ class EventListener {
             global.gameFlowIntegration.syncPlayerBalance(tronPlayer).then(balance => {
                 console.log(`[EventListener] Balance synced after LeftTableFor: locked=${balance.lockedAmount/1e6} TRX`);
                 if (global.io) {
-                    global.io.emit('SC_BALANCE_SYNCED', {
-                        balance: balance.balance,
-                        locked: balance.lockedAmount,
-                        available: balance.balance,
-                        reason: 'leave_confirmed'
-                    });
+                    // Find the socket for this specific player, don't broadcast to everyone
+                    const playerSocket = this._findPlayerSocket(tronPlayer);
+                    if (playerSocket) {
+                        global.io.to(playerSocket).emit('SC_BALANCE_SYNCED', {
+                            walletAddress: tronPlayer,
+                            balance: balance.balance,
+                            locked: balance.lockedAmount,
+                            available: balance.balance,
+                            reason: 'leave_confirmed'
+                        });
+                    }
                 }
             }).catch(e => console.warn('[EventListener] Failed to sync after LeftTableFor:', e.message));
         }
