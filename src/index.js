@@ -8,19 +8,28 @@ import Providers from './context/Providers';
 
 const rootElement = document.getElementById('root');
 
-  ReactDOM.render(
+ReactDOM.render(
     <React.StrictMode>
       <Providers>
         <App />
       </Providers>
     </React.StrictMode>,
     rootElement,
-  );
+);
 
-  // Hide loading screen and show app content when window has fully loaded
-  window.onload = () => {
-    rootElement.style.display = 'block';
-  };
+// Show app immediately after React mounts — do NOT wait for window.onload
+// (window onload waits for ALL resources including preloaded images to load)
+const showApp = () => {
+    if (rootElement) rootElement.style.display = 'block';
+};
+// Try to show ASAP; also fallback on onload for safety
+if (document.readyState === 'complete') {
+    showApp();
+} else {
+    // Show once React finishes first render (next microtask)
+    Promise.resolve().then(showApp);
+    window.addEventListener('load', showApp, { once: true });
+}
 
   // Disable react dev tools in production
   // Safe check for process.env

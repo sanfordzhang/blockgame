@@ -1,15 +1,9 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Play from '../../pages/Play';
-import NotFoundPage from '../../pages/NotFoundPage';
+
+// Landing is the only statically imported page — it must be available immediately
 import Landing from '../../pages/Landing';
-import Tournament from '../../pages/Tournament';
-import TournamentWaitingRoom from '../../pages/TournamentWaitingRoom';
-import TournamentTable from '../../pages/TournamentTable';
-import NFTGallery from '../../pages/NFTGallery';
-import CHIPWallet from '../../pages/CHIPWallet';
-import DAO from '../../pages/DAO';
-import DEX from '../../pages/DEX';
+import NotFoundPage from '../../pages/NotFoundPage';
 import AppLayout from '../layout/AppLayout';
 
 // Admin Components
@@ -24,19 +18,46 @@ import {
   AuditLog
 } from '../admin';
 
+// Lazy load ALL other pages so their heavy game-asset dependencies (cards.svg,
+// background.png, dealer.png, player1~6.png, table.webp, etc.) are NOT included
+// in the initial JS bundle. Each page loads only when its route is visited.
+const Play = lazy(() => import('../../pages/Play'));
+const Tournament = lazy(() => import('../../pages/Tournament'));
+const TournamentWaitingRoom = lazy(() => import('../../pages/TournamentWaitingRoom'));
+const TournamentTable = lazy(() => import('../../pages/TournamentTable'));
+const NFTGallery = lazy(() => import('../../pages/NFTGallery'));
+const CHIPWallet = lazy(() => import('../../pages/CHIPWallet'));
+const DAO = lazy(() => import('../../pages/DAO'));
+const DEX = lazy(() => import('../../pages/DEX'));
+
+// Shared fallback for all lazy-loaded pages
+const PageFallback = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '60vh',
+    fontSize: '1.1rem',
+    color: '#666',
+  }}>
+    Loading...
+  </div>
+);
+
 const AppRoutes = () => {
   return (
     <AppLayout>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/play" element={<Play />} />
-        <Route path="/tournament" element={<Tournament />} />
-        <Route path="/tournament/:tournamentId" element={<TournamentTable />} />
-        <Route path="/tournament/:tournamentId/waiting" element={<TournamentWaitingRoom />} />
-        <Route path="/tournament/:tournamentId/play" element={<TournamentTable />} />
-        <Route path="/nft" element={<NFTGallery />} />
-        <Route path="/wallet" element={<CHIPWallet />} />
-        <Route path="/dao" element={<DAO />} />
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/play" element={<Play />} />
+          <Route path="/tournament" element={<Tournament />} />
+          <Route path="/tournament/:tournamentId" element={<TournamentTable />} />
+          <Route path="/tournament/:tournamentId/waiting" element={<TournamentWaitingRoom />} />
+          <Route path="/tournament/:tournamentId/play" element={<TournamentTable />} />
+          <Route path="/nft" element={<NFTGallery />} />
+          <Route path="/wallet" element={<CHIPWallet />} />
+          <Route path="/dao" element={<DAO />} />
         <Route path="/dex" element={<DEX />} />
 
         {/* Admin Routes */}
@@ -52,6 +73,7 @@ const AppRoutes = () => {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
     </AppLayout>
   );
 };
