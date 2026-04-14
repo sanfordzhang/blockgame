@@ -13,6 +13,7 @@ import queenImg from '../assets/img/queen-rounded-img@2x.png';
 import queen2Img from '../assets/img/queen2-rounded-img@2x.png';
 import styled from 'styled-components';
 import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
+import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
 import globalContext from '../context/global/globalContext';
@@ -135,6 +136,14 @@ const Landing = () => {
     };
     
     checkTronLink();
+  }, []);
+
+  // Preload game assets while user is on landing page (reduces game loading time)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      preloadGameAssets();
+    }, 2000); // Start after 2s - let landing page load first
+    return () => clearTimeout(timer);
   }, []);
 
   // Check registration status and balances when wallet address changes
@@ -621,6 +630,8 @@ const Landing = () => {
     const activeSocket = (socket && socket.connected) ? socket : window.socket;
 
     const doEnter = (sock) => {
+      // Emergency preload critical assets right before entering game
+      emergencyPreload();
       sock.emit(CS_FETCH_LOBBY_INFO, {
         walletAddress: safeAddress,
         socketId: sock.id,

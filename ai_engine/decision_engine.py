@@ -68,7 +68,14 @@ class DecisionEngine:
 def worker_loop():
     """Persistent worker mode for Node.js stdin/stdout RPC."""
     engine = DecisionEngine()
-    print(json.dumps({"status": "ready", "pid": os.getpid()}), flush=True)
+
+    # Preload NFSP model to avoid timeout on first request
+    print(json.dumps({"status": "loading", "message": "Preloading NFSP model..."}), flush=True)
+    try:
+        engine._get_agent('hard')
+        print(json.dumps({"status": "ready", "pid": os.getpid(), "preloaded": "hard"}), flush=True)
+    except Exception as e:
+        print(json.dumps({"status": "ready", "pid": os.getpid(), "preload_error": str(e)}), flush=True)
 
     for raw_line in sys.stdin:
         line = raw_line.strip()

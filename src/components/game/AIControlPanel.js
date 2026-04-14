@@ -100,7 +100,7 @@ const ActionDetail = styled.div`
 const AIControlPanel = () => {
   const { socket } = useContext(socketContext);
   const [isEnabled, setIsEnabled] = useState(false);
-  const [difficulty, setDifficulty] = useState('medium');
+  const [difficulty, setDifficulty] = useState('hard');
   const [maxHands, setMaxHands] = useState(100);
   const [stats, setStats] = useState({});
   const [lastAction, setLastAction] = useState(null);

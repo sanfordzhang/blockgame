@@ -112,7 +112,9 @@ class AIService {
 
   async getSuggestion(gameState, difficulty = 'hard') {
     try {
-      return await this._sendRequest({ ...gameState, difficulty }, 2000);
+      // NFSP model needs more time, especially on first load
+      const timeout = (difficulty === 'hard' || difficulty === 'expert') ? 15000 : 5000;
+      return await this._sendRequest({ ...gameState, difficulty }, timeout);
     } catch (err) {
       return this._fallbackDecision(gameState, err.message);
     }
@@ -263,11 +265,24 @@ class AIService {
         continue;
       }
 
+      if (response.status === 'loading') {
+        console.log('[AI Worker] Loading model:', response.message || '');
+        continue;
+      }
+
       if (response.status === 'ready') {
         cleanupStart();
         this.workerReady = true;
         this.restartAttempts = 0;
         this.workerStartPromise = null;
+        if (response.preloaded) {
+          console.log(`[AI Worker] Ready with preloaded model: ${response.preloaded}`);
+        } else {
+          console.log('[AI Worker] Ready');
+        }
+        if (response.preload_error) {
+          console.warn(`[AI Worker] Preload warning: ${response.preload_error}`);
+        }
         resolveStart();
         continue;
       }

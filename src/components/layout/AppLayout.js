@@ -7,6 +7,7 @@ import modalContext from '../../context/modal/modalContext';
 
 // Pages where Navbar is hidden (full-screen game views)
 const NAVBAR_HIDDEN_PATHS = ['/play'];
+const NAVBAR_HIDDEN_PATTERNS = [/^\/tournament\/\d+\/play/];
 
 const AppLayout = ({ children }) => {
   const { walletAddress, chipsAmount } = useContext(globalContext);
@@ -16,6 +17,8 @@ const AppLayout = ({ children }) => {
 
   const hideNavbar = NAVBAR_HIDDEN_PATHS.some((path) =>
     location.pathname.startsWith(path)
+  ) || NAVBAR_HIDDEN_PATTERNS.some((pattern) =>
+    pattern.test(location.pathname)
   );
 
   const loggedIn = !!walletAddress;
