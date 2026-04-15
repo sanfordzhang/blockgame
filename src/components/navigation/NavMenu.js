@@ -110,7 +110,7 @@ const IconWrapper = styled.div`
 `;
 
 const MENU_LINKS = [
-  { to: '/play',       icon: '♠️',  labelKey: 'navPlay' },
+  { to: '/',          icon: '♠️',  labelKey: 'navPlay' },       // Play → go to Landing page first
   { to: '/tournament', icon: '🏆', labelKey: 'navTournament' },
   { to: '/nft',        icon: '🎨', labelKey: 'navNFT' },
   { to: '/wallet',     icon: '💎', labelKey: 'navWallet' },

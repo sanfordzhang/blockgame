@@ -148,6 +148,7 @@ const DAO = () => {
   const [proposals, setProposals] = useState([]);
   const [votingPower, setVotingPower] = useState(0);
   const [threshold, setThreshold] = useState(0);
+  const [chipBalance, setChipBalance] = useState(null); // real CHIP balance from /api/chip/balance/
   const [loading, setLoading] = useState(true);
   const [newProposal, setNewProposal] = useState({ title: '', description: '' });
   const [error, setError] = useState('');
@@ -164,8 +165,22 @@ const DAO = () => {
     fetchProposals();
     if (walletAddress) {
       fetchVotingPower();
+      fetchChipBalance();
     }
   }, [tab, walletAddress]);
+
+  // Fetch real CHIP balance (same as Wallet page)
+  const fetchChipBalance = async () => {
+    try {
+      const res = await fetch(`/api/chip/balance/${walletAddress}`);
+      const data = await res.json();
+      if (data.success) {
+        setChipBalance(data.chip ?? 0);
+      }
+    } catch (e) {
+      console.error('[DAO] Failed to fetch CHIP balance:', e);
+    }
+  };
 
   const fetchProposals = async () => {
     setLoading(true);
@@ -268,8 +283,8 @@ const DAO = () => {
 
       <Container flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="1.5rem">
         <div>
-          <Text color="textSecondary">Your Voting Power</Text>
-          <Text size="1.5rem" fontWeight="bold">{votingPower.toLocaleString()} CHIP</Text>
+          <Text color="textSecondary">Your CHIP Balance</Text>
+          <Text size="1.5rem" fontWeight="bold">{chipBalance != null ? Number(chipBalance).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0'} CHIP</Text>
         </div>
         <div>
           <Text color="textSecondary">Proposal Threshold</Text>

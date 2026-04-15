@@ -802,12 +802,6 @@ const Landing = () => {
                       </BalanceRow>
                     )}
                   </BalanceInfo>
-                  <RefreshButton 
-                    onClick={refreshAllBalances} 
-                    disabled={refreshing}
-                  >
-                    {refreshing ? '⟳' : '↻'} {t('refreshBalance')}
-                  </RefreshButton>
                   <DepositSection>
                     <DepositInput
                       type="number"
@@ -825,6 +819,18 @@ const Landing = () => {
                       {depositing ? 'Depositing...' : 'Deposit'}
                     </Button>
                   </DepositSection>
+
+                  {/* Enter Game — after Deposit, before Withdraw: must deposit chips first */}
+                  <Button
+                    large
+                    primary
+                    fullWidthOnMobile
+                    onClick={() => proceedToGame(walletAddress)}
+                    disabled={gameBalance <= 0}
+                  >
+                    {gameBalance <= 0 ? t('deposit') + ' Required to Play' : t('enterGame')}
+                  </Button>
+
                   <WithdrawSection>
                     <WithdrawInfo>
                       <span>{t('withdrawable')} {formatTrx(bankroll)} TRX</span>
@@ -911,20 +917,6 @@ const Landing = () => {
                     )}
                   </DelegateSection>
                 </>
-              )}
-              
-              {/* Enter Game Button */}
-              {isRegistered && (
-                <Button
-                  large
-                  primary
-                  fullWidthOnMobile
-                  onClick={() => proceedToGame(walletAddress)}
-                  disabled={contractBalance < 100000000}
-                  style={{ marginTop: '1rem' }}
-                >
-                  {contractBalance < 100000000 ? t('deposit') + ' Required to Play' : t('enterGame')}
-                </Button>
               )}
             </>
           )}

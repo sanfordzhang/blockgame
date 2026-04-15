@@ -34,7 +34,7 @@ const en = {
 
   // Errors (Landing)
   errConnectTronLink:  'Failed to connect TronLink',
-  errInstallWallet:    'Please install TronLink or MetaMask',
+  errInstallWallet:    'Please install TronLink',
   errWrongNetwork:     'Please switch to the correct network',
   errConnectWallet:    'Failed to connect wallet',
   errRegister:         'Registration failed, please try again',

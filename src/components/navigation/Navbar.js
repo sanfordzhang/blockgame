@@ -53,7 +53,7 @@ const StyledNavLink = styled(NavLink)`
 `;
 
 const NAV_LINKS = [
-  { to: '/play',       labelKey: 'navPlay' },
+  { to: '/',          labelKey: 'navPlay' },       // Play → go to Landing page first
   { to: '/tournament', labelKey: 'navTournament' },
   { to: '/nft',        labelKey: 'navNFT' },
   { to: '/wallet',     labelKey: 'navWallet' },
