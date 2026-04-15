@@ -238,8 +238,9 @@ class TournamentService {
      * @param {string} tournamentId - Tournament ID
      * @param {string} playerAddress - Player wallet address
      * @param {string} socketId - Socket ID
+     * @param {number} clientBalance - Client-side fetched balance (from TronLink, not affected by server rate limit)
      */
-    async joinTournament(tournamentId, playerAddress, socketId) {
+    async joinTournament(tournamentId, playerAddress, socketId, clientBalance = 0) {
         const normalizedAddress = playerAddress.toLowerCase();
 
         // Get tournament to check buyIn
@@ -255,26 +256,72 @@ class TournamentService {
             throw new Error('Already joined');
         }
 
-        // Lock buyIn via contract (if player has enough balance)
-        const buyIn = existingTournament.buyIn || 100000000; // 100 TRX
+        // Check balance - use client-provided balance first (from TronLink, not affected by server rate limit)
+        const buyIn = existingTournament.buyIn || 100000000; // 100 TRX default
         let buyInLocked = false;
         
         try {
-            const contractService = require('../blockchain/ContractService');
-            if (contractService) {
-                const playerInfo = await contractService.getPlayerInfo(playerAddress);
-                if (playerInfo.balance >= buyIn) {
-                    // Generate a tableId for this tournament
-                    const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
-                    await contractService.joinTableFor(playerAddress, tableId, buyIn);
-                    buyInLocked = true;
-                    console.log(`[TournamentService] Locked ${buyIn/1e6} TRX buyIn for player ${playerAddress.substring(0, 10)}...`);
-                } else {
-                    console.log(`[TournamentService] Player ${playerAddress.substring(0, 10)}... has insufficient balance (${playerInfo.balance/1e6} TRX < ${buyIn/1e6} TRX), buyIn not locked on chain`);
+            let playerBalance = null;
+            
+            // Priority 1: Client-side balance (browser TronWeb direct contract call = what user sees)
+            if (clientBalance > 0) {
+                playerBalance = clientBalance;
+                console.log(`[TournamentService] Using client-side balance: ${(playerBalance / 1e6).toFixed(2)} TRX`);
+            }
+            
+            // Priority 2: Socket session bankroll
+            if (!playerBalance || playerBalance <= 0) {
+                try {
+                    const socketIndex = require('../socket/index');
+                    const sessionBankroll = socketIndex.getPlayerBankroll(playerAddress);
+                    console.log(`[TournamentService] getPlayerBankroll(${playerAddress}) returned:`, sessionBankroll);
+                    if (sessionBankroll !== null && sessionBankroll > 0) {
+                        playerBalance = sessionBankroll;
+                        console.log(`[TournamentService] Balance from socket session: ${(playerBalance / 1e6).toFixed(2)} TRX`);
+                    }
+                } catch (se) {
+                    console.warn(`[TournamentService] Session check failed:`, se.message);
                 }
             }
+            
+            // Priority 3: GFI cache fallback
+            if (!playerBalance || playerBalance <= 0) {
+                try {
+                    const gameFlowIntegration = require('./GameFlowIntegration');
+                    const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(playerAddress);
+                    if (cachedBalance && cachedBalance.balance > 0) {
+                        playerBalance = cachedBalance.balance;
+                        console.log(`[TournamentService] Balance from GFI cache: ${(playerBalance / 1e6).toFixed(2)} TRX`);
+                    }
+                } catch (ce) {
+                    console.warn(`[TournamentService] Cache check failed:`, ce.message);
+                }
+            }
+            
+            if (!playerBalance || playerBalance <= 0) {
+                throw new Error('Insufficient balance. Please visit the Play page first to sync your game balance.');
+            }
+
+            if (playerBalance >= buyIn) {
+                const contractService = require('../blockchain/ContractService');
+                // Generate a tableId for this tournament
+                const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
+                try {
+                    await contractService.joinTableFor(playerAddress, tableId, buyIn);
+                    buyInLocked = true;
+                    console.log(`[TournamentService] Locked ${buyIn / 1e6} TRX buyIn for player ${playerAddress.substring(0, 10)}...`);
+                } catch (lockErr) {
+                    console.warn(`[TournamentService] Failed to lock buyIn on chain:`, lockErr.message);
+                }
+            } else {
+                throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
+            }
         } catch (e) {
-            console.error(`[TournamentService] Failed to lock buyIn:`, e.message);
+            if (e.message.startsWith('Insufficient balance') || e.message.includes('visit the Play page')) {
+                throw e;
+            }
+            console.error(`[TournamentService] Balance check error:`, e.message);
+            throw new Error(`Unable to verify balance: ${e.message}. Please try again later.`);
         }
 
         // Use atomic update to prevent race condition
@@ -878,11 +925,75 @@ module.exports = {
         }
         return tournamentServiceInstance.createTournament(data);
     },
-    joinTournament: async (tournamentId, walletAddress, socketId) => {
+    joinTournament: async (tournamentId, walletAddress, socketId, clientBalance = 0) => {
         // Test mode fallback - use atomic operation
         if (!tournamentServiceInstance) {
             const TournamentModel = require('../models/Tournament');
             const normalizedAddress = walletAddress.toLowerCase();
+
+            // Check player balance before joining (FAIRNESS requirement)
+            // Priority: clientBalance (TronLink) -> socket session -> GFI cache
+            try {
+                const contractService = require('../blockchain/ContractService');
+                if (contractService) {
+                    const existingTournament = await TournamentModel.findOne({ tournamentId });
+                    const buyIn = existingTournament?.buyIn || 100000000; // 100 TRX default
+
+                    let playerBalance = null;
+
+                    // Step 1: Client-side balance (browser TronWeb, most reliable)
+                    if (clientBalance > 0) {
+                        playerBalance = clientBalance;
+                        console.log(`[TournamentService] Test mode: Client-side balance: ${(playerBalance / 1e6).toFixed(2)} TRX`);
+                    }
+
+                    // Step 2: Socket session bankroll
+                    if (!playerBalance || playerBalance <= 0) {
+                        try {
+                            const socketIndex = require('../socket/index');
+                            const sessionBankroll = socketIndex.getPlayerBankroll(walletAddress);
+                            if (sessionBankroll !== null && sessionBankroll > 0) {
+                                playerBalance = sessionBankroll;
+                                console.log(`[TournamentService] Test mode: Socket session balance: ${(playerBalance / 1e6).toFixed(2)} TRX`);
+                            }
+                        } catch (se) { console.warn(se.message); }
+                    }
+
+                    // Step 3: GFI cache fallback
+                    if (!playerBalance || playerBalance <= 0) {
+                        const gameFlowIntegration = require('./GameFlowIntegration');
+                        const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(walletAddress);
+                        if (cachedBalance && cachedBalance.balance > 0) {
+                            playerBalance = cachedBalance.balance;
+                            console.log(`[TournamentService] Test mode: GFI cache balance: ${(playerBalance / 1e6).toFixed(2)} TRX`);
+                        }
+                    }
+
+                    if (!playerBalance || playerBalance <= 0) {
+                        throw new Error('Insufficient balance. Please visit the Play page first to sync your game balance.');
+                    }
+
+                    if (playerBalance < buyIn) {
+                        throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
+                    }
+
+                    console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... has ${playerBalance / 1e6} TRX >= ${buyIn / 1e6} TRX`);
+
+                    // Try to lock buyIn on chain (best effort, don't block if rate limited)
+                    try {
+                        const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
+                        await contractService.joinTableFor(walletAddress, tableId, buyIn);
+                        console.log(`[TournamentService] Test mode: Locked ${buyIn/1e6} TRX buyIn on chain`);
+                    } catch (lockErr) {
+                        console.warn(`[TournamentService] Test mode: Failed to lock buyIn on chain:`, lockErr.message);
+                    }
+                }
+            } catch (e) {
+                if (e.message.startsWith('Insufficient balance') || e.message.includes('Unable to verify')) {
+                    throw e;
+                }
+                console.error(`[TournamentService] Test mode: Failed to check balance:`, e.message);
+            }
 
             // Use atomic update to prevent race condition
             const tournament = await TournamentModel.findOneAndUpdate(

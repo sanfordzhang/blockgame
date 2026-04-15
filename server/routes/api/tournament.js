@@ -118,14 +118,15 @@ router.post('/:tournamentId/join', optionalAuth, async (req, res) => {
         // Use authenticated user's wallet address or provided address (test mode)
         const walletAddress = req.user?.walletAddress || req.body.walletAddress || req.headers['x-wallet-address'];
         const socketId = req.body.socketId || null;
+        const clientBalance = req.body.clientBalance || 0; // Client-side fetched balance (from TronLink)
         
         if (!walletAddress) {
             return res.status(401).json({ success: false, error: 'Authentication required. Please connect your wallet.' });
         }
         
-        console.log(`[Tournament API] Join request: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
+        console.log(`[Tournament API] Join: tournament=${tournamentId}, wallet=${walletAddress?.substring(0,10)}, clientBalance=${clientBalance ? (clientBalance/1e6).toFixed(2)+'TRX' : 'none'}`);
         
-        const result = await TournamentService.joinTournament(tournamentId, walletAddress, socketId);
+        const result = await TournamentService.joinTournament(tournamentId, walletAddress, socketId, clientBalance);
         res.json({ success: true, ...result });
     } catch (error) {
         console.error(`[Tournament API] Join error:`, error.message);

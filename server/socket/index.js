@@ -1549,4 +1549,16 @@ const init = (socket, io) => {
 // Module-level reference to checkAITurn (set during init)
 let _checkAITurn = null;
 
-module.exports = { init, get checkAITurn() { return _checkAITurn; } };
+module.exports = { 
+    init, 
+    get checkAITurn() { return _checkAITurn; },
+    // Get player bankroll from active socket session (populated by Lobby CS_FETCH_LOBBY_INFO)
+    getPlayerBankroll: (walletAddress) => {
+        if (!walletAddress) return null;
+        const allKeys = Object.keys(players);
+        const allPlayers = Object.values(players).map(p => ({ id: p.id?.substring(0,10), bankroll: p.bankroll }));
+        console.log(`[Socket] getPlayerBankroll(${walletAddress}) - total players: ${allKeys.length}, details:`, JSON.stringify(allPlayers));
+        const player = Object.values(players).find(p => p.id === walletAddress);
+        return player ? player.bankroll : null;
+    }
+};

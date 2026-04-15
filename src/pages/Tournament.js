@@ -9,6 +9,7 @@ import locaContext from '../context/localization/locaContext';
 import modalContext from '../context/modal/modalContext';
 import { useTron } from '../context/tron/TronContext';
 import clientConfig from '../clientConfig';
+import { getPlayerBalance } from '../utils/tronInteract';
 
 // API base URL helper
 const getApiUrl = (path) => {
@@ -367,10 +368,24 @@ const Tournament = () => {
     const handleJoin = async () => {
       try {
         setError(null);
+        
+        // Fetch game balance from contract via TronLink (browser-side, not affected by server rate limit)
+        let clientBalance = 0;
+        try {
+          const balInfo = await getPlayerBalance(currentAddress);
+          clientBalance = (balInfo.balance || 0) + (balInfo.locked || 0);
+          console.log('[Tournament] Client-side balance:', clientBalance / 1e6, 'TRX');
+        } catch (e) {
+          console.warn('[Tournament] Failed to get client balance, will use server check:', e.message);
+        }
+        
         const response = await fetch(getApiUrl(`/api/tournament/${tournamentId}/join`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletAddress: currentAddress })
+          body: JSON.stringify({ 
+            walletAddress: currentAddress,
+            clientBalance  // Pass browser-fetched balance for server-side validation
+          })
         });
         const data = await response.json();
         if (data.success) {
