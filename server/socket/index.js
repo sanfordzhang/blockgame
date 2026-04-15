@@ -1222,16 +1222,20 @@ const init = (socket, io) => {
       table.changeTurn(seatId);
       console.log('[Socket] After changeTurn:');
       console.log('[Socket] handOver:', table.handOver);
-      console.log('[Socket] board length:', table.board.length);
-      console.log('[Socket] board:', table.board.map(c => `${c.rank}${c.suit}`));
-      console.log('[Socket] winMessages:', table.winMessages);
 
       broadcastToTable(table);
 
       if (table.handOver) {
+        // Prevent duplicate settlement: mark as processed
+        if (table._settlingHand) {
+          console.log('[Socket] Hand settlement already in progress, skipping');
+          return;
+        }
+        table._settlingHand = true;
+
         console.log('[Socket] Hand is over, calling handleGameEnd...');
-        // Handle game end (settlement and balance updates) before starting new hand
         await handleGameEnd(table);
+        table._settlingHand = false;
         initNewHand(table);
       } else {
         // Check if the current turn belongs to an AI player
@@ -1301,9 +1305,14 @@ const init = (socket, io) => {
       }
     }
 
-    if (table.activePlayers().length > 1) {
-      broadcastToTable(table, '---New hand starting in 5 seconds---');
+    // CRITICAL: Do not start a new hand if only 1 or 0 players remain
+    if (table.activePlayers().length <= 1) {
+      console.log('[Socket] Only', table.activePlayers().length, 'player(s) left, NOT starting new hand');
+      clearForOnePlayer(table);
+      return;
     }
+
+    broadcastToTable(table, '---New hand starting in 5 seconds---');
     setTimeout(() => {
       table.clearWinMessages();
       table.startHand();
