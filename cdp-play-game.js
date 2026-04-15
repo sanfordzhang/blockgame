@@ -88,26 +88,45 @@ function handleBotTurn(ws, state, botState) {
 
 async function connectCDP(urlPattern) {
     // Wait for tab with urlPattern to appear
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
         const pages = await new Promise((resolve, reject) => {
             http.get('http://localhost:9222/json', res => {
                 let d = ''; res.on('data', c => d += c);
                 res.on('end', () => resolve(JSON.parse(d)));
             }).on('error', reject);
         });
-        const page = urlPattern ? pages.find(p => p.url.includes(urlPattern)) : pages.find(p => p.url.includes('3001'));
+        // Prefer exact urlPattern match; filter out localhost tabs when using remote BASE_URL
+        const candidates = pages.filter(p => p.url.includes(urlPattern));
+        // If no match, try any non-localhost 3001 port tab
+        const page = candidates[0] || pages.find(p => 
+            p.url.includes('3001') && !p.url.includes('localhost')
+        );
         if (page) {
+            log(`connectCDP found tab: ${page.url.substring(0, 80)}`);
             const c = await CDP({ target: page.webSocketDebuggerUrl });
             await c.Page.enable();
             await c.Runtime.enable();
+            await c.Log.enable();  // Enable console log capture
+            // Capture console logs
+            let consoleLogs = [];
+            c.on('Log.entryAdded', ({entry}) => {
+                const text = entry.text || '';
+                if (text.includes('TournamentGame') || text.includes('Socket') || 
+                    text.includes('Join API') || text.includes('error') || text.includes('Error') ||
+                    text.includes('WARNING') || text.includes('ROOM') || text.includes('join')) {
+                    consoleLogs.push(text.substring(0, 200));
+                }
+            });
             const screenshot = (name) => c.Page.captureScreenshot().then(({data}) => {
                 fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
                 log(`📸 ${name}`);
             }).catch(() => {});
             const eval_ = (expr) => c.Runtime.evaluate({ expression: expr, returnByValue: true, awaitPromise: true })
                 .then(r => r.result?.value).catch(() => null);
-            return { client: c, screenshot, eval_ };
+            const getConsoleLogs = () => { return consoleLogs; };
+            return { client: c, screenshot, eval_, getConsoleLogs };
         }
+        log(`connectCDP waiting... (${i+1}/15), tabs: ${pages.map(p=>p.url.substring(0,40)).join(' | ')}`);
         await sleep(1000);
     }
     throw new Error('Tab not found: ' + urlPattern);
@@ -150,13 +169,40 @@ async function test() {
         await c.close().catch(() => {});
         log('[2g] 完成');
     }
-    const { client, screenshot, eval_ } = await connectCDP(`tournament/${tournamentId}`);
+    const { client, screenshot, eval_, getConsoleLogs } = await connectCDP(`tournament/${tournamentId}`);
     await screenshot('01-play-page');
+    
+    // Check console logs for join errors
+    await sleep(2000);
+    
+    // Evaluate JS in browser context
+    const diag = await eval_(`(function() {
+        return {
+            url: window.location.href,
+            hostname: window.location.hostname,
+            hasReact: typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ !== 'undefined',
+            bodyText: document.body?.innerText?.substring(0, 500) || 'empty',
+            apiBase: typeof fetch !== 'undefined' ? 'fetch available' : 'no fetch'
+        };
+    })()`);
+    log(`[Browser diag]: ${JSON.stringify(diag)}`);
+    
+    const initialLogs = getConsoleLogs();
+    if (initialLogs.length > 0) {
+        log(`[Console logs]: ${initialLogs.slice(0, 10).join('\n')}`);
+    }
 
     // Step 3: Bot 加入（坐座位2）
     log('[3] Bot 加入锦标赛');
     const botWs = await startBot(tournamentId);
-    await sleep(3000);
+    await sleep(5000);
+    
+    // Check logs after bot joins
+    const postJoinLogs = getConsoleLogs();
+    if (postJoinLogs.length > 0) {
+        log(`[Post-join Console logs]: ${postJoinLogs.slice(-10).join('\n')}`);
+    }
+    await screenshot('after-bot-join');
 
     // Step 4: 游戏循环
     log('[4] 游戏循环开始');

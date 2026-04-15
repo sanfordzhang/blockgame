@@ -309,9 +309,10 @@ class TournamentService {
                 try {
                     await contractService.joinTableFor(playerAddress, tableId, buyIn);
                     buyInLocked = true;
-                    console.log(`[TournamentService] Locked ${buyIn / 1e6} TRX buyIn for player ${playerAddress.substring(0, 10)}...`);
+                    console.log(`[TournamentService] ✅ Locked ${buyIn / 1e6} TRX buyIn for player ${playerAddress.substring(0, 10)}...`);
                 } catch (lockErr) {
-                    console.warn(`[TournamentService] Failed to lock buyIn on chain:`, lockErr.message);
+                    console.error(`[TournamentService] ❌ Failed to lock buyIn on chain:`, lockErr.message);
+                    throw new Error(`On-chain lock failed (${lockErr.message}). Please ensure you have sufficient TRX balance and energy.`);
                 }
             } else {
                 throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
@@ -979,13 +980,16 @@ module.exports = {
 
                     console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... has ${playerBalance / 1e6} TRX >= ${buyIn / 1e6} TRX`);
 
-                    // Try to lock buyIn on chain (best effort, don't block if rate limited)
+                    // Lock buyIn on chain - MANDATORY for on-chain settlement
+                    // Previously was "best effort" which caused silent failure -> player joined without lock
+                    // -> at settlement time, insufficient balance -> NO TRX deducted/added
+                    const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
                     try {
-                        const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
                         await contractService.joinTableFor(walletAddress, tableId, buyIn);
-                        console.log(`[TournamentService] Test mode: Locked ${buyIn/1e6} TRX buyIn on chain`);
+                        console.log(`[TournamentService] Test mode: ✅ Locked ${buyIn/1e6} TRX buyIn on chain`);
                     } catch (lockErr) {
-                        console.warn(`[TournamentService] Test mode: Failed to lock buyIn on chain:`, lockErr.message);
+                        console.error(`[TournamentService] Test mode: ❌ Failed to lock ${buyIn/1e6} TRX buyIn on chain:`, lockErr.message);
+                        throw new Error(`On-chain lock failed (${lockErr.message}). Please ensure you have sufficient TRX balance and energy.`);
                     }
                 }
             } catch (e) {
@@ -1721,20 +1725,32 @@ module.exports = {
             `#${p.position}: ${(p.prizeAmount/1e6).toFixed(2)} TRX`
         ).join(', '));
         
-        // Update tournament status
-        tournament.status = 'COMPLETED';
-        tournament.rakeAmount = rakeAmountSun;
-        tournament.rankings = data.rankings.map((address, index) => ({
+        // Update tournament status in DB (use atomic update to avoid VersionError race condition)
+        const rankingData = data.rankings.map((address, index) => ({
             address,
             position: index + 1,
             prize: prizes[index]?.prizeAmount || 0
         }));
-        tournament.finishedAt = new Date();
-        tournament.endReason = data.reason || 'elimination';
-        tournament.totalHands = data.totalHands;
         
-        await tournament.save();
-        console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} saved to DB`);
+        try {
+            await TournamentModel.findOneAndUpdate(
+                { tournamentId },
+                {
+                    $set: {
+                        status: 'COMPLETED',
+                        rakeAmount: rakeAmountSun,
+                        rankings: rankingData,
+                        finishedAt: new Date(),
+                        endReason: data.reason || 'elimination',
+                        totalHands: data.totalHands
+                    }
+                },
+                { new: true }
+            );
+            console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} saved to DB`);
+        } catch (dbErr) {
+            console.error(`[TournamentService] _handleTournamentEnd: DB save failed (will continue with settlement):`, dbErr.message);
+        }
 
         // === SETTLE TRX VIA CONTRACT ===
         // Tournament settlement logic:

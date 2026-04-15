@@ -204,5 +204,20 @@ Playwright 配置已设置为连接现有 Chrome 实例（CDP 端口 9222）。
 8.按照docs/GAME_BOT_TEST_FLOW.md 运行游戏自测流程，启动机器人，CDP 控制浏览器 UI 真实操作，让浏览器完整走这个流程，执行cdp-play-game.js，mock 顺子牌型，重新生成NFT
 
 
+## 自动化测试guide
+1.不要启动新的chrome浏览器，连接现有已启动的调试chrome浏览器
+2.按照docs/GAME_BOT_TEST_FLOW.md 运行游戏自测流程，启动机器人，CDP 控制浏览器 UI 真实操作，让浏览器完整走这个流程，执行cdp-play-game.js，间断性的截图看状态分析，不要卡死
+
 PLAYER1.address = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
 PLAYER2.address = 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4';
+
+// 测试玩家
+const PLAYER1 = {
+    address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
+    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+};
+
+const PLAYER2 = {
+    address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
+    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+};

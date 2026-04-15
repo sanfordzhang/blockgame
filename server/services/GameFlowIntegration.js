@@ -83,33 +83,41 @@ class GameFlowIntegration {
     }
 
     /**
-     * Sync player balance from contract
-     * 【要求5】从合约同步最新状态
+     * Sync player balance from contract (with retry on 429)
      */
     async syncPlayerBalance(playerAddress) {
-        try {
-            const contractBalance = await contractService.getPlayerInfo(playerAddress);
-            const newBalance = this.toNumber(contractBalance.balance);
-            const newLocked = this.toNumber(contractBalance.lockedAmount);
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const contractBalance = await contractService.getPlayerInfo(playerAddress);
+                const newBalance = this.toNumber(contractBalance.balance);
+                const newLocked = this.toNumber(contractBalance.lockedAmount);
 
-            const cached = this.playerBalances.get(playerAddress);
+                const cached = this.playerBalances.get(playerAddress);
 
-            console.log(`[GameFlowIntegration] Syncing balance for ${playerAddress}`);
-            console.log(`[GameFlowIntegration]   Contract: balance=${newBalance/1e6} TRX, locked=${newLocked/1e6} TRX`);
-            console.log(`[GameFlowIntegration]   Cache:    balance=${(cached?.balance || 0)/1e6} TRX, locked=${(cached?.lockedAmount || 0)/1e6} TRX`);
+                console.log(`[GameFlowIntegration] Syncing balance for ${playerAddress}`);
+                console.log(`[GameFlowIntegration]   Contract: balance=${newBalance/1e6} TRX, locked=${newLocked/1e6} TRX`);
 
-            this.playerBalances.set(playerAddress, {
-                balance: newBalance,
-                lockedAmount: newLocked,
-                lastSync: Date.now(),
-                pendingSync: false,
-                isRegistered: true
-            });
+                this.playerBalances.set(playerAddress, {
+                    balance: newBalance,
+                    lockedAmount: newLocked,
+                    lastSync: Date.now(),
+                    pendingSync: false,
+                    isRegistered: true
+                });
 
-            return { balance: newBalance, lockedAmount: newLocked };
-        } catch (error) {
-            console.error('[GameFlowIntegration] Failed to sync balance from contract:', error.message);
-            throw error;
+                return { balance: newBalance, lockedAmount: newLocked };
+            } catch (error) {
+                const is429 = error.message && error.message.includes('429');
+                if (is429 && attempt < maxRetries) {
+                    const wait = attempt * 3000; // 3s, 6s
+                    console.warn(`[GameFlowIntegration] Rate limited (429), retry ${attempt}/${maxRetries} in ${wait/1000}s`);
+                    await new Promise(r => setTimeout(r, wait));
+                    continue;
+                }
+                console.error('[GameFlowIntegration] Failed to sync balance:', error.message);
+                throw error;
+            }
         }
     }
 
@@ -957,16 +965,12 @@ class GameFlowIntegration {
     async syncOnPlayerConnect(playerAddress, socketId) {
         console.log(`[GameFlowIntegration] Syncing on connect for ${playerAddress}`);
 
-        // Default balance: 0 (safe fallback - never give fake money)
-        const defaultBalance = {
-            balance: 0,
-            lockedAmount: 0,
-            isRegistered: false,
-            registeredAt: 0
-        };
+        // Use cached balance as fallback when API is rate-limited (429)
+        const cached = this.playerBalances.get(playerAddress);
+        const cachedFallback = cached && cached.balance > 0 ? cached : null;
 
         try {
-            // Check registration with timeout — longer for cloud/rate-limited environment
+            // Check registration with timeout
             let isRegistered = false;
             try {
                 isRegistered = await Promise.race([
@@ -977,53 +981,54 @@ class GameFlowIntegration {
                 ]);
             } catch (e) {
                 console.warn('[GameFlowIntegration] Registration check failed:', e.message);
+                // If we have a cached balance, the player was registered before
+                if (cachedFallback) {
+                    console.log('[GameFlowIntegration] Using cached balance as fallback:', cachedFallback.balance / 1e6, 'TRX');
+                    return cachedFallback;
+                }
                 isRegistered = false;
             }
-            
+
             if (!isRegistered) {
-                console.log(`[GameFlowIntegration] Player ${playerAddress} not registered, using development balance`);
-                
-                // Store in local cache for development
+                // If cached balance exists, player was registered before — API just failed
+                if (cachedFallback) {
+                    console.log(`[GameFlowIntegration] API failed but player has cached balance: ${cachedFallback.balance / 1e6} TRX`);
+                    return cachedFallback;
+                }
+
+                console.log(`[GameFlowIntegration] Player ${playerAddress} not registered`);
+
+                const defaultBalance = { balance: 0, lockedAmount: 0, isRegistered: false };
                 this.playerBalances.set(playerAddress, {
-                    balance: defaultBalance.balance,
-                    lockedAmount: 0,
-                    lastSync: Date.now(),
-                    isRegistered: false
+                    balance: 0, lockedAmount: 0, lastSync: Date.now(), isRegistered: false
                 });
-                
-                // Track session
                 this.playerSessions.set(socketId, {
-                    address: playerAddress,
-                    connectedAt: Date.now(),
-                    balance: defaultBalance.balance
+                    address: playerAddress, connectedAt: Date.now(), balance: 0
                 });
-                
                 this.notifyPlayer(socketId, 'blockchain:status', {
-                    registered: false,
-                    message: 'Player not registered on blockchain - using development balance',
-                    balance: defaultBalance.balance,
-                    locked: 0,
-                    available: defaultBalance.balance,
-                    devMode: true
+                    registered: false, balance: 0, locked: 0, available: 0, devMode: true
                 });
-                
-                // Return default balance instead of null for development
                 return defaultBalance;
             }
 
-            // Sync balance with timeout — use longer timeout to handle rate limiting
+            // Sync balance with timeout (allow for retries: 3 attempts × 6s max = 18s)
             let balance;
             try {
                 balance = await Promise.race([
                     this.syncPlayerBalance(playerAddress),
                     new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Balance sync timeout')), 10000)
+                        setTimeout(() => reject(new Error('Balance sync timeout')), 25000)
                     )
                 ]);
             } catch (e) {
-                console.warn('[GameFlowIntegration] Balance sync failed:', e.message, '— player will need to reconnect');
-                // Safe fallback: 0 balance, never fake money
-                balance = defaultBalance;
+                console.warn('[GameFlowIntegration] Balance sync failed:', e.message);
+                // Use cached balance if available, otherwise 0
+                if (cachedFallback) {
+                    console.log('[GameFlowIntegration] Using cached balance fallback:', cachedFallback.balance / 1e6, 'TRX');
+                    balance = cachedFallback;
+                } else {
+                    balance = { balance: 0, lockedAmount: 0 };
+                }
             }
 
             // Track session
@@ -1044,15 +1049,14 @@ class GameFlowIntegration {
 
         } catch (error) {
             console.error('[GameFlowIntegration] Connect sync error:', error.message);
-            
-            // Return default balance for development even on error
-            this.playerBalances.set(playerAddress, {
-                balance: defaultBalance.balance,
-                lockedAmount: 0,
-                lastSync: Date.now()
-            });
-            
-            return defaultBalance;
+
+            // Use cached balance if available
+            if (cachedFallback) {
+                console.log('[GameFlowIntegration] Error fallback: using cached balance:', cachedFallback.balance / 1e6, 'TRX');
+                return cachedFallback;
+            }
+
+            return { balance: 0, lockedAmount: 0 };
         }
     }
 
@@ -1194,19 +1198,29 @@ class GameFlowIntegration {
      * Check if player is registered on contract
      */
     async checkPlayerRegistration(playerAddress) {
-        try {
-            // Add timeout to prevent blocking
-            const result = await Promise.race([
-                contractService.isPlayerRegistered(playerAddress),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Registration check timeout')), 3000)
-                )
-            ]);
-            return result;
-        } catch (error) {
-            console.warn('[GameFlowIntegration] Registration check failed:', error.message);
-            return false;
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const result = await Promise.race([
+                    contractService.isPlayerRegistered(playerAddress),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Registration check timeout')), 5000)
+                    )
+                ]);
+                return result;
+            } catch (error) {
+                const is429 = error.message && error.message.includes('429');
+                if (is429 && attempt < maxRetries) {
+                    const wait = attempt * 3000;
+                    console.warn(`[GameFlowIntegration] Registration check 429, retry ${attempt}/${maxRetries} in ${wait/1000}s`);
+                    await new Promise(r => setTimeout(r, wait));
+                    continue;
+                }
+                console.warn('[GameFlowIntegration] Registration check failed:', error.message);
+                return false;
+            }
         }
+        return false;
     }
 
     /**
