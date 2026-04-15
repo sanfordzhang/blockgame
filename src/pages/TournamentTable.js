@@ -8,8 +8,9 @@ import globalContext from '../context/global/globalContext';
 import { getPlayerBalance } from '../utils/tronInteract';
 import { TournamentGameProvider, TournamentGameContext } from '../context/game/TournamentGameContext';
 import PokerTable from '../components/game/PokerTable';
-import AIControlPanel from '../components/game/AIControlPanel';
-import DecisionSuggestion from '../components/game/DecisionSuggestion';
+// AI components hidden in tournaments for fairness
+// import AIControlPanel from '../components/game/AIControlPanel';
+// import DecisionSuggestion from '../components/game/DecisionSuggestion';
 import { RotateDevicePrompt } from '../components/game/RotateDevicePrompt';
 import { PositionedUISlot } from '../components/game/PositionedUISlot';
 import { PokerTableWrapper } from '../components/game/PokerTableWrapper';
@@ -23,6 +24,9 @@ import background from '../assets/img/background.png';
 import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas';
 import './Play.scss';
+
+// Detect language for i18n
+const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
 
 const API_BASE = process.env.REACT_APP_SERVER_URI || 'http://127.0.0.1:7777';
 
@@ -250,21 +254,21 @@ const TournamentTableGame = ({ tournamentId }) => {
 
         // Show popup after screenshot is captured
         Swal.fire({
-          title: '🎉 成就解锁！',
+          title: _lang === 'zh' ? '🎉 成就解锁！' : '🎉 Achievement Unlocked!',
           html: `
             <div style="text-align: center;">
               <div style="font-size: 3rem; margin-bottom: 1rem;">${achievement.icon || '🃏'}</div>
               <h2 style="color: #ffd700; margin-bottom: 0.5rem;">${achievement.name || nftAchievement.handType}</h2>
-              <p style="margin-bottom: 1rem;">恭喜！您获得了一个稀有牌型成就！</p>
-              ${handCards ? `<p><strong>手牌:</strong> ${handCards}</p>` : ''}
-              ${boardCards ? `<p><strong>公共牌:</strong> ${boardCards}</p>` : ''}
-              <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">点击下方按钮铸造您的成就 NFT</p>
+              <p style="margin-bottom: 1rem;">${_lang === 'zh' ? '恭喜！您获得了一个稀有牌型成就！' : 'Congratulations! You earned a rare hand achievement!'}</p>
+              ${handCards ? `<p><strong>${_lang === 'zh' ? '手牌:' : 'Hand:'}</strong> ${handCards}</p>` : ''}
+              ${boardCards ? `<p><strong>${_lang === 'zh' ? '公共牌:' : 'Board:'}</strong> ${boardCards}</p>` : ''}
+              <p style="margin-top: 1rem; font-size: 0.9rem; color: #888;">${_lang === 'zh' ? '点击下方按钮铸造您的成就 NFT' : 'Click below to mint your achievement NFT'}</p>
             </div>
           `,
           icon: 'success',
           showCancelButton: true,
-          confirmButtonText: '铸造 NFT',
-          cancelButtonText: '稍后再说',
+          confirmButtonText: _lang === 'zh' ? '铸造 NFT' : 'Mint NFT',
+          cancelButtonText: _lang === 'zh' ? '稍后再说' : 'Later',
           confirmButtonColor: '#3085d6',
           cancelButtonColor: '#6c757d',
           background: '#1a1a2e',
@@ -289,8 +293,8 @@ const TournamentTableGame = ({ tournamentId }) => {
           
           // Show minting in progress
           Swal.fire({
-            title: '铸造中...',
-            html: '<p>正在铸造您的 NFT...</p>',
+            title: _lang === 'zh' ? '铸造中...' : 'Minting...',
+            html: '<p>' + (_lang === 'zh' ? '正在铸造您的 NFT...' : 'Minting your NFT...') + '</p>',
             allowOutsideClick: false,
             didOpen: () => {
               Swal.showLoading();
@@ -302,23 +306,48 @@ const TournamentTableGame = ({ tournamentId }) => {
             try {
               // Call on-chain contract to mint NFT
               const { signature, onchainContractAddress } = data;
+              
+              // Validate signature data before calling contract
+              if (!signature || !signature.achievementTypeId || !signature.timestamp ||
+                  !signature.gameId || typeof signature.v === 'undefined' ||
+                  !signature.r || !signature.s) {
+                console.error('[NFT] Invalid signature data received:', JSON.stringify(data));
+                Swal.fire({
+                  title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+                  text: _lang === 'zh' 
+                    ? '签名数据无效，请稍后重试' 
+                    : 'Invalid signature data. Please try again.',
+                  icon: 'error',
+                });
+                return;
+              }
+              
+              console.log('[NFT] Signature validated:', { 
+                typeId: signature.achievementTypeId, 
+                v: signature.v,
+                rLen: signature.r?.length,
+                sLen: signature.s?.length
+              });
+              
               const contractAddress = onchainContractAddress || process.env.REACT_APP_NFT_CONTRACT_ONCHAIN || window.__NFT_CONTRACT_ONCHAIN;
 
               if (!contractAddress || !window.tronWeb) {
                 console.warn('[NFT] No on-chain contract or tronWeb, simulating success');
                 Swal.fire({
-                  title: '🎉 铸造成功！',
-                  html: `<p>您的 ${achievement.name || nftAchievement.handType} NFT 已记录！</p>`,
+                  title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
+                  html: '<p>' + (_lang === 'zh' 
+                    ? `您的 ${achievement.name || nftAchievement.handType} NFT 已记录！`
+                    : `Your ${achievement.name || nftAchievement.handType} NFT has been recorded!`) + '</p>',
                   icon: 'success',
-                  confirmButtonText: '查看收藏',
+                  confirmButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
                 }).then(() => navigate('/nft'));
                 return;
               }
 
               // Show signing prompt
               Swal.fire({
-                title: '✍️ 请签名',
-                html: '<p>请在钱包中确认交易以铸造 NFT</p>',
+                title: _lang === 'zh' ? '✍️ 请签名' : '✍️ Please Sign',
+                html: '<p>' + (_lang === 'zh' ? '请在钱包中确认交易以铸造 NFT' : 'Please confirm the transaction in your wallet to mint the NFT') + '</p>',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
               });
@@ -386,17 +415,19 @@ const TournamentTableGame = ({ tournamentId }) => {
               }
 
               Swal.fire({
-                title: '🎉 铸造成功！',
+                title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
                 html: `
                   <div style="text-align: center;">
-                    <p>您的 ${achievement.name || nftAchievement.handType} NFT 已上链铸造成功！</p>
-                    <p style="font-size: 0.9rem; color: #888;">交易: ${tx?.substring(0, 16)}...</p>
+                    <p>${_lang === 'zh' 
+                      ? `您的 ${achievement.name || nftAchievement.handType} NFT 已上链铸造成功！`
+                      : `Your ${achievement.name || nftAchievement.handType} NFT has been minted on-chain!`}</p>
+                    <p style="font-size: 0.9rem; color: #888;">${_lang === 'zh' ? '交易:' : 'Tx:'} ${tx?.substring(0, 16)}...</p>
                   </div>
                 `,
                 icon: 'success',
                 showCancelButton: true,
-                confirmButtonText: '查看收藏',
-                cancelButtonText: '返回游戏',
+                confirmButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
+                cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#28a745',
               }).then((result) => {
@@ -412,8 +443,8 @@ const TournamentTableGame = ({ tournamentId }) => {
             } catch (err) {
               console.error('[NFT] On-chain mint error:', err);
               Swal.fire({
-                title: '铸造失败',
-                text: err.message || '请稍后重试',
+                title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+                text: err.message || (_lang === 'zh' ? '请稍后重试' : 'Please try again later'),
                 icon: 'error',
               });
             }
@@ -421,8 +452,8 @@ const TournamentTableGame = ({ tournamentId }) => {
           
           socket.once('SC_NFT_MINT_ERROR', (data) => {
             Swal.fire({
-              title: '铸造失败',
-              text: data.error || '未知错误',
+              title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+              text: data.error || (_lang === 'zh' ? '未知错误' : 'Unknown error'),
               icon: 'error',
             });
           });
@@ -960,9 +991,9 @@ const TournamentTableGame = ({ tournamentId }) => {
             />
           )}
 
-        {/* AI Components */}
-        {currentTable && <AIControlPanel />}
-        {currentTable && currentTable.seats[seatId] && currentTable.seats[seatId].turn && <DecisionSuggestion />}
+        {/* AI Components - Hidden in tournaments for fairness */}
+        {/* {currentTable && <AIControlPanel />} */}
+        {/* {currentTable && currentTable.seats[seatId] && currentTable.seats[seatId].turn && <DecisionSuggestion />} */}
       </Container>
     </>
   );

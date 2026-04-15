@@ -552,20 +552,51 @@ module.exports = {
         
         // Generate compact signature using server private key
         const ethers = require('ethers');
-        const serverWallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY);
+
+        // Validate SERVER_PRIVATE_KEY exists
+        if (!process.env.SERVER_PRIVATE_KEY) {
+            console.error('[NFTService] ERROR: SERVER_PRIVATE_KEY is not configured!');
+            throw new Error('Server signing key not configured');
+        }
+
+        let serverWallet;
+        try {
+            serverWallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY);
+        } catch (keyErr) {
+            console.error('[NFTService] ERROR: Invalid SERVER_PRIVATE_KEY:', keyErr.message);
+            throw new Error('Invalid server signing key: ' + keyErr.message);
+        }
         
         // Build hash: keccak256(playerAddress, achievementTypeId, timestamp, gameId)
         // Convert TRON address to hex format
         const { TronWeb } = require('tronweb');
         const tronWeb = new TronWeb({ fullHost: 'https://nile.trongrid.io' });
-        let callerHex = tronWeb.address.toHex(walletAddress);
-        if (callerHex.startsWith('41')) callerHex = '0x' + callerHex.slice(2);
-        
-        const hash = ethers.utils.solidityKeccak256(
-            ['address', 'uint256', 'uint256', 'string'],
-            [callerHex, achievementTypeId, timestamp, gameId]
-        );
-        const sig = ethers.utils.splitSignature(await serverWallet.signMessage(ethers.utils.arrayify(hash)));
+        let callerHex;
+        try {
+            callerHex = tronWeb.address.toHex(walletAddress);
+            if (callerHex.startsWith('41')) callerHex = '0x' + callerHex.slice(2);
+        } catch (hexErr) {
+            console.error('[NFTService] ERROR: Invalid wallet address for hex conversion:', walletAddress, hexErr.message);
+            throw new Error('Invalid wallet address: ' + walletAddress);
+        }
+
+        let hash, sig;
+        try {
+            hash = ethers.utils.solidityKeccak256(
+                ['address', 'uint256', 'uint256', 'string'],
+                [callerHex, achievementTypeId, timestamp, gameId]
+            );
+            const rawSig = await serverWallet.signMessage(ethers.utils.arrayify(hash));
+            sig = ethers.utils.splitSignature(rawSig);
+
+            // Validate signature components are valid
+            if (!sig.r || !sig.s || typeof sig.v === 'undefined') {
+                throw new Error(`Invalid splitSignature result: v=${sig.v}, r=${sig.r}, s=${sig.s}`);
+            }
+        } catch (signErr) {
+            console.error('[NFTService] ERROR: Signature generation failed:', signErr.message);
+            throw new Error('Failed to generate NFT signature: ' + signErr.message);
+        }
         
         console.log(`[NFTService] Generated signature for ${walletAddress.substring(0, 10)}... typeId=${achievementTypeId} v=${sig.v}`);
         

@@ -103,6 +103,43 @@ export const isTronLinkReady = () => {
   return !!(window.tronLink?.ready || window.tronWeb);
 };
 
+// Network-aware error messages with i18n
+function getConnectErrorMsg(key) {
+  const isTestnet = currentNetwork === 'testnet';
+  
+  // Detect language at runtime (browser only)
+  let lang = 'en';
+  if (typeof navigator !== 'undefined' && navigator && typeof navigator.language === 'string') {
+    lang = /^zh/.test(navigator.language) ? 'zh' : 'en';
+  }
+  
+  const tPrefix = isTestnet ? (lang === 'zh'
+    ? '确定选择测试网，'
+    : 'Make sure Testnet is selected. '
+  ) : '';
+  
+  const msgs = {
+    zh: {
+      authRequired:    tPrefix + '请在 TronLink 钱包中点击"连接"按钮授权连接，然后刷新页面重试',
+      confirmButton:   tPrefix + '请在 TronLink 钱包中点击确认连接按钮',
+      rejected:        '用户拒绝了连接请求，请在 TronLink 中点击确认',
+      unlock:          '请先解锁 TronLink 钱包（点击浏览器扩展图标并输入密码）',
+      notDetected:     'TronLink 未检测到。请安装或解锁 TronLink 钱包。',
+      connectFailed:   tPrefix + '连接失败，请确保 TronLink 已解锁并选择' + (isTestnet ? '测试网' : '主网'),
+    },
+    en: {
+      authRequired:    tPrefix + 'Please click "Connect" in your TronLink wallet, then refresh this page.',
+      confirmButton:   tPrefix + 'Please click the confirmation button in your TronLink wallet.',
+      rejected:        'Connection request was denied. Please click Confirm in TronLink.',
+      unlock:          'Please unlock your TronLink wallet first (click the browser extension icon and enter password).',
+      notDetected:     'TronLink not detected. Please install or unlock your TronLink wallet.',
+      connectFailed:   tPrefix + 'Connection failed. Please make sure TronLink is unlocked and on the correct network.',
+    },
+  };
+  
+  return (msgs[lang] || msgs.en)[key] || key;
+}
+
 /**
  * Connect to TronLink wallet
  * @returns {Promise<object>} Connection result
@@ -124,7 +161,7 @@ export const connectTronLink = async () => {
   if (!ready && !window.tronLink && !window.tronWeb) {
     return {
       success: false,
-      error: 'TronLink 未检测到。请安装或解锁 TronLink 钱包。',
+      error: getConnectErrorMsg('notDetected'),
       installUrl: 'https://www.tronlink.org/'
     };
   }
@@ -182,14 +219,14 @@ export const connectTronLink = async () => {
           if (res?.code === 4001) {
             return {
               success: false,
-              error: '用户拒绝了连接请求，请在 TronLink 中点击确认'
+              error: getConnectErrorMsg('rejected')
             };
           }
           
           if (res?.code === 4100) {
             return {
               success: false,
-              error: '请先解锁 TronLink 钱包（点击浏览器扩展图标并输入密码）'
+              error: getConnectErrorMsg('unlock')
             };
           }
         } catch (requestError) {
@@ -216,7 +253,7 @@ export const connectTronLink = async () => {
       // Still no address - need user to manually authorize
       return {
         success: false,
-        error: '请在 TronLink 钱包中点击"连接"按钮授权连接，然后刷新页面重试'
+        error: getConnectErrorMsg('authRequired')
       };
     }
 
@@ -247,17 +284,11 @@ export const connectTronLink = async () => {
         
         // Check for specific error codes
         if (res?.code === 4001 || res?.error?.code === 4001) {
-          return {
-            success: false,
-            error: '用户拒绝了连接请求'
-          };
+          return { success: false, error: getConnectErrorMsg('rejected') };
         }
         
         if (res?.code === 4100 || res?.error?.code === 4100) {
-          return {
-            success: false,
-            error: '请先解锁 TronLink 钱包（点击浏览器扩展图标并输入密码）'
-          };
+          return { success: false, error: getConnectErrorMsg('unlock') };
         }
         
         // If response has an error message
@@ -291,13 +322,13 @@ export const connectTronLink = async () => {
         if (res === '' || res === undefined || res === null) {
           return {
             success: false,
-            error: '请在 TronLink 钱包中点击确认连接按钮'
+            error: getConnectErrorMsg('confirmButton')
           };
         }
         
         return {
           success: false,
-          error: `连接失败 (code: ${res?.code})，请确保 TronLink 已解锁`
+          error: getConnectErrorMsg('connectFailed')
         };
       } catch (requestError) {
         console.error('[TronLink] Request error:', requestError);
@@ -319,21 +350,26 @@ export const connectTronLink = async () => {
     
     // Final check - if tronLink exists but no address, likely needs unlock
     if (window.tronLink) {
+      const _l = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
       return {
         success: false,
-        error: '请先解锁 TronLink 钱包（点击浏览器扩展图标并输入密码），然后刷新页面'
+        error: getConnectErrorMsg('unlock') + (_l === 'zh' ? '，然后刷新页面' : ', then refresh this page.')
       };
     }
     
+    const _l = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
     return {
       success: false,
-      error: '无法获取钱包地址，请确保 TronLink 已安装并解锁'
+      error: _l === 'zh'
+        ? '无法获取钱包地址，请确保 TronLink 已安装并解锁'
+        : 'Unable to obtain wallet address. Please make sure TronLink is installed and unlocked.'
     };
   } catch (error) {
     console.error('[TronLink] Error connecting:', error);
+    const _l = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
     return {
       success: false,
-      error: error.message || '连接钱包时发生错误'
+      error: error.message || (_l === 'zh' ? '连接钱包时发生错误' : 'Error connecting to wallet.')
     };
   }
 };

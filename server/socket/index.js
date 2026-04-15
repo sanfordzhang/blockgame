@@ -1276,6 +1276,7 @@ const init = (socket, io) => {
       }
     }
   }
+  _checkAITurn = checkAITurn;
 
   // Modified to include blockchain settlement
   async function initNewHand(table) {
@@ -1545,4 +1546,7 @@ const init = (socket, io) => {
 };
 
 
-module.exports = { init };
+// Module-level reference to checkAITurn (set during init)
+let _checkAITurn = null;
+
+module.exports = { init, get checkAITurn() { return _checkAITurn; } };

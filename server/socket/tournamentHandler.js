@@ -43,6 +43,7 @@ const TournamentService = require('../services/TournamentService');
 const NFTService = require('../services/NFTService');
 const ChipService = require('../services/ChipService');
 const DAOService = require('../services/DAOService');
+const { checkAITurn, executeAIAction } = require('./index');
 
 // Track tournament rooms and player mappings (Task 12.5)
 const tournamentRooms = new Map(); // tournamentId -> Set of socketIds

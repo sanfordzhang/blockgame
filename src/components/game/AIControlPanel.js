@@ -107,12 +107,20 @@ const AIControlPanel = () => {
 
   useEffect(() => {
     if (!socket) return;
+    
+    // Sync AI state from server on mount (fix: re-entering game shows correct toggle state)
+    socket.emit('CS_AI_STATS');
+    
     const onEnabled = (data) => {
       setIsEnabled(true);
       setStats(data);
     };
     const onDisabled = () => { setIsEnabled(false); setLastAction(null); };
-    const onStats = (data) => setStats(data);
+    const onStats = (data) => {
+      setStats(data);
+      // If stats show enabled, also update local toggle state
+      if (data && data.enabled !== undefined && !data.error) setIsEnabled(data.enabled !== false);
+    };
     const onAction = (data) => {
       setLastAction(data);
       // Show fallback warning longer

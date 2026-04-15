@@ -640,6 +640,19 @@ const Landing = () => {
   };
 
   const proceedToGame = (address) => {
+    // Check authorization — without it, blockchain actions (join/leave) will fail with signature requests
+    if (!delegateAuthorized) {
+      const lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
+      window.alert(lang === 'zh'
+        ? '请先授权服务器代理，否则进入游戏时需要反复签名。点击"Authorize Server"按钮完成授权后再开始游戏。'
+        : 'Please authorize the server first, otherwise you\'ll be prompted to sign every action in the game. Click "Authorize Server" button below, then try again.');
+      
+      // Scroll to delegate section so user can see the Authorize Server button
+      const el = document.getElementById('delegate-section') || document.querySelector('[data-delegate="true"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     const safeAddress = address || 'guest_' + Math.random().toString(36).slice(2, 8);
     const username = safeAddress.slice(0, 8);
     const gameId = '1';
@@ -753,6 +766,11 @@ const Landing = () => {
               <WalletInfo>
                 <span>Wallet: {formatAddress(walletAddress)}</span>
                 <span>TRX: {formatTrx(walletBalance)}</span>
+                {walletBalance === 0 && (
+                  <small style={{ color: '#f0883e', fontSize: '0.8rem', display: 'block', marginTop: '0.25rem' }}>
+                    If you just topped up from faucet, please wait a few seconds for the balance to update, but you can continue to deposit.
+                  </small>
+                )}
               </WalletInfo>
               
               {/* Registration Section - Always visible */}
@@ -775,6 +793,19 @@ const Landing = () => {
                     >
                       {registering ? 'Registering...' : 'Register on Blockchain'}
                     </Button>
+                    {/* Faucet hint for users without TRX */}
+                    {walletBalance === 0 && (
+                      <FaucetLink>
+                        Need test TRX?{' '}
+                        <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
+                          Get from Nile Faucet
+                        </a>
+                        <br />
+                        <small style={{ color: '#888' }}>
+                          After receiving, wait a few seconds for the balance to refresh automatically, but you can continue to deposit.
+                        </small>
+                      </FaucetLink>
+                    )}
                   </>
                 )}
               </RegistrationSection>
@@ -871,7 +902,7 @@ const Landing = () => {
                     </a>
                   </FaucetLink>
                   {/* Server Authorization Section */}
-                  <DelegateSection>
+                  <DelegateSection id="delegate-section">
                     <DelegateHeader>
                       <span>{t('serverAuth')}</span>
                       {delegateAuthorized ? (

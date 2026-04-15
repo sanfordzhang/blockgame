@@ -490,6 +490,16 @@ const NFTGallery = () => {
     (async () => {
       try {
         const { signature, metadata, onchainContractAddress } = data;
+        
+        // Validate signature data before calling contract (prevent toHexString crash)
+        if (!signature || !signature.achievementTypeId || !signature.timestamp ||
+            !signature.gameId || typeof signature.v === 'undefined' ||
+            !signature.r || !signature.s) {
+          console.error('[NFT] Invalid signature data received:', JSON.stringify(data));
+          handleMintError({ error: 'Invalid signature data from server. Please try again.' });
+          return;
+        }
+        
         const contractAddress = onchainContractAddress || process.env.REACT_APP_NFT_CONTRACT_ONCHAIN || window.__NFT_CONTRACT_ONCHAIN;
 
         if (!contractAddress || !window.tronWeb) {

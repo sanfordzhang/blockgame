@@ -1474,6 +1474,12 @@ module.exports = {
             table.pendingAchievements = [];
         }
         
+        // Check if next turn belongs to an AI-controlled player (for AutoPilot support)
+        if (table.isTournamentActive && !table.handOver) {
+            const { checkAITurn } = require('../socket/index');
+            checkAITurn(table);
+        }
+        
         return result;
     },
     // Handle disconnect

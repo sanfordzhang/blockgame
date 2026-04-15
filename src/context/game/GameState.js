@@ -36,6 +36,9 @@ import GameContext from './gameContext'
 import globalContext from '../global/globalContext'
 import { leaveTableSession as contractLeaveTableSession } from '../../utils/tronInteract'
 
+// i18n: detect language at module load time
+const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
+
 const GameState = ({ children }) => {
   const { socket } = useContext(socketContext)
   const { setChipsAmount, walletAddress } = useContext(globalContext)
@@ -148,18 +151,18 @@ const GameState = ({ children }) => {
       socket.on(SC_BLOCKCHAIN_ERROR, (data) => {
         console.error(SC_BLOCKCHAIN_ERROR, data)
 
-        const rawMessage = data?.message || 'Unknown blockchain error'
+        const rawMessage = data?.message || (_lang === 'zh' ? '未知区块链错误' : 'Unknown blockchain error')
         const isJoinOrBalanceIssue =
           data?.operation === 'joinTable' ||
-          /buy-?in|insufficient|余额不足|required/i.test(rawMessage)
+          /buy-?in|insufficient|insufficient funds|余额不足|required/i.test(rawMessage)
 
         if (isJoinOrBalanceIssue) {
-          addMessage(`余额不足，无法开始牌局：${rawMessage}`)
+          addMessage(_lang === 'zh' ? `余额不足，无法开始牌局：${rawMessage}` : `Insufficient balance to start hand: ${rawMessage}`)
           navigate('/')
           return
         }
 
-        addMessage(`Blockchain error: ${rawMessage}`)
+        addMessage(_lang === 'zh' ? `区块链错误：${rawMessage}` : `Blockchain error: ${rawMessage}`)
       })
 
       socket.on(SC_BLOCKCHAIN_TX_STATUS, (data) => {
@@ -170,25 +173,27 @@ const GameState = ({ children }) => {
       socket.on(SC_DELEGATE_SET, (data) => {
         console.log(SC_DELEGATE_SET, data)
         if (data.success) {
-          addMessage('✅ 服务器授权成功！之后进入/退出游戏无需签名。')
+          addMessage(_lang === 'zh'
+            ? '✅ 服务器授权成功！之后进入/退出游戏无需签名。'
+            : '✅ Server authorized! No signature needed for entering/leaving games.')
         }
       })
 
       socket.on(SC_DELEGATE_ERROR, (data) => {
         console.error(SC_DELEGATE_ERROR, data)
         if (data.needAuthorization) {
-          addMessage(`⚠️ 请先授权服务器：${data.serverAddress}`)
+          addMessage(_lang === 'zh' ? `⚠️ 请先授权服务器：${data.serverAddress}` : `⚠️ Please authorize server first: ${data.serverAddress}`)
         } else {
-          addMessage(`授权错误: ${data.message}`)
+          addMessage(_lang === 'zh' ? `授权错误：${data.message}` : `Authorization error: ${data.message}`)
         }
       })
 
       socket.on(SC_DELEGATE_STATUS, (data) => {
         console.log(SC_DELEGATE_STATUS, data)
         if (data.isAuthorized) {
-          addMessage('✅ 已授权服务器代理操作')
+          addMessage(_lang === 'zh' ? '✅ 已授权服务器代理操作' : '✅ Server authorized - no signature needed')
         } else if (data.serverAddress) {
-          addMessage(`⚠️ 需要授权服务器: ${data.serverAddress}`)
+          addMessage(_lang === 'zh' ? `⚠️ 需要授权服务器: ${data.serverAddress}` : `⚠️ Server authorization needed: ${data.serverAddress}`)
         }
       })
 
