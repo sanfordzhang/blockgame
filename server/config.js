@@ -1,7 +1,7 @@
 // Environment variables should be loaded by loadEnv.js before this file is imported
 
 const config = {
-  PORT: process.env.SERVER_PORT || process.env.REACT_APP_SERVER_PORT || 7777,
+  PORT: process.env.SERVER_PORT || process.env.REACT_APP_SERVER_PORT || 7778,
   JWT_SECRET: process.env.JWT_SECRET,
   MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/bridge-poker',
   NODE_ENV: process.env.NODE_ENV,
