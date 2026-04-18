@@ -22,6 +22,9 @@ const configureRoutes = (app) => {
   // AMM (DEX) API - will be configured later with services
   app.use('/api/amm', require('./api/amm').router);
   
+  // Analytics / Access Log API
+  app.use('/api/analytics', require('./api/analytics'));
+  
   // Blockchain config endpoint
   app.get('/api/blockchain/config', (req, res) => {
     const config = require('../config');

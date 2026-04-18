@@ -28,7 +28,7 @@ import './Play.scss';
 // Detect language for i18n
 const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
 
-const API_BASE = process.env.REACT_APP_SERVER_URI || 'http://127.0.0.1:7777';
+const API_BASE = process.env.REACT_APP_SERVER_URI || `http://127.0.0.1:${process.env.REACT_APP_SERVER_PORT || '7778'}`;
 
 // NFT Achievement types mapping
 const achievementTypes = {

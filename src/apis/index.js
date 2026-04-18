@@ -9,7 +9,8 @@ const getEnvVar = (name, defaultValue = '') => {
   return defaultValue;
 };
 
-const SERVER_URI = getEnvVar('REACT_APP_SERVER_URI', 'http://localhost:7777');
+const SERVER_URI = getEnvVar('REACT_APP_SERVER_URI')
+  || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${getEnvVar('REACT_APP_SERVER_PORT', '7778')}`;
 
 export const useApi = () => {
   const getUserProfile = async (address) => {

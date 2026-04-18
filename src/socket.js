@@ -7,8 +7,8 @@ import config from './clientConfig';
 
 // Get server URL from config or environment
 // Note: clientConfig exports socketURI, not serverUrl
-const SERVER_URL = config?.socketURI || config?.serverUrl || process.env.REACT_APP_SERVER_URL || 'http://localhost:7777';
-const SERVER_PORT = process.env.REACT_APP_SERVER_PORT || 7777;
+const SERVER_URL = config?.socketURI || config?.serverUrl || process.env.REACT_APP_SERVER_URL || 'http://localhost:7778';
+const SERVER_PORT = process.env.REACT_APP_SERVER_PORT || 7778;
 
 // Create socket instance
 // If SERVER_URL already includes port (from socketURI), use it directly

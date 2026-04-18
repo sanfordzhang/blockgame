@@ -14,7 +14,7 @@ const config = {
   contentfulAccessToken: getEnvVar('REACT_APP_CONTENTFUL_ACCESS_TOKEN', ''),
   socketURI: isProd
     ? getEnvVar('REACT_APP_SERVER_URI', '')
-    : `http://${window.location.hostname}:${process.env.REACT_APP_SERVER_PORT || '7777'}/`,
+    : `http://${window.location.hostname}:${process.env.REACT_APP_SERVER_PORT || '7778'}/`,
 };
 
 export default config;

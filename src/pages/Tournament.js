@@ -13,7 +13,7 @@ import { getPlayerBalance } from '../utils/tronInteract';
 
 // API base URL helper
 const getApiUrl = (path) => {
-  const baseUrl = process.env.REACT_APP_SERVER_URI || clientConfig.socketURI || 'http://127.0.0.1:7777/';
+  const baseUrl = process.env.REACT_APP_SERVER_URI || clientConfig.socketURI || `http://127.0.0.1:${process.env.REACT_APP_SERVER_PORT || '7778'}/`;
   return baseUrl.replace(/\/$/, '') + path;
 };
 
