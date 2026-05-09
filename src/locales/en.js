@@ -152,6 +152,23 @@ const en = {
   swap:            'Swap',
   from:            'From',
   to:              'To',
+
+  // 0G / ZeroGravity (Task 10.5)
+  zeroGConnect:        'Connect 0G Wallet',
+  zeroGConnected:      '0G Connected',
+  chainTRON:           'TRON Network',
+  chainZeroG:          '0G / EVM Network',
+  tabTronNFT:          'TRON NFT',
+  tabINFT:             '0G / INFT (ERC-7857)',
+  fairnessVerify:       'Verify Fairness',
+  fairnessVerified:     'Fairness Verified ✅',
+  fairnessShield:       'Fairness Protection Active',
+  inftMinted:          'INFT Minted on 0G',
+  noINFTs:             'No INFTs found on 0G chain',
+  connectForINFT:      'Connect 0G wallet to view INFTs',
+  erc7857Badge:        'ERC-7857',
+  storageHash:         'Storage Hash:',
+  viewMetadata:        'View Metadata ↗',
 };
 
 export default en;

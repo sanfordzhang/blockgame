@@ -7,6 +7,7 @@ import Button from '../components/buttons/Button';
 import globalContext from '../context/global/globalContext';
 import modalContext from '../context/modal/modalContext';
 import { useTronLink } from '../context/tron/TronContext';
+import { useZeroG } from '../context/zero-g/ZeroGContext';
 import socket from '../socket';
 import PokerCard from '../components/game/PokerCard';
 
@@ -342,8 +343,13 @@ const NFTGallery = () => {
   const contextWalletAddress = useContext(globalContext)?.walletAddress;
   const { setWalletAddress } = useContext(globalContext);
   const { address: tronLinkAddress } = useTronLink();
+  const { address: zeroGAddress, isConnected: zeroGConnected } = useZeroG() || {};
   const { openModal, closeModal } = useContext(modalContext);
   const [nfts, setNfts] = useState([]);
+  
+  // Task 10.1: INFT (0G) NFT state
+  const [infts, setInfts] = useState([]);
+  const [inftLoading, setInftLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('collection');
   const [mintingStatus, setMintingStatus] = useState(null);
@@ -599,6 +605,25 @@ const NFTGallery = () => {
     setLoading(false);
   };
 
+  // Task 10.1: Fetch INFTs from 0G chain via /api/0g/inft/:address
+  const fetchINFTs = async () => {
+    setInftLoading(true);
+    try {
+      const res = await fetch(`/api/0g/inft/${zeroGAddress || walletAddress}`);
+      const data = await res.json();
+      if (data.success) {
+        setInfts(data.infts || []);
+      } else {
+        console.warn('[INFT] Fetch failed:', data.error);
+        setInfts([]);
+      }
+    } catch (err) {
+      console.warn('[INFT] Error fetching:', err.message);
+      setInfts([]);
+    }
+    setInftLoading(false);
+  };
+
   // Convert card data to PokerCard formats
   const toPokerCard = (card) => {
     if (!card) return null;
@@ -683,8 +708,17 @@ const NFTGallery = () => {
       </Text>
       
       <Tabs>
-        <Tab active={tab === 'collection'} onClick={() => setTab('collection')}>
-          My Collection ({nfts.length})
+        {/* Task 10.1: TRON NFT | INFT (0G) dual tabs */}
+        <Tab active={tab === 'collection'} onClick={() => { setTab('collection'); fetchNFTs(); }}>
+          TRON NFT ({nfts.length})
+        </Tab>
+        <Tab
+          active={tab === 'infts'}
+          onClick={() => { setTab('infts'); if (!zeroGConnected) alert('Connect 0G wallet to view INFTs'); else fetchINFTs(); }}
+          style={{ opacity: zeroGConnected ? 1 : 0.5 }}
+        >
+          0G / INFT {zeroGConnected && `(${infts.length})`}
+          {!zeroGConnected && <span style={{ marginLeft: '0.3rem', fontSize: '0.7rem' }}>(🔒)</span>}
         </Tab>
         <Tab active={tab === 'types'} onClick={() => setTab('types')}>
           Achievement Types
@@ -775,7 +809,7 @@ const NFTGallery = () => {
             })}
           </NFTGrid>
         )
-      ) : (
+      ) : tab === 'types' ? (
         // Achievement Types tab - simple colorful cards
         <NFTGrid>
           {Object.entries(achievementTypes).filter(([k]) => isNaN(k)).map(([type, info]) => (
@@ -798,7 +832,65 @@ const NFTGallery = () => {
             </TypeCard>
           ))}
         </NFTGrid>
-      )}
+      ) : tab === 'infts' ? (
+        // Task 10.1: 0G / INFT Tab Content
+        <Container flexDirection="column" alignItems="center" gap="1rem">
+          {inftLoading ? (
+            <Text textCentered color="#fff">Loading INFTs from 0G chain...</Text>
+          ) : !zeroGConnected ? (
+            <>
+              <Text textCentered color="rgba(255,255,255,0.7)" marginTop="2rem">
+                Connect your 0G wallet to view Interactive NFTs (ERC-7857)
+              </Text>
+              <Button primary onClick={() => window.location.href = '/'}>
+                Connect 0G Wallet
+              </Button>
+            </>
+          ) : infts.length === 0 ? (
+            <>
+              <Text textCentered color="#fff">No INFTs found on 0G chain</Text>
+              <Text textCentered color="rgba(255,255,255,0.6)">
+                Play poker hands to earn and mint INFT achievements!
+              </Text>
+            </>
+          ) : (
+            <NFTGrid>
+              {infts.map((inft) => (
+                <CollectionCard key={inft.tokenId} rarity={inft.handType || 6}>
+                  <GameScreenshot rarity={inft.handType || 6}>
+                    <AchievementBadge rarity={inft.handType || 6}>
+                      <span>{achievementTypes[inft.handType]?.icon || '🃏'}</span>
+                      <span>INFT #{inft.tokenId}</span>
+                    </AchievementBadge>
+                    <Text size="0.7rem" color="rgba(255,255,255,0.7)">
+                      Storage Hash: {(inft.storageRootHash || '').slice(0, 12)}...
+                    </Text>
+                  </GameScreenshot>
+                  <CollectionInfo>
+                    <Container flexDirection="row" justifyContent="space-between">
+                      <Heading as="h4" color="#fff">{rarityNames[inft.handType] || 'INFT'}</Heading>
+                      <CollectionRarityBadge rarity={inft.handType || 6}>
+                        ERC-7857
+                      </CollectionRarityBadge>
+                    </Container>
+                    {inft.metadataURI && (
+                      <Text size="0.75rem" color="rgba(255,255,255,0.5)" marginTop="0.25rem">
+                        <a href={inft.metadataURI} target="_blank" rel="noreferrer"
+                          style={{ color: '#627eea' }}>View Metadata ↗</a>
+                      </Text>
+                    )}
+                    <AchievementType>
+                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>Minted: </span>
+                      <span>{formatDate(inft.mintedAt)}</span>
+                    </AchievementType>
+                  </CollectionInfo>
+                </CollectionCard>
+              ))}
+            </NFTGrid>
+          )}
+        </Container>
+      ) : null
+      }
       
       {/* Enlarged Screenshot Modal */}
       {enlargedScreenshot && (

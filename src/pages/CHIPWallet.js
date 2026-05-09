@@ -7,6 +7,7 @@ import Button from '../components/buttons/Button';
 import globalContext from '../context/global/globalContext';
 import locaContext from '../context/localization/locaContext';
 import { useTronLink } from '../context/tron/TronContext';
+import { useZeroG } from '../context/zero-g/ZeroGContext';
 
 const WalletCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -78,6 +79,56 @@ const RewardDisplay = styled.div`
   margin-top: 1rem;
 `;
 
+// Task 9.5: Multi-chain tab switcher
+const ChainTabs = styled.div`
+  display: flex;
+  gap: 0;
+  margin-bottom: 0.5rem;
+  border-radius: ${(props) => props.theme.other.stdBorderRadius};
+  overflow: hidden;
+  border: 1px solid ${(props) => props.theme.colors.border};
+`;
+
+const ChainTab = styled.button`
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: ${props => props.active
+    ? props.tron ? '#FF0000' : props.zerog ? '#627eea' : props.theme.colors.primaryCta
+    : 'transparent'
+  };
+  color: ${props => props.active ? 'white' : props.theme.colors.textSecondary};
+  font-weight: ${props => props.active ? '700' : '400'};
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+
+  &:hover {
+    background: ${props => props.active
+      ? props.tron ? '#cc0000' : props.zerog ? '#4a6bc4' : ''
+      : props.theme.colors.border
+    };
+  }
+
+  .connected-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4CAF50;
+    display: inline-block;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+`;
+
 const Tabs = styled.div`
   display: flex;
   gap: 0.5rem;
@@ -101,7 +152,11 @@ const Tab = styled.button`
 const CHIPWallet = () => {
   const { walletAddress: contextWalletAddress, setWalletAddress } = useContext(globalContext);
   const { address: tronLinkAddress } = useTronLink();
+  const { address: zeroGAddress, isConnected: zeroGConnected } = useZeroG() || {};
   const { t } = useContext(locaContext);
+  
+  // Multi-chain tab state (Task 9.5)
+  const [chainTab, setChainTab] = useState('tron'); // 'tron' | 'zerog'
   
   // Get wallet address from context, URL params, or localStorage (test mode support)
   const walletAddress = useMemo(() => {
@@ -570,6 +625,24 @@ const CHIPWallet = () => {
       padding="6rem 2rem 2rem 2rem"
     >
       <Heading as="h1" textCentered>CHIP Wallet</Heading>
+
+      {/* Task 9.5: Multi-Chain Tab Switcher (TRON | 0G) */}
+      <ChainTabs>
+        <ChainTab
+          active={chainTab === 'tron'}
+          onClick={() => setChainTab('tron')}
+          tron
+        >
+          TRON {tronLinkAddress && <span className="connected-dot" />}
+        </ChainTab>
+        <ChainTab
+          active={chainTab === 'zerog'}
+          onClick={() => setChainTab('zerog')}
+          zerog
+        >
+          0G / EVM {zeroGAddress && <span className="connected-dot" />}
+        </ChainTab>
+      </ChainTabs>
 
       <Tabs>
         <Tab active={tab === 'wallet'} onClick={() => setTab('wallet')}>Balance</Tab>

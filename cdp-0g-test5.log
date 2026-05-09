@@ -1,0 +1,540 @@
+[6:48:21 PM] === 0G Poker E2E Test ===
+[6:48:21 PM] [0] Initializing player balances...
+[6:48:21 PM]   Balance init for 0x99085cC3...: "GGLab API Documents"
+[6:48:21 PM]   Balance init for TX27LjDqk6...: "GGLab API Documents"
+[6:48:22 PM] [1] Creating mock tournament...
+[6:48:22 PM] Tournament ID: 1778323702707
+[6:48:22 PM] [2] Connecting to Chrome via CDP...
+[6:48:22 PM] CDP tab found: http://127.0.0.1:3001/
+[6:48:22 PM] [3] Navigating to Landing page...
+[6:48:25 PM] 📸 02-landing-page
+[6:48:25 PM] Injecting mock MetaMask (0G testnet)...
+[6:48:26 PM] Mock MetaMask injected ✅
+[6:48:27 PM] 📸 03-after-inject
+[6:48:27 PM] [4] Clicking Connect 0G Wallet...
+[6:48:27 PM] Connect result: clicked: 0G / EVM
+[6:48:30 PM] 📸 04-after-connect
+[6:48:30 PM] Page state: {"url":"http://127.0.0.1:3001/","text":"EN\n|\n中\nJoin the world's most classy\nonline poker experience!\nDeposit TRX to start playing. Withdraw anytime.\nConnect TRON\n0G / EVM","hasEth":true}
+[6:48:30 PM] [5] Navigating to tournament play page...
+[6:48:36 PM] 📸 05-tournament-play
+[6:48:36 PM] Injecting mock MetaMask (0G testnet)...
+[6:48:37 PM] Mock MetaMask injected ✅
+[6:48:39 PM] [5b] Triggering Socket.io join for browser player...
+[6:48:40 PM] Join result: emit OK, connected=true, id=FqQai5edC6PWtzX1AAA9
+[6:48:43 PM] 📸 06-after-reinject
+[6:48:43 PM] Available buttons: [Leave Tournament]
+[6:48:43 PM] Body text: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for player...
+
+Game will start automatically when all players join
+
+Leave Tournament
+[6:48:43 PM] [6] Starting bot opponent...
+[6:48:46 PM] Bot joined tournament room
+[6:48:51 PM] 📸 07-bot-joined
+[6:48:51 PM] [7] Game loop starting...
+[6:48:52 PM] Round 1: [Leave Tournament]
+[6:48:52 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:52 PM] 📸 no-buttons-r1
+[6:48:53 PM] Round 2: [Leave Tournament]
+[6:48:53 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:53 PM] 📸 no-buttons-r2
+[6:48:54 PM] Round 3: [Leave Tournament]
+[6:48:54 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:54 PM] 📸 no-buttons-r3
+[6:48:56 PM] Round 4: [Leave Tournament]
+[6:48:56 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:56 PM] 📸 no-buttons-r4
+[6:48:57 PM] Round 5: [Leave Tournament]
+[6:48:57 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:57 PM] 📸 no-buttons-r5
+[6:48:58 PM] Round 6: [Leave Tournament]
+[6:48:58 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:58 PM] 📸 no-buttons-r6
+[6:48:59 PM] Round 7: [Leave Tournament]
+[6:48:59 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:48:59 PM] 📸 no-buttons-r7
+[6:49:01 PM] Round 8: [Leave Tournament]
+[6:49:01 PM] 📸 r8
+[6:49:01 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:01 PM] 📸 no-buttons-r8
+[6:49:02 PM] Round 9: [Leave Tournament]
+[6:49:02 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:02 PM] 📸 no-buttons-r9
+[6:49:03 PM] Round 10: [Leave Tournament]
+[6:49:03 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:03 PM] 📸 no-buttons-r10
+[6:49:04 PM] Round 11: [Leave Tournament]
+[6:49:04 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:04 PM] 📸 no-buttons-r11
+[6:49:06 PM] Round 12: [Leave Tournament]
+[6:49:06 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:06 PM] 📸 no-buttons-r12
+[6:49:07 PM] Round 13: [Leave Tournament]
+[6:49:07 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:07 PM] 📸 no-buttons-r13
+[6:49:08 PM] Round 14: [Leave Tournament]
+[6:49:08 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:08 PM] 📸 no-buttons-r14
+[6:49:09 PM] Round 15: [Leave Tournament]
+[6:49:09 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:09 PM] 📸 no-buttons-r15
+[6:49:11 PM] Round 16: [Leave Tournament]
+[6:49:11 PM] 📸 r16
+[6:49:11 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:11 PM] 📸 no-buttons-r16
+[6:49:12 PM] Round 17: [Leave Tournament]
+[6:49:12 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:12 PM] 📸 no-buttons-r17
+[6:49:13 PM] Round 18: [Leave Tournament]
+[6:49:13 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:13 PM] 📸 no-buttons-r18
+[6:49:14 PM] Round 19: [Leave Tournament]
+[6:49:14 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:15 PM] 📸 no-buttons-r19
+[6:49:16 PM] Round 20: [Leave Tournament]
+[6:49:16 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:16 PM] 📸 no-buttons-r20
+[6:49:17 PM] Round 21: [Leave Tournament]
+[6:49:17 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:17 PM] 📸 no-buttons-r21
+[6:49:18 PM] Round 22: [Leave Tournament]
+[6:49:18 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:18 PM] 📸 no-buttons-r22
+[6:49:20 PM] Round 23: [Leave Tournament]
+[6:49:20 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:20 PM] 📸 no-buttons-r23
+[6:49:21 PM] Round 24: [Leave Tournament]
+[6:49:21 PM] 📸 r24
+[6:49:21 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:21 PM] 📸 no-buttons-r24
+[6:49:22 PM] Round 25: [Leave Tournament]
+[6:49:22 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:22 PM] 📸 no-buttons-r25
+[6:49:23 PM] Round 26: [Leave Tournament]
+[6:49:23 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:23 PM] 📸 no-buttons-r26
+[6:49:25 PM] Round 27: [Leave Tournament]
+[6:49:25 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:25 PM] 📸 no-buttons-r27
+[6:49:26 PM] Round 28: [Leave Tournament]
+[6:49:26 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:26 PM] 📸 no-buttons-r28
+[6:49:27 PM] Round 29: [Leave Tournament]
+[6:49:27 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:27 PM] 📸 no-buttons-r29
+[6:49:28 PM] Round 30: [Leave Tournament]
+[6:49:28 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:28 PM] 📸 no-buttons-r30
+[6:49:30 PM] Round 31: [Leave Tournament]
+[6:49:30 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:30 PM] 📸 no-buttons-r31
+[6:49:31 PM] Round 32: [Leave Tournament]
+[6:49:31 PM] 📸 r32
+[6:49:31 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:31 PM] 📸 no-buttons-r32
+[6:49:32 PM] Round 33: [Leave Tournament]
+[6:49:32 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:32 PM] 📸 no-buttons-r33
+[6:49:33 PM] Round 34: [Leave Tournament]
+[6:49:33 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:33 PM] 📸 no-buttons-r34
+[6:49:35 PM] Round 35: [Leave Tournament]
+[6:49:35 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:35 PM] 📸 no-buttons-r35
+[6:49:36 PM] Round 36: [Leave Tournament]
+[6:49:36 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:36 PM] 📸 no-buttons-r36
+[6:49:37 PM] Round 37: [Leave Tournament]
+[6:49:37 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:37 PM] 📸 no-buttons-r37
+[6:49:38 PM] Round 38: [Leave Tournament]
+[6:49:38 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:38 PM] 📸 no-buttons-r38
+[6:49:40 PM] Round 39: [Leave Tournament]
+[6:49:40 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:40 PM] 📸 no-buttons-r39
+[6:49:41 PM] Round 40: [Leave Tournament]
+[6:49:41 PM] 📸 r40
+[6:49:41 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:41 PM] 📸 no-buttons-r40
+[6:49:42 PM] Round 41: [Leave Tournament]
+[6:49:42 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:42 PM] 📸 no-buttons-r41
+[6:49:43 PM] Round 42: [Leave Tournament]
+[6:49:43 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:44 PM] 📸 no-buttons-r42
+[6:49:45 PM] Round 43: [Leave Tournament]
+[6:49:45 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:45 PM] 📸 no-buttons-r43
+[6:49:46 PM] Round 44: [Leave Tournament]
+[6:49:46 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:46 PM] 📸 no-buttons-r44
+[6:49:47 PM] Round 45: [Leave Tournament]
+[6:49:47 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:47 PM] 📸 no-buttons-r45
+[6:49:48 PM] Round 46: [Leave Tournament]
+[6:49:48 PM] No game buttons. Page might have ended. Body preview: Waiting for Players
+
+Tournament #1778323702707
+
+0 / 2 players
+
+Waiting for player...
+Waiting for pla
+[6:49:49 PM] 📸 no-buttons-r46
+[6:49:49 PM] 📸 99-final-state
+[6:49:49 PM] 
+=== TEST RESULTS ===
+[6:49:49 PM] NFT Minted: ⚠️ NOT DETECTED
+[6:49:49 PM] Fairness Verified: ℹ️ Not triggered
+[6:49:49 PM] 
+[8] Checking NFT Gallery (0G INFT tab)...
+[6:49:53 PM] 📸 nft-gallery
+[6:49:53 PM] INFT Tab result: "Clicked tab: 0G / INFT (0)"
+[6:49:55 PM] 📸 nft-gallery-inft-tab
+[6:49:55 PM] [9] Checking Fairness Verify page...
+[6:49:58 PM] 📸 fairness-verify-page
+[6:49:58 PM] Fairness page: EN
+|
+中
+🛡️Verifiable Fairness
+
+Verify that any poker hand was dealt fairly using cryptographic proof. Every hand uses a commitment-reveal scheme anchored to the Data Availability layer.
+
+Verify Hand
+
+
+[6:49:58 PM] [10] Checking Navbar chain indicator...
+[6:50:01 PM] 📸 navbar-check
+[6:50:01 PM] Navbar: TRON=true, 0G=true, Badge="not found"
+[6:50:01 PM] 
+========================================
+[6:50:01 PM]   0G POKER E2E TEST COMPLETE
+[6:50:01 PM] ========================================
+[6:50:01 PM]   Screenshots saved to: test-results/
+[6:50:01 PM]   Total rounds played: ~60
+[6:50:01 PM]   NFT flow: NEEDS MANUAL CHECK
+[6:50:01 PM] ========================================
+

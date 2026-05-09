@@ -23,6 +23,17 @@ const { initChipService } = require("./services/ChipService");
 const LiquidityService = require("./services/LiquidityService");
 const PriceOracleService = require("./services/PriceOracleService");
 const ammApi = require("./routes/api/amm");
+
+// 0G (ZeroGravity) blockchain services
+let ZeroGService, ZeroGContractService, ZeroGEventListener;
+if (config.ZEROG_ENABLED) {
+    try {
+        const zerogModule = require('./blockchain/blockchainFactory');
+        // Lazy-load 0G services (only import when needed)
+    } catch (e) {
+        console.log('[Server] 0G services not available:', e.message);
+    }
+}
 // Connect and get reference to mongodb instance
 let db;
 
@@ -120,6 +131,73 @@ async function initializeBlockchainServices() {
             }
 
             console.log('[Server] Blockchain services initialized successfully');
+
+            // ============ Initialize 0G (ZeroGravity) services ============
+            if (config.ZEROG_ENABLED && (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both')) {
+                try {
+                    console.log('[Server] Initializing 0G blockchain services...');
+                    
+                    const { initializeAll } = require('./blockchain/blockchainFactory');
+                    const { zerog } = initializeAll();
+
+                    if (zerog && zerog.initialized) {
+                        // Initialize ZeroG Contract Service
+                        try {
+                            const ZeroGContractSvc = require('./blockchain/ZeroGContractService');
+                            ZeroGContractService = new ZeroGContractSvc();
+                            ZeroGContractService.init(zerog, config.ZEROG_NETWORK);
+                            console.log(`[Server] ✅ ZeroG Contract Service initialized`);
+                            global.zeroGContractService = ZeroGContractService;
+                        } catch (zgcsError) {
+                            console.warn('[Server] ⚠️ ZeroG Contract Service init failed:', zgcsError.message);
+                        }
+
+                        // Initialize ZeroG Event Listener
+                        try {
+                            const ZGEventListener = require('./blockchain/ZeroGEventListener');
+                            ZeroGEventListener = new ZGEventListener();
+                            ZeroGEventListener.init(zerog);
+                            ZeroGEventListener.start();
+                            console.log('[Server] ✅ ZeroG Event Listener started');
+                        } catch (zgelError) {
+                            console.warn('[Server] ⚠️ ZeroG Event Listener init failed:', zgelError.message);
+                        }
+
+                        // Initialize ZeroG Storage Service
+                        if (config.ZEROG_STORAGE_ENABLED) {
+                            try {
+                                const ZeroGStorageService = require('./services/ZeroGStorageService');
+                                global.zeroGStorageService = new ZeroGStorageService();
+                                global.zeroGStorageService.init();
+                                console.log('[Server] ✅ ZeroG Storage Service initialized');
+                            } catch (zgssError) {
+                                console.warn('[Server] ⚠️ ZeroG Storage Service init failed:', zgssError.message);
+                            }
+                        }
+
+                        // Initialize ZeroG DA Service
+                        if (config.ZEROG_DA_ENABLED) {
+                            try {
+                                const ZeroGDAService = require('./services/ZeroGDAService');
+                                global.zeroGDAService = new ZeroGDAService();
+                                global.zeroGDAService.init();
+                                console.log('[Server] ✅ ZeroG DA Service initialized');
+                            } catch (zgdaError) {
+                                console.warn('[Server] ⚠️ ZeroG DA Service init failed:', zgdaError.message);
+                            }
+                        }
+
+                        console.log('[Server] ✅ All 0G services initialized successfully');
+                    }
+                } catch (zgError) {
+                    console.error('[Server] ❌ 0G services initialization failed:', zgError.message);
+                    console.error('[Server] Continuing in TRON-only mode for blockchain operations...');
+                }
+            } else if (config.ZEROG_ENABLED) {
+                console.log('[Server] ℹ️ 0G enabled but BLOCKCHAIN_MODE is not "0g" or "both", skipping 0G init');
+            } else {
+                console.log('[Server] ℹ️ 0G disabled (ZEROG_ENABLED=false)');
+            }
             
             // Initialize AMM Services
             const ammPoolAddress = process.env.AMM_POOL_ADDRESS;

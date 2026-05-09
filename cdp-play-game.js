@@ -11,10 +11,10 @@ function cliclick(cmd) {
     try { execSync(`cliclick ${cmd}`, { encoding: 'utf-8' }); } catch (e) { /* ignore */ }
 }
 
-const API_URL = 'http://43.163.114.175:7778';
-const BASE_URL = 'http://43.163.114.175:3001';
+const API_URL = 'http://127.0.0.1:7778';
+const BASE_URL = 'http://127.0.0.1:3001';
 
-const PLAYER1 = { address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv' };
+const PLAYER1 = { address: '0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc' }; // 0G deployer wallet
 const BOT = { address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4' };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -35,7 +35,7 @@ function httpPost(url, data) {
 async function startBot(tournamentId) {
     const botState = { tournamentId, lastTurnKey: '', lastActionTime: 0 };
     return new Promise((resolve) => {
-        const ws = new WebSocket(`ws://43.163.114.175:7778/socket.io/?EIO=4&transport=websocket`);
+        const ws = new WebSocket(`ws://127.0.0.1:7778/socket.io/?EIO=4&transport=websocket`);
         ws.on('open', () => { ws.send('40'); });
         ws.on('message', raw => {
             const data = raw.toString();

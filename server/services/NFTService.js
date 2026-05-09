@@ -390,6 +390,84 @@ class NFTService {
         };
         return types[typeId];
     }
+
+    // ============ 0G Storage Integration (Task 6.2) ============
+
+    /**
+     * Upload image buffer to 0G Storage (or local fallback)
+     * @param {Buffer} imageBuffer - Image data as Buffer
+     * @param {string} mimeType - MIME type (e.g., 'image/png')
+     * @returns {Object} { rootHash, url, storageType }
+     */
+    async uploadImageToStorage(imageBuffer, mimeType = 'image/png') {
+        const config = require('../config');
+
+        // In 0G mode with storage enabled, use ZeroGStorageService
+        if (config.ZEROG_ENABLED && config.ZEROG_STORAGE_ENABLED && global.zeroGStorageService) {
+            try {
+                const result = await global.zeroGStorageService.uploadFile(imageBuffer, {
+                    contentType: mimeType,
+                    tags: ['nft-image', 'poker-achievement']
+                });
+                console.log(`[NFTService] Image uploaded to 0G Storage: ${result.rootHash}`);
+                return { ...result, storageType: '0g' };
+            } catch (storageErr) {
+                console.warn('[NFTService] 0G Storage upload failed, using local base64:', storageErr.message);
+            }
+        }
+
+        // Fallback: return base64 data URI
+        const base64 = imageBuffer.toString('base64');
+        const dataUri = `data:${mimeType};base64,${base64}`;
+        return { rootHash: null, url: dataUri, storageType: 'local' };
+    }
+
+    /**
+     * Upload metadata JSON to 0G Storage before minting INFT
+     * @param {Object} metadataObj - NFT metadata object
+     * @returns {Object} { rootHash, url }
+     */
+    async uploadMetadataToStorage(metadataObj) {
+        if (!global?.zeroGStorageService) {
+            return { rootHash: null, url: null };
+        }
+
+        try {
+            const jsonStr = JSON.stringify(metadataObj);
+            const buffer = Buffer.from(jsonStr, 'utf-8');
+            const result = await global.zeroGStorageService.uploadMetadata(metadataObj);
+            console.log(`[NFTService] Metadata uploaded to 0G Storage: ${result.rootHash}`);
+            return result;
+        } catch (err) {
+            console.warn('[NFTService] Metadata upload failed:', err.message);
+            return { rootHash: null, url: null };
+        }
+    }
+
+    /**
+     * Enhanced mint flow for 0G mode: upload → get hash → mint with storageRootHash
+     */
+    async prepareMintWithStorage(walletAddress, data) {
+        const config = require('../config');
+        
+        // First do standard prepareMint
+        const mintData = await this.prepareMint(walletAddress, data);
+
+        // If 0G mode and storage available, upload image and metadata
+        if (config.ZEROG_ENABLED && config.ZEROG_STORAGE_ENABLED && global.zeroGStorageService && data.imageBuffer) {
+            const imageResult = await this.uploadImageToStorage(data.imageBuffer, data.mimeType || 'image/png');
+            const metaResult = await this.uploadMetadataToStorage(mintData.metadata);
+
+            mintData.storageRootHash = imageResult.rootHash || metaResult.rootHash;
+            mintData.imageUrl = imageResult.url;
+            mintData.metadataUrl = metaResult.url;
+            mintData.storageType = imageResult.storageType;
+
+            console.log(`[NFTService] Prepared mint with storage: rootHash=${mintData.storageRootHash}`);
+        }
+
+        return mintData;
+    }
 }
 
 // Singleton instance

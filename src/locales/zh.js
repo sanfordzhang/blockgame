@@ -152,6 +152,23 @@ const zh = {
   swap:            '兑换',
   from:            '从',
   to:              '至',
+
+  // 0G / ZeroGravity（任务 10.5）
+  zeroGConnect:        '连接 0G 钱包',
+  zeroGConnected:      '0G 已连接',
+  chainTRON:           'TRON 网络',
+  chainZeroG:          '0G / EVM 网络',
+  tabTronNFT:          'TRON NFT',
+  tabINFT:             '0G / INFT (ERC-7857)',
+  fairnessVerify:       '验证公平性',
+  fairnessVerified:     '公平性已验证 ✅',
+  fairnessShield:       '公平性保护中',
+  inftMinted:          '已在 0G 铸造 INFT',
+  noINFTs:             '在 0G 链上未找到 INFT',
+  connectForINFT:      '连接 0G 钱包以查看 INFT',
+  erc7857Badge:        'ERC-7857',
+  storageHash:         '存储哈希：',
+  viewMetadata:        '查看元数据 ↗',
 };
 
 export default zh;

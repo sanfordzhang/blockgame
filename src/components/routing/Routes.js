@@ -29,6 +29,7 @@ const NFTGallery = lazy(() => import('../../pages/NFTGallery'));
 const CHIPWallet = lazy(() => import('../../pages/CHIPWallet'));
 const DAO = lazy(() => import('../../pages/DAO'));
 const DEX = lazy(() => import('../../pages/DEX'));
+const FairnessVerify = lazy(() => import('../../pages/FairnessVerify'));
 
 // Shared fallback for all lazy-loaded pages
 const PageFallback = () => (
@@ -59,6 +60,7 @@ const AppRoutes = () => {
           <Route path="/wallet" element={<CHIPWallet />} />
           <Route path="/dao" element={<DAO />} />
         <Route path="/dex" element={<DEX />} />
+          <Route path="/fairness-verify" element={<FairnessVerify />} />
 
         {/* Admin Routes */}
         <Route path="/admin/login" element={<AdminLogin />} />

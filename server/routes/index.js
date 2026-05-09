@@ -25,6 +25,23 @@ const configureRoutes = (app) => {
   // Analytics / Access Log API
   app.use('/api/analytics', require('./api/analytics'));
   
+  // ============ 0G (ZeroGravity) Network API ============
+  try {
+    const zerogRoutes = require('./api/0g');
+    app.use('/api/0g', zerogRoutes);
+    console.log('[Routes] ✅ /api/0g routes registered');
+  } catch (e) {
+    console.log('[Routes] ℹ️ 0G routes not available:', e.message);
+  }
+  
+  // AI Service Status API
+  try {
+    const { router: aiRouter } = require('./api/ai') || {};
+    if (aiRouter) app.use('/api/ai', aiRouter);
+  } catch (e) {
+    console.log('[Routes] ℹ️ AI routes not available:', e.message);
+  }
+  
   // Blockchain config endpoint
   app.get('/api/blockchain/config', (req, res) => {
     const config = require('../config');
@@ -38,7 +55,15 @@ const configureRoutes = (app) => {
       nftContract: process.env.NFT_CONTRACT_ADDRESS,
       chipToken: process.env.CHIP_TOKEN_ADDRESS,
       stakingContract: process.env.STAKING_CONTRACT_ADDRESS,
-      governanceContract: process.env.GOVERNANCE_CONTRACT_ADDRESS
+      governanceContract: process.env.GOVERNANCE_CONTRACT_ADDRESS,
+      // 0G configuration
+      zeroGEnabled: config.ZEROG_ENABLED,
+      blockchainMode: config.BLOCKCHAIN_MODE,
+      zeroGNetwork: config.ZEROG_NETWORK,
+      zeroGPokerGameAddress: config.ZEROG_POKERGAME_ADDRESS,
+      zeroGINFTAddress: config.ZEROG_INFT_ADDRESS,
+      storageEnabled: config.ZEROG_STORAGE_ENABLED,
+      daEnabled: config.ZEROG_DA_ENABLED
     });
   });
   

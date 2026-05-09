@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-基于 Web3 的多人在线德州扑克游戏，支持锦标赛、NFT成就、DAO治理等功能。前端 React + 后端 Express/Socket.io，区块链使用 TRON 网络。
+基于 Web3 的多人在线德州扑克游戏，支持锦标赛、NFT成就（ERC-7857 INFT）、DAO治理等功能。前端 React + 后端 Express/Socket.io，支持 **TRON + 0G (ZeroGravity) EVM** 双链架构。
 
 ## 常用命令
 
@@ -43,6 +43,30 @@ mocha tests/services/ChipService.test.js --timeout 10000
 
 # 构建生产版本
 npm run build
+
+# ============ 0G (ZeroGravity) 模式命令 ============
+
+# 启动 0G 后端（使用 .env.0g 配置）
+ENV_FILE=.env.0g node server/server.js
+
+# 编译 0G 合约（Solidity ^0.8.20, EVM Paris fork）
+npx hardhat compile
+
+# 部署到 0G Testnet (Chain ID: 16602)
+ENV_FILE=.env.0g npx hardhat run deploy-0g.js --network zerogTestnet
+
+# 部署到 0G Mainnet (Chain ID: 16661)
+ENV_FILE=.env.0g npx hardhat run deploy-0g.js --network zerogMainnet
+
+# 运行 0G 测试套件
+mocha tests/0g/e2e-full-flow.test.js --timeout 60000
+mocha tests/0g/inft-flow.test.js --timeout 30000
+
+# Playwright E2E 浏览器测试
+npx playwright test tests/e2e/0g-poker.spec.ts
+
+# 离线公平性验证
+node scripts/verify-fairness.js <handId>
 ```
 
 ## 端口配置
@@ -79,16 +103,28 @@ Socket.io 实时通信，事件命名约定：
 
 **区块链服务** (`blockchain/`):
 - `TronService.js` - TRON 网络连接、钱包管理
-- `ContractService.js` - 智能合约交互（存款、提款、结算）
-- `EventListener.js` - 区块链事件监听
+- `ContractService.js` - TRON 智能合约交互（存款、提款、结算）
+- `EventListener.js` - TRON 区块链事件监听
 - `TransactionQueue.js` - 交易队列管理
+- **0G 多链扩展**:
+  - `BlockchainServiceInterface.js` - 统一接口定义
+  - `ZeroGService.js` - 0G EVM 链服务适配器 (ethers v6, chainId 16602/16661)
+  - `ZeroGContractService.js` - 0G 合约交互层
+  - `ZeroGEventListener.js` - 0G 链事件监听
+  - `blockchainFactory.js` - 工厂函数，根据 BLOCKCHAIN_MODE 返回对应 service
 
 **业务服务** (`services/`):
 - `TournamentService.js` - 锦标赛逻辑
 - `ChipService.js` - CHIP 代币管理
-- `NFTService.js` - NFT 成就系统
+- `NFTService.js` - NFT 成就系统（含 0G Storage 集成: uploadImageToStorage / prepareMintWithStorage）
 - `DAOService.js` - DAO 治理
 - `GameFlowIntegration.js` - 游戏流程与区块链集成
+- **0G 扩展服务**:
+  - `ZeroGStorageService.js` - 0G 去中心化存储 (文件上传/查询)
+  - `ZeroGDAService.js` - Data Availability 服务 (洗牌种子 commit-reveal)
+  - `SettlementRouter.js` - 双链结算路由器 (TRON vs 0G)
+  - `AIService.js` - AI 引擎通信 (Node ↔ Python)
+  - `AIMemoryService.js` - AI 持久记忆 (MongoDB 对手画像)
 
 **API 路由** (`routes/api/`):
 - `auth.js` - 认证
@@ -101,24 +137,27 @@ Socket.io 实时通信，事件命名约定：
 ### 客户端架构 (`src/`)
 
 **Context 状态管理** (`context/`):
-- `Providers.js` - 组合所有 Provider
+- `Providers.js` - 组合所有 Provider（含 ZeroGProvider）
 - `websocket/WebsocketProvider.js` - Socket 连接管理
 - `game/GameState.js` - 游戏状态和操作（join/leave/fold/check/call/raise）
 - `global/GlobalState.js` - 全局状态（tables/players/chips）
 - `modal/ModalProvider.js` - 弹窗管理
 - `tron/TronContext.js` - TronLink 钱包连接
+- **0G 扩展**: `zero-g/ZeroGContext.js` - MetaMask / EVM 钱包连接 (ethers v6)
 
 **页面路由** (`pages/`):
-- `/` → `Landing.js` - 首页/钱包连接
-- `/play` → `Play.js` - 游戏主页面
+- `/` → `Landing.js` - 首页/钱包连接（TRON + 0G/EVM 双按钮）
+- `/play` → `Play.js` - 游戏主页面（含 🛡️ 公平性指示器 + Verify Fairness 按钮）
 - `/tournament` → `Tournament.js` - 锦标赛列表
 - `/tournament/:id` → `TournamentTable.js` - 锦标赛牌桌
-- `/wallet` → `CHIPWallet.js` - 钱包页面
+- `/wallet` → `CHIPWallet.js` - 钱包页面（多链 Tab: TRON | 0G）
 - `/dao` → `DAO.js` - DAO 治理
-- `/nft` → `NFTGallery.js` - NFT 画廊
+- `/nft` → `NFTGallery.js` - NFT 画廊（TRON NFT | 0G INFT 双 Tab）
+- **新增**: `/fairness-verify` → `FairnessVerify.js` - 公平性验证页面
 
 ### 智能合约 (`contracts/`)
 
+**TRON 合约**:
 - `BridgeGameV1/V2/V3.sol` - 游戏主合约（存款、提款、结算）
 - `Tournament.sol` - 锦标赛合约
 - `ChipToken.sol` - CHIP 代币合约
@@ -126,11 +165,17 @@ Socket.io 实时通信，事件命名约定：
 - `Staking.sol` - 质押合约
 - `Governance.sol` - DAO 治理合约
 
+**0G EVM 合约** (`contracts/0g/`):
+- `PokerGame0G.sol` - 0G 游戏主合约（AccessControl + deposit/withdraw/settle/delegate）
+- `PokerHandINFT.sol` - ERC-7857 Interactive NFT（mint/encryptedTransfer/clone/bindAgent）
+
 ### 配置文件
 
 - `server/config.js` - 服务端配置，`INITIAL_CHIPS_AMOUNT` 控制初始筹码（默认 100 TRX）
 - `src/clientConfig.js` - 客户端配置，`socketURI` 控制 Socket 连接地址
+- `hardhat.config.js` - Hardhat 编译配置（含 zerogTestnet/zerogMainnet 网络）
 - 环境变量: `.env.testnet` / `***REMOVED***`
+- **新增**: `.env.0g` - 0G 模式环境变量（ZEROG_RPC_URL, ZEROG_PRIVATE_KEY, ZEROG_STORAGE_ENDPOINT 等）
 
 ## 游戏流程
 
@@ -143,14 +188,36 @@ Socket.io 实时通信，事件命名约定：
 
 ## 区块链集成
 
-**网络**: TRON（支持 testnet/mainnet）
+**双链架构**: TRON + 0G (ZeroGravity) EVM
 
-**关键流程**:
+**TRON 网络**（原有）:
+- Testnet: Nile (`https://nile.trongrid.io`, ChainId: 3448148188)
+- Mainnet: (`https://api.trongrid.io`, ChainId: 728126428)
+
+**0G EVM 网络**（新增，`contracts/0g/`）:
+- Testnet: `https://evmrpc-galileo.0g.ai`, ChainId: **16602**, Explorer: `https://chainscan-galileo.0g.ai`
+- Mainnet: `https://rpc.0g.ai`, ChainId: **16661**
+- **已部署合约 (testnet)**:
+  - PokerGame0G: `0xc6F5495D411405630dF5d5ad32225d7F51dC1645`
+  - PokerHandINFT: `0xC96368bbE503a13BCDBE0d38E06c167486d9ccC3`
+
+**多链模式** (server/config.js `BLOCKCHAIN_MODE`):
+- `'tron'` - 仅使用 TRON（默认）
+- `'zerog'` - 仅使用 0G EVM
+- `'both'` - 双链并行
+
+**TRON 关键流程**:
 1. 玩家通过 TronLink 连接钱包
 2. 玩家授权服务器代理地址（Delegate）进行合约操作
 3. 存款: 玩家调用合约 deposit() → EventListener 监听事件 → 更新数据库余额
 4. 游戏: 服务器代理玩家进行合约调用
 5. 结算: 服务器调用合约分配奖金
+
+**0G 新增能力**:
+- **去中心化存储**: NFT 图片/元数据上传至 0G Storage（rootHash 永久锚定）
+- **Data Availability**: 洗牌种子 commit-reveal 方案，DA 锚定到 0G 链
+- **ERC-7857 INFT**: Interactive NFT，支持加密转移、克隆、Agent 绑定
+- **公平性验证**: 每手牌的 stateHash 可在链上查询和离线验证
 
 **测试私钥模式**: 使用私钥直接调用 API，无需浏览器钱包连接：
 ```javascript

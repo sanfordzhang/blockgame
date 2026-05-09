@@ -1,0 +1,211 @@
+[6:50:39 PM] === 0G Poker E2E Test ===
+[6:50:39 PM] [1] Creating mock tournament...
+[6:50:39 PM] Tournament ID: 1778323839376
+[6:50:39 PM] [1b] Joining tournament via HTTP API...
+[6:50:41 PM]   0x99085cC3... joined: {"success":true,"tournament":{"configId":3,"status":"WAITING","buyIn":100000000,"playerCount":2,"rakeRate":500,"prizePool":100000000,"rakeAmount":0,"t
+[6:50:43 PM]   TX27LjDqk6... joined: {"success":true,"tournament":{"configId":3,"status":"IN_PROGRESS","buyIn":100000000,"playerCount":2,"rakeRate":500,"prizePool":200000000,"rakeAmount":
+[6:50:45 PM] [2] Connecting to Chrome via CDP...
+[6:50:45 PM] CDP tab found: http://127.0.0.1:3001/
+[6:50:45 PM] [3] Navigating to Landing page...
+[6:50:48 PM] 📸 02-landing-page
+[6:50:48 PM] Injecting mock MetaMask (0G testnet)...
+[6:50:49 PM] Mock MetaMask injected ✅
+[6:50:50 PM] 📸 03-after-inject
+[6:50:50 PM] [4] Clicking Connect 0G Wallet...
+[6:50:50 PM] Connect result: clicked: 0G / EVM
+[6:50:54 PM] 📸 04-after-connect
+[6:50:54 PM] Page state: {"url":"http://127.0.0.1:3001/","text":"EN\n|\n中\nJoin the world's most classy\nonline poker experience!\nDeposit TRX to start playing. Withdraw anytime.\nConnect TRON\n0G / EVM","hasEth":true}
+[6:50:54 PM] [5] Navigating to tournament play page...
+[6:50:59 PM] 📸 05-tournament-play
+[6:50:59 PM] Injecting mock MetaMask (0G testnet)...
+[6:51:00 PM] Mock MetaMask injected ✅
+[6:51:02 PM] [5b] Triggering Socket.io join for browser player...
+[6:51:03 PM] Join result: emit OK, connected=true, id=Ty0-FnJKwqFGMRtjAABL
+[6:51:07 PM] 📸 06-after-reinject
+[6:51:07 PM] Available buttons: [Leave Tournament]
+[6:51:07 PM] Body text: Leave Tournament
+Tournament #1778323839376
+💰 GameBalance: 0.00 TRX
+500000
+
+0x99...d4dc
+
+9,500,000
+
+250000
+
+tx27...jpl4
+
+9,750,000
+
+Empty Seat
+Empty Seat
+Empty Seat
+Pre-Flop
+750000
+[6:51:07 PM] [6] Starting bot opponent...
+[6:51:09 PM] Bot joined tournament room
+[6:51:10 PM] Bot: CALL
+[6:51:14 PM] 📸 07-bot-joined
+[6:51:14 PM] [7] Game loop starting...
+[6:51:15 PM] Round 1: [Leave Tournament,Fold,Check,Raise]
+[6:51:15 PM] Action: Check
+[6:51:16 PM] Round 2: [Leave Tournament,Fold,Check,Raise]
+[6:51:16 PM] Action: Check
+[6:51:18 PM] Round 3: [Leave Tournament,Fold,Check,Raise]
+[6:51:18 PM] Action: Check
+[6:51:19 PM] Round 4: [Leave Tournament,Fold,Check,Raise]
+[6:51:19 PM] Action: Check
+[6:51:20 PM] Round 5: [Leave Tournament,Fold,Check,Raise]
+[6:51:20 PM] Action: Check
+[6:51:21 PM] Round 6: [Leave Tournament,Fold,Check,Raise]
+[6:51:21 PM] Action: Check
+[6:51:22 PM] Round 7: [Leave Tournament,Fold,Check,Raise]
+[6:51:22 PM] Action: Check
+[6:51:24 PM] Round 8: [Leave Tournament,Fold,Check,Raise]
+[6:51:24 PM] 📸 r8
+[6:51:24 PM] Action: Check
+[6:51:25 PM] Round 9: [Leave Tournament,Fold,Check,Raise]
+[6:51:25 PM] Action: Check
+[6:51:26 PM] Round 10: [Leave Tournament,Fold,Check,Raise]
+[6:51:26 PM] Action: Check
+[6:51:27 PM] Round 11: [Leave Tournament,Fold,Check,Raise]
+[6:51:27 PM] Action: Check
+[6:51:29 PM] Round 12: [Leave Tournament,Fold,Check,Raise]
+[6:51:29 PM] Action: Check
+[6:51:30 PM] Round 13: [Leave Tournament,Fold,Check,Raise]
+[6:51:30 PM] Action: Check
+[6:51:31 PM] Round 14: [Leave Tournament,Fold,Check,Raise]
+[6:51:31 PM] Action: Check
+[6:51:32 PM] Round 15: [Leave Tournament,Fold,Check,Raise]
+[6:51:32 PM] Action: Check
+[6:51:33 PM] Round 16: [Leave Tournament,Fold,Check,Raise]
+[6:51:34 PM] 📸 r16
+[6:51:34 PM] Action: Check
+[6:51:35 PM] Round 17: [Leave Tournament,Fold,Check,Raise]
+[6:51:35 PM] Action: Check
+[6:51:36 PM] Round 18: [Leave Tournament,Fold,Check,Raise]
+[6:51:36 PM] Action: Check
+[6:51:37 PM] Round 19: [Leave Tournament,Fold,Check,Raise]
+[6:51:37 PM] Action: Check
+[6:51:38 PM] Round 20: [Leave Tournament,Fold,Check,Raise]
+[6:51:38 PM] Action: Check
+[6:51:40 PM] Round 21: [Leave Tournament,Fold,Check,Raise]
+[6:51:40 PM] Action: Check
+[6:51:41 PM] Round 22: [Leave Tournament,Fold,Check,Raise]
+[6:51:41 PM] Action: Check
+[6:51:42 PM] Round 23: [Leave Tournament,Fold,Check,Raise]
+[6:51:42 PM] Action: Check
+[6:51:43 PM] Round 24: [Leave Tournament,Fold,Check,Raise]
+[6:51:43 PM] 📸 r24
+[6:51:43 PM] Action: Check
+[6:51:44 PM] Round 25: [Leave Tournament,Fold,Check,Raise]
+[6:51:44 PM] Action: Check
+[6:51:46 PM] Round 26: [Leave Tournament,Fold,Check,Raise]
+[6:51:46 PM] Action: Check
+[6:51:47 PM] Round 27: [Leave Tournament,Fold,Check,Raise]
+[6:51:47 PM] Action: Check
+[6:51:48 PM] Round 28: [Leave Tournament,Fold,Check,Raise]
+[6:51:48 PM] Action: Check
+[6:51:49 PM] Round 29: [Leave Tournament,Fold,Check,Raise]
+[6:51:49 PM] Action: Check
+[6:51:51 PM] Round 30: [Leave Tournament,Fold,Check,Raise]
+[6:51:51 PM] Action: Check
+[6:51:52 PM] Round 31: [Leave Tournament,Fold,Check,Raise]
+[6:51:52 PM] Action: Check
+[6:51:53 PM] Round 32: [Leave Tournament,Fold,Check,Raise]
+[6:51:53 PM] 📸 r32
+[6:51:53 PM] Action: Check
+[6:51:54 PM] Round 33: [Leave Tournament,Fold,Check,Raise]
+[6:51:54 PM] Action: Check
+[6:51:55 PM] Round 34: [Leave Tournament,Fold,Check,Raise]
+[6:51:55 PM] Action: Check
+[6:51:57 PM] Round 35: [Leave Tournament,Fold,Check,Raise]
+[6:51:57 PM] Action: Check
+[6:51:58 PM] Round 36: [Leave Tournament,Fold,Check,Raise]
+[6:51:58 PM] Action: Check
+[6:51:59 PM] Round 37: [Leave Tournament,Fold,Check,Raise]
+[6:51:59 PM] Action: Check
+[6:52:00 PM] Round 38: [Leave Tournament,Fold,Check,Raise]
+[6:52:00 PM] Action: Check
+[6:52:01 PM] Round 39: [Leave Tournament,Fold,Check,Raise]
+[6:52:01 PM] Action: Check
+[6:52:03 PM] Round 40: [Leave Tournament,Fold,Check,Raise]
+[6:52:03 PM] 📸 r40
+[6:52:03 PM] Action: Check
+[6:52:04 PM] Round 41: [Leave Tournament,Fold,Check,Raise]
+[6:52:04 PM] Action: Check
+[6:52:05 PM] Round 42: [Leave Tournament,Fold,Check,Raise]
+[6:52:05 PM] Action: Check
+[6:52:06 PM] Round 43: [Leave Tournament,Fold,Check,Raise]
+[6:52:06 PM] Action: Check
+[6:52:08 PM] Round 44: [Leave Tournament,Fold,Check,Raise]
+[6:52:08 PM] Action: Check
+[6:52:09 PM] Round 45: [Leave Tournament,Fold,Check,Raise]
+[6:52:09 PM] Action: Check
+[6:52:10 PM] Round 46: [Leave Tournament,Fold,Check,Raise]
+[6:52:10 PM] Action: Check
+[6:52:11 PM] Round 47: [Leave Tournament,Fold,Check,Raise]
+[6:52:11 PM] Action: Check
+[6:52:12 PM] Round 48: [Leave Tournament,Fold,Check,Raise]
+[6:52:13 PM] 📸 r48
+[6:52:13 PM] Action: Check
+[6:52:14 PM] Round 49: [Leave Tournament,Fold,Check,Raise]
+[6:52:14 PM] Action: Check
+[6:52:15 PM] Round 50: [Leave Tournament,Fold,Check,Raise]
+[6:52:15 PM] Action: Check
+[6:52:16 PM] Round 51: [Leave Tournament,Fold,Check,Raise]
+[6:52:16 PM] Action: Check
+[6:52:17 PM] Round 52: [Leave Tournament,Fold,Check,Raise]
+[6:52:17 PM] Action: Check
+[6:52:19 PM] Round 53: [Leave Tournament,Fold,Check,Raise]
+[6:52:19 PM] Action: Check
+[6:52:20 PM] Round 54: [Leave Tournament,Fold,Check,Raise]
+[6:52:20 PM] Action: Check
+[6:52:21 PM] Round 55: [Leave Tournament,Fold,Check,Raise]
+[6:52:21 PM] Action: Check
+[6:52:22 PM] Round 56: [Leave Tournament,Fold,Check,Raise]
+[6:52:22 PM] 📸 r56
+[6:52:22 PM] Action: Check
+[6:52:24 PM] Round 57: [Leave Tournament,Fold,Check,Raise]
+[6:52:24 PM] Action: Check
+[6:52:25 PM] Round 58: [Leave Tournament,Fold,Check,Raise]
+[6:52:25 PM] Action: Check
+[6:52:26 PM] Round 59: [Leave Tournament,Fold,Check,Raise]
+[6:52:26 PM] Action: Check
+[6:52:27 PM] Round 60: [Leave Tournament,Fold,Check,Raise]
+[6:52:27 PM] Action: Check
+[6:52:27 PM] 📸 99-final-state
+[6:52:27 PM] 
+=== TEST RESULTS ===
+[6:52:27 PM] NFT Minted: ⚠️ NOT DETECTED
+[6:52:27 PM] Fairness Verified: ℹ️ Not triggered
+[6:52:27 PM] 
+[8] Checking NFT Gallery (0G INFT tab)...
+[6:52:31 PM] 📸 nft-gallery
+[6:52:31 PM] INFT Tab result: "Clicked tab: 0G / INFT (0)"
+[6:52:33 PM] 📸 nft-gallery-inft-tab
+[6:52:33 PM] [9] Checking Fairness Verify page...
+[6:52:37 PM] 📸 fairness-verify-page
+[6:52:37 PM] Fairness page: EN
+|
+中
+🛡️Verifiable Fairness
+
+Verify that any poker hand was dealt fairly using cryptographic proof. Every hand uses a commitment-reveal scheme anchored to the Data Availability layer.
+
+Verify Hand
+
+
+[6:52:37 PM] [10] Checking Navbar chain indicator...
+[6:52:40 PM] 📸 navbar-check
+[6:52:40 PM] Navbar: TRON=true, 0G=true, Badge="not found"
+[6:52:40 PM] 
+========================================
+[6:52:40 PM]   0G POKER E2E TEST COMPLETE
+[6:52:40 PM] ========================================
+[6:52:40 PM]   Screenshots saved to: test-results/
+[6:52:40 PM]   Total rounds played: ~60
+[6:52:40 PM]   NFT flow: NEEDS MANUAL CHECK
+[6:52:40 PM] ========================================
+

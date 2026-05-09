@@ -10,6 +10,7 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
+import { connectWallet as connectZeroGWallet } from '../utils/zeroGInteract';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
 import locaContext from '../context/localization/locaContext';
@@ -751,16 +752,39 @@ const Landing = () => {
         </Markdown>
         <Wrapper>
           {!walletAddress ? (
-            <Button
-              large
-              primary
-              fullWidthOnMobile
-              autoFocus
-              onClick={handleConnectWallet}
-              disabled={connecting}
-            >
-              {connecting ? 'Connecting...' : 'Connect Wallet'}
-            </Button>
+            <>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <Button
+                large
+                primary
+                fullWidthOnMobile
+                autoFocus
+                onClick={handleConnectWallet}
+                disabled={connecting}
+                style={{ flex: 2 }}
+              >
+                {connecting ? 'Connecting...' : 'Connect TRON'}
+              </Button>
+              <Button
+                large
+                fullWidthOnMobile
+                onClick={async () => {
+                  try {
+                    const result = await connectZeroGWallet();
+                    if (result?.address) {
+                      setLocalWalletAddress(result.address);
+                      setWalletAddress(result.address);
+                    }
+                  } catch (e) {
+                    setError('MetaMask not found. Please install MetaMask or use TRON.');
+                  }
+                }}
+                style={{ flex: 1, background: '#627eea', borderColor: '#627eea' }}
+              >
+                0G / EVM
+              </Button>
+            </div>
+          </>
           ) : (
             <>
               <WalletInfo>

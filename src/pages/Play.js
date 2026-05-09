@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Container from '../components/layout/Container'
 import Button from '../components/buttons/Button'
 import gameContext from '../context/game/gameContext'
@@ -38,6 +38,7 @@ const toastMixin = Swal.mixin({
 
 const Play = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { socket } = useContext(socketContext)
   const { walletAddress } = useContext(globalContext)
   const {
@@ -135,6 +136,51 @@ const Play = () => {
               <Button small secondary onClick={leaveTable} disabled={isLeaving}>
                 {isLeaving ? 'Leaving...' : 'Leave'}
               </Button>
+            </PositionedUISlot>
+
+            {/* Task 10.3: Fairness Shield Indicator (top-right corner) */}
+            <PositionedUISlot
+              top="2vh"
+              right="1.5rem"
+              scale="0.55"
+              style={{ zIndex: '50' }}
+            >
+              <div
+                onClick={() => {
+                  const handId = currentTable?.handId;
+                  if (handId) {
+                    window.open(`/fairness-verify?handId=${handId}`, '_blank');
+                  }
+                }}
+                title={currentTable?.handId
+                  ? `Hand #${currentTable.handId} - Click to verify fairness`
+                  : 'Fairness protection active'
+                }
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.35rem 0.7rem',
+                  borderRadius: '2rem',
+                  background: currentTable?.handId
+                    ? 'rgba(76, 175, 80, 0.15)'
+                    : 'rgba(158, 158, 158, 0.15)',
+                  border: `1px solid ${currentTable?.handId ? '#4CAF50' : '#9e9e9e'}`,
+                  color: currentTable?.handId ? '#4CAF50' : '#9e9e9e',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  cursor: currentTable?.handId ? 'pointer' : 'default',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                🛡️ Fair
+                {currentTable?.handId && (
+                  <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>
+                    #{currentTable.handId.slice(-4)}
+                  </span>
+                )}
+              </div>
             </PositionedUISlot>
           </>
         )}
@@ -236,6 +282,25 @@ const Play = () => {
                           ]
                         }
                       </InfoPill>
+                    )}
+                    {/* Task 10.4: Verify Fairness button after settlement */}
+                    {currentTable.handId && currentTable.winMessages?.length > 0 && (
+                      <div style={{ marginTop: '0.3rem', textAlign: 'center' }}>
+                        <button
+                          onClick={() => window.open(`/fairness-verify?handId=${currentTable.handId}`, '_blank')}
+                          style={{
+                            padding: '0.3rem 0.8rem',
+                            borderRadius: '1rem',
+                            border: '1px solid rgba(76,175,80,0.5)',
+                            background: 'rgba(76,175,80,0.12)',
+                            color: '#81C784',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🛡️ Verify Fairness (Hand #{currentTable.handId})
+                        </button>
+                      </div>
                     )}
                   </>
                 )}

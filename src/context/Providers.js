@@ -11,6 +11,7 @@ import GameState from './game/GameState'
 import { TronProvider } from './tron/TronContext'
 import { AMMProvider } from './amm/AMMContext'
 import LocaProvider from './localization/LocaProvider'
+import { ZeroGProvider } from './zero-g/ZeroGContext'
 
 const Providers = ({ children }) => (
   <BrowserRouter>
@@ -21,11 +22,13 @@ const Providers = ({ children }) => (
             <WebSocketProvider>
               <GameState>
                 <TronProvider>
-                  <AMMProvider>
-                    <Normalize />
-                    <GlobalStyles />
-                    {children}
-                  </AMMProvider>
+                  <ZeroGProvider>
+                    <AMMProvider>
+                      <Normalize />
+                      <GlobalStyles />
+                      {children}
+                    </AMMProvider>
+                  </ZeroGProvider>
                 </TronProvider>
               </GameState>
             </WebSocketProvider>

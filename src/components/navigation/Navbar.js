@@ -10,6 +10,7 @@ import HamburgerButton from '../buttons/HamburgerButton';
 import Spacer from '../layout/Spacer';
 import LangSwitcher from './LangSwitcher';
 import locaContext from '../../context/localization/locaContext';
+import { useZeroG } from '../../context/zero-g/ZeroGContext';
 
 const StyledNav = styled.nav`
   padding: 0.75rem 0;
@@ -52,6 +53,31 @@ const StyledNavLink = styled(NavLink)`
   }
 `;
 
+// Task 9.6: Chain Indicator Badge
+const ChainBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  ${props => props.chain === 'tron' ? `
+    background: rgba(255, 0, 0, 0.12);
+    color: #FF0000;
+    border: 1px solid rgba(255, 0, 0, 0.3);
+  ` : props.chain === 'zerog' ? `
+    background: rgba(98, 126, 234, 0.12);
+    color: #627eea;
+    border: 1px solid rgba(98, 126, 234, 0.3);
+  ` : `
+    background: rgba(158, 158, 158, 0.12);
+    color: #9e9e9e;
+    border: 1px solid rgba(158, 158, 158, 0.3);
+  `}
+`;
+
 const NAV_LINKS = [
   { to: '/',          labelKey: 'navPlay' },       // Play → go to Landing page first
   { to: '/tournament', labelKey: 'navTournament' },
@@ -69,6 +95,7 @@ const Navbar = ({
   className,
 }) => {
   const { t } = useContext(locaContext);
+  const { address: zeroGAddress, isConnected: zeroGConnected } = useZeroG() || {};
   const navigate = useNavigate();
 
   // Go to home page Deposit section
@@ -114,6 +141,10 @@ const Navbar = ({
 
           {/* 右侧工具区 */}
           <Spacer>
+            {/* Task 9.6: Chain Indicator Badge */}
+            <ChainBadge chain={zeroGConnected ? 'zerog' : 'tron'}>
+              {zeroGConnected ? '0G' : 'TRON'}
+            </ChainBadge>
             <LangSwitcher />
             <HamburgerButton clickHandler={openNavMenu} />
           </Spacer>
