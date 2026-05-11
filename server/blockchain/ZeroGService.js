@@ -5,14 +5,23 @@
 
 const config = require('../config');
 
-// Use ethers v6 (installed alongside v5 for Hardhat compatibility)
+// Use ethers v6 for EVM-compatible 0G interaction
+// Note: project has both ethers (v5, for TRON/Hardhat) and ethers6 (v6, for 0G/EVM)
 let ethers;
 try {
-    ethers = require('ethers');
+    ethers = require('ethers6');
 } catch (e) {
-    // Fallback: try the global or v5 version
-    console.warn('[ZeroGService] ethers v6 not found, attempting fallback');
-    ethers = require('ethers');
+    console.warn('[ZeroGService] ethers6 not found, attempting fallback to ethers');
+    try {
+        ethers = require('ethers');
+        // Check if v6 API is available
+        if (!ethers.JsonRpcProvider) {
+            throw new Error('ethers v5 detected but v6 API required - please install ethers6: npm install ethers6');
+        }
+    } catch (e2) {
+        console.error('[ZeroGService] No compatible ethers version found:', e2.message);
+        throw e2;
+    }
 }
 
 class ZeroGService {

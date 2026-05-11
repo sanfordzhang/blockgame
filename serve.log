@@ -1469,3 +1469,477 @@
  HTTP  5/9/2026 7:07:41 PM 127.0.0.1 Returned 304 in 1 ms
  HTTP  5/9/2026 7:07:51 PM 127.0.0.1 GET /favicon.png
  HTTP  5/9/2026 7:07:51 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:16:27 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:16:27 PM 127.0.0.1 Returned 304 in 6 ms
+ HTTP  5/9/2026 7:20:43 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:20:43 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /.well-known/appspecific/com.chrome.devtools.json
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css.map
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css.map
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js.map
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js.map
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/media/main-illustration-mobile@2x.44e29d9b.png
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/media/main-illustration-desktop@2x.0efebc5a.png
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /static/media/ChakraPetch-Regular.12c7b5f8.ttf
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /api/blockchain/config
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /manifest.json
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:24:53 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/background.e927ec76.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/table.de7e4676.webp
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/dealer.fa317d6e.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/small_blind.4fc703ce.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/avatar.be5bdadd.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 6 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/card_back.6d97bec9.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/big_blind.6e002395.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/gglab_green.47f5b3e2.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/circle.a718b52c.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/branding_outline.591cd17c.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js.map
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/player2.c23f2426.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/player1.1c398250.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/player3.4232b234.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/player4.c1febad0.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/player5.194927bd.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 GET /static/media/player6.2278f30f.png
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 7:24:57 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:13 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:55:13 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /.well-known/appspecific/com.chrome.devtools.json
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css.map
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css.map
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js.map
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js.map
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/media/main-illustration-mobile@2x.44e29d9b.png
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/media/main-illustration-desktop@2x.0efebc5a.png
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /static/media/ChakraPetch-Regular.12c7b5f8.ttf
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 7 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 7 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 8 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 7 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /manifest.json
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 8 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /api/blockchain/config
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 7:55:16 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/background.e927ec76.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/table.de7e4676.webp
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/dealer.fa317d6e.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js.map
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/small_blind.4fc703ce.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/big_blind.6e002395.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/card_back.6d97bec9.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/avatar.be5bdadd.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/circle.a718b52c.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/branding_outline.591cd17c.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/gglab_green.47f5b3e2.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/player1.1c398250.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/player2.c23f2426.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/player3.4232b234.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/player4.c1febad0.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/player5.194927bd.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 GET /static/media/player6.2278f30f.png
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 7:55:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:07:55 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:07:55 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:08:11 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:08:11 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 8:08:22 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:08:22 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:08:51 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:08:51 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:01 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:01 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:15 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:15 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:33 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:33 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 GET /
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 GET /.well-known/appspecific/com.chrome.devtools.json
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css.map
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css.map
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js.map
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js.map
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/media/main-illustration-desktop@2x.0efebc5a.png
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/media/ChakraPetch-Regular.12c7b5f8.ttf
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /static/media/main-illustration-mobile@2x.44e29d9b.png
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 10 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /manifest.json
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /api/blockchain/config
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:41 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/background.e927ec76.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/table.de7e4676.webp
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js.map
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/dealer.fa317d6e.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/small_blind.4fc703ce.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/big_blind.6e002395.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/card_back.6d97bec9.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/avatar.be5bdadd.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/circle.a718b52c.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/branding_outline.591cd17c.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/gglab_green.47f5b3e2.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/player1.1c398250.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/player2.c23f2426.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/player3.4232b234.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/player4.c1febad0.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/player5.194927bd.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 GET /static/media/player6.2278f30f.png
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:45 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:09:46 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:09:46 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /.well-known/appspecific/com.chrome.devtools.json
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css.map
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css.map
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/media/main-illustration-mobile@2x.44e29d9b.png
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/media/main-illustration-desktop@2x.0efebc5a.png
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/media/ChakraPetch-Regular.12c7b5f8.ttf
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js.map
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js.map
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /api/blockchain/config
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /manifest.json
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 9 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 7 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:10:05 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/background.e927ec76.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/table.de7e4676.webp
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js.map
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/dealer.fa317d6e.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/small_blind.4fc703ce.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/card_back.6d97bec9.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/avatar.be5bdadd.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/big_blind.6e002395.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/circle.a718b52c.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/branding_outline.591cd17c.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/gglab_green.47f5b3e2.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/player1.1c398250.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/player2.c23f2426.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/player3.4232b234.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/player4.c1febad0.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/player5.194927bd.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 GET /static/media/player6.2278f30f.png
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:10:09 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /play
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /.well-known/appspecific/com.chrome.devtools.json
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/css/main.0907214b.chunk.css.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 9 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/1.4fc385dc.chunk.js
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/css/0.c4587052.chunk.css
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/0.af272915.chunk.js
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/2.89297582.chunk.js
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/media/ChakraPetch-Regular.12c7b5f8.ttf
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /manifest.json
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/5.23080043.chunk.js.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 7 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/main.3379f408.chunk.js.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/1.4fc385dc.chunk.js.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/css/0.c4587052.chunk.css.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/2.89297582.chunk.js.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 4 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/js/0.af272915.chunk.js.map
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/media/rotate.9f6fb4ba.gif
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/media/main-illustration-mobile@2x.44e29d9b.png
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/media/table.de7e4676.webp
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /api/blockchain/config
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /static/media/main-illustration-desktop@2x.0efebc5a.png
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 GET /favicon.png
+ HTTP  5/9/2026 8:11:36 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/background.e927ec76.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/dealer.fa317d6e.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/small_blind.4fc703ce.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/big_blind.6e002395.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/card_back.6d97bec9.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/avatar.be5bdadd.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/circle.a718b52c.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js.map
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/branding_outline.591cd17c.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/gglab_green.47f5b3e2.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/player1.1c398250.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/player2.c23f2426.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/player3.4232b234.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/player4.c1febad0.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/player5.194927bd.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 GET /static/media/player6.2278f30f.png
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/9/2026 8:11:40 PM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/9/2026 8:11:46 PM 127.0.0.1 POST /api/analytics/log
+ HTTP  5/9/2026 8:11:46 PM 127.0.0.1 Returned 200 in 7 ms
+ HTTP  5/10/2026 11:14:28 AM 127.0.0.1 GET /favicon.png
+ HTTP  5/10/2026 11:14:28 AM 127.0.0.1 Returned 304 in 10 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 22 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/css/main.0907214b.chunk.css
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 11 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 8 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/js/5.23080043.chunk.js
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /.well-known/appspecific/com.chrome.devtools.json
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/js/main.3379f408.chunk.js
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 8 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 13 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 14 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/css/5.92889dfb.chunk.css.map
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /favicon.png
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/css/main.0907214b.chunk.css.map
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 8 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 5 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 7 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/media/ChakraPetch-Regular.12c7b5f8.ttf
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /manifest.json
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/js/5.23080043.chunk.js.map
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 5 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/media/main-illustration-mobile@2x.44e29d9b.png
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/media/main-illustration-desktop@2x.0efebc5a.png
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 0 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /api/blockchain/config
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 GET /static/js/main.3379f408.chunk.js.map
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 6 ms
+ HTTP  5/11/2026 9:11:26 AM 127.0.0.1 Returned 304 in 5 ms
+ HTTP  5/11/2026 9:11:27 AM 127.0.0.1 GET /favicon.png
+ HTTP  5/11/2026 9:11:27 AM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/background.e927ec76.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/table.de7e4676.webp
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/dealer.fa317d6e.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/js/7.dc9e2a61.chunk.js.map
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/small_blind.4fc703ce.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/card_back.6d97bec9.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/avatar.be5bdadd.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/circle.a718b52c.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/branding_outline.591cd17c.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/big_blind.6e002395.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/gglab_green.47f5b3e2.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 1 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/player1.1c398250.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/player2.c23f2426.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/player3.4232b234.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/player4.c1febad0.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/player5.194927bd.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 GET /static/media/player6.2278f30f.png
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 3 ms
+ HTTP  5/11/2026 9:11:30 AM 127.0.0.1 Returned 304 in 2 ms
+
+ INFO  Gracefully shutting down. Please wait...

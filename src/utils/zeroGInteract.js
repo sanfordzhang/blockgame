@@ -18,13 +18,17 @@ export function hasEvmWallet() {
 
 /**
  * Connect wallet and get accounts
- * @returns {Promise<string[]>} Array of addresses
+ * @returns {Promise<{address: string, addresses: string[]}>} Object with primary address
  */
 export async function connectWallet() {
     if (!hasEvmWallet()) {
         throw new Error('No EVM wallet found. Install MetaMask.');
     }
-    return window.ethereum.request({ method: 'eth_requestAccounts' });
+    const addresses = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    return {
+        address: addresses[0],
+        addresses
+    };
 }
 
 /**

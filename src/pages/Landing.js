@@ -10,18 +10,16 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet } from '../utils/zeroGInteract';
+import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance } from '../utils/zeroGInteract';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
 import locaContext from '../context/localization/locaContext';
 import { CS_FETCH_LOBBY_INFO, CS_CHECK_DELEGATE, SC_DELEGATE_STATUS } from '../pokergame/actions';
 import {
   isTronLinkInstalled,
-  waitForTronLink,
   connectTronLink,
   isPlayerRegistered,
   registerPlayer,
-  getCurrentAddress,
   formatAddress,
   getPlayerBalance,
   depositTrx,
@@ -30,7 +28,6 @@ import {
   formatTrx,
   parseTrx,
   tryUnlockLockedBalance,
-  getGameSession,
   setDelegate,
   revokeDelegate,
   isAuthorizedDelegate,
@@ -106,6 +103,8 @@ const Landing = () => {
   const [authorizing, setAuthorizing] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [serverAddress, setServerAddress] = useState(null);
+  // Track which wallet type is connected: 'tron' | 'zerog' | null
+  const [walletType, setWalletType] = useState(null);
 
   // Calculate balances
   // contractBalance = balance (available in contract)
@@ -117,27 +116,21 @@ const Landing = () => {
 
   useScrollToTopOnPageLoad();
 
-  // Check TronLink installation on mount (delayed to let page render first)
+  // Check wallet installation on mount (passive detection only - NO connection requests)
   useEffect(() => {
-    const checkTronLink = async () => {
-      // Delay wallet detection by 500ms so landing page renders first
+    const checkWallets = async () => {
+      // Delay to let page render first
       await new Promise(r => setTimeout(r, 500));
-      
-      // Wait for TronLink to inject
-      const ready = await waitForTronLink(2000);
-      setTronLinkInstalled(ready);
-      
-      // If already connected, get address
-      if (ready) {
-        const address = getCurrentAddress();
-        if (address) {
-          setLocalWalletAddress(address);
-          setWalletAddress(address);
-        }
-      }
+
+      // Passively check if wallets are installed (without triggering any popup)
+      const tronReady = !!(window.tronLink || window.tronWeb);
+      setTronLinkInstalled(tronReady);
+
+      // Do NOT auto-read address or trigger connection here.
+      // Address is only set when user explicitly clicks a connect button.
     };
-    
-    checkTronLink();
+
+    checkWallets();
   }, []);
 
   // Preload game assets — ONLY after page is fully rendered and user has been idle.
@@ -170,6 +163,14 @@ const Landing = () => {
     const checkRegistration = async () => {
       if (walletAddress) {
         try {
+          // For 0G/EVM mode, skip TRON-specific checks (registration handled differently)
+          if (walletType === 'zerog') {
+            setIsRegistered(true); // 0G players are auto-registered via server API
+            const bal = await get0GBalance(walletAddress);
+            setWalletBalance(parseFloat(bal));
+            return;
+          }
+
           const registered = await isPlayerRegistered(walletAddress);
           setIsRegistered(registered);
           
@@ -188,7 +189,7 @@ const Landing = () => {
       }
     };
     checkRegistration();
-  }, [walletAddress]);
+  }, [walletAddress, walletType]);
 
   // Fetch server address on mount (don't wait for socket)
   useEffect(() => {
@@ -249,15 +250,21 @@ const Landing = () => {
     
     setRefreshing(true);
     try {
-      // Get wallet TRX balance
-      const trxBalance = await getTrxBalance(walletAddress);
-      setWalletBalance(trxBalance);
-      
-      // Get game balance (if registered)
-      if (isRegistered) {
-        const balance = await getPlayerBalance(walletAddress);
-        setContractBalance(balance.balance);
-        setLockedBalance(balance.locked || 0);
+      // For 0G/EVM mode, use 0G balance
+      if (walletType === 'zerog') {
+        const bal = await get0GBalance(walletAddress);
+        setWalletBalance(parseFloat(bal));
+      } else {
+        // Get wallet TRX balance
+        const trxBalance = await getTrxBalance(walletAddress);
+        setWalletBalance(trxBalance);
+        
+        // Get game balance (if registered)
+        if (isRegistered) {
+          const balance = await getPlayerBalance(walletAddress);
+          setContractBalance(balance.balance);
+          setLockedBalance(balance.locked || 0);
+        }
       }
     } catch (err) {
       console.error('Error refreshing balances:', err);
@@ -279,6 +286,7 @@ const Landing = () => {
           const address = result.address;
           setLocalWalletAddress(address);
           setWalletAddress(address);
+          setWalletType('tron');
           
           // Check if registered (don't auto-redirect, let user see the status)
           const registered = await isPlayerRegistered(address);
@@ -403,10 +411,10 @@ const Landing = () => {
     try {
       const amount = bankroll; // Withdraw all available balance
 
-      // Pre-flight: check contract TRX balance >= withdraw amount
+      // Pre-flight: check contract balance >= withdraw amount
       try {
         const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
-        if (tronWeb) {
+        if (tronWeb && walletType !== 'zerog') {
           const contractAddress = getContractAddress();
           const contractTrxBalance = await tronWeb.trx.getBalance(contractAddress);
           if (contractTrxBalance < amount) {
@@ -466,9 +474,10 @@ const Landing = () => {
 
     // If there's locked balance, show warning
     if (lockedBalance > 0) {
+      const currency = walletType === 'zerog' ? '0G' : 'TRX';
       const confirmWithdrawAll = window.confirm(
-        `You have ${formatTrx(lockedBalance)} TRX locked in an active game.\n` +
-        `Withdrawing available balance ${formatTrx(bankroll)} TRX — locked balance will remain.\n` +
+        `You have ${formatTrx(lockedBalance)} ${currency} locked in an active game.\n` +
+        `Withdrawing available balance ${formatTrx(bankroll)} ${currency} — locked balance will remain.\n` +
         `Continue?`
       );
       if (!confirmWithdrawAll) return;
@@ -746,7 +755,7 @@ const Landing = () => {
             headingClass="h6"
             textCenteredOnMobile
             dangerouslySetInnerHTML={{
-              __html: 'Deposit TRX to start playing. <span style=\"color: #24516a\">Withdraw anytime.</span>',
+              __html: `Deposit ${walletType === 'zerog' ? '0G' : 'TRX'} to start playing. <span style="color: #24516a">Withdraw anytime.</span>`,
             }}
           />
         </Markdown>
@@ -772,8 +781,17 @@ const Landing = () => {
                   try {
                     const result = await connectZeroGWallet();
                     if (result?.address) {
+                      // Auto-switch to 0G Testnet network
+                      try {
+                        await switchChain('testnet');
+                        console.log('[Landing] Switched to 0G Testnet');
+                      } catch (switchErr) {
+                        console.warn('[Landing] Failed to auto-switch 0G network:', switchErr.message);
+                        setError('Failed to switch to 0G network. Please add it manually in MetaMask.');
+                      }
                       setLocalWalletAddress(result.address);
                       setWalletAddress(result.address);
+                      setWalletType('zerog');
                     }
                   } catch (e) {
                     setError('MetaMask not found. Please install MetaMask or use TRON.');
@@ -789,7 +807,7 @@ const Landing = () => {
             <>
               <WalletInfo>
                 <span>Wallet: {formatAddress(walletAddress)}</span>
-                <span>TRX: {formatTrx(walletBalance)}</span>
+                <span>{walletType === 'zerog' ? '0G' : 'TRX'}: {formatTrx(walletBalance)}</span>
                 {walletBalance === 0 && (
                   <small style={{ color: '#f0883e', fontSize: '0.8rem', display: 'block', marginTop: '0.25rem' }}>
                     If you just topped up from faucet, please wait a few seconds for the balance to update, but you can continue to deposit.
@@ -817,13 +835,17 @@ const Landing = () => {
                     >
                       {registering ? 'Registering...' : 'Register on Blockchain'}
                     </Button>
-                    {/* Faucet hint for users without TRX */}
+                    {/* Faucet hint for users without balance */}
                     {walletBalance === 0 && (
                       <FaucetLink>
-                        Need test TRX?{' '}
-                        <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
-                          Get from Nile Faucet
-                        </a>
+                        Need test {walletType === 'zerog' ? '0G' : 'TRX'}?{' '}
+                        {walletType === 'zerog' ? (
+                          <span>Visit <a href="https://faucet.0g.ai" target="_blank" rel="noopener noreferrer">0G Faucet</a> for test tokens</span>
+                        ) : (
+                          <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
+                            Get from Nile Faucet
+                          </a>
+                        )}
                         <br />
                         <small style={{ color: '#888' }}>
                           After receiving, wait a few seconds for the balance to refresh automatically, but you can continue to deposit.
@@ -839,21 +861,21 @@ const Landing = () => {
                 <>
                   <BalanceInfo>
                     <BalanceRow>
-                      <span>Wallet TRX:</span>
-                      <span>{formatTrx(walletBalance)} TRX</span>
+                      <span>Wallet {walletType === 'zerog' ? '0G' : 'TRX'}:</span>
+                      <span>{formatTrx(walletBalance)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     <BalanceRow>
                       <span>Game Balance:</span>
-                      <span>{formatTrx(gameBalance)} TRX</span>
+                      <span>{formatTrx(gameBalance)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     <BalanceRow>
                       <span>Bankroll:</span>
-                      <span>{formatTrx(bankroll)} TRX</span>
+                      <span>{formatTrx(bankroll)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     {lockedBalance > 0 && (
                       <BalanceRow style={{ color: '#f0883e', fontSize: '0.8rem' }}>
                         <span>  └─ Locked:</span>
-                        <span>{formatTrx(lockedBalance)} TRX</span>
+                        <span>{formatTrx(lockedBalance)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
                       </BalanceRow>
                     )}
                   </BalanceInfo>
@@ -862,7 +884,7 @@ const Landing = () => {
                       type="number"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="Amount in TRX"
+                      placeholder={`Amount in ${walletType === 'zerog' ? '0G' : 'TRX'}`}
                       min="1"
                     />
                     <Button
@@ -888,10 +910,10 @@ const Landing = () => {
 
                   <WithdrawSection>
                     <WithdrawInfo>
-                      <span>{t('withdrawable')} {formatTrx(bankroll)} TRX</span>
+                      <span>{t('withdrawable')} {formatTrx(bankroll)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
                       {lockedBalance > 0 && (
                         <LockedWarning>
-                          ⚠️ {formatTrx(lockedBalance)} TRX {t('locked')}
+                          ⚠️ {formatTrx(lockedBalance)} {walletType === 'zerog' ? '0G' : 'TRX'} {t('locked')}
                         </LockedWarning>
                       )}
                     </WithdrawInfo>
@@ -920,10 +942,14 @@ const Landing = () => {
                     )}
                   </WithdrawSection>
                   <FaucetLink>
-                    Need test TRX?{' '}
-                    <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
-                      Get from Nile Faucet
-                    </a>
+                    Need test {walletType === 'zerog' ? '0G' : 'TRX'}?{' '}
+                    {walletType === 'zerog' ? (
+                      <span>Visit <a href="https://faucet.0g.ai" target="_blank" rel="noopener noreferrer">0G Faucet</a></span>
+                    ) : (
+                      <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
+                        Get from Nile Faucet
+                      </a>
+                    )}
                   </FaucetLink>
                   {/* Server Authorization Section */}
                   <DelegateSection id="delegate-section">

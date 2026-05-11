@@ -6,6 +6,8 @@
 const path = require('path');
 const fs = require('fs');
 const config = require('../config');
+// Use ethers6 for v6 API (parseEther, Contract, etc.)
+const ethers = require('ethers6');
 
 class ZeroGContractService {
     constructor() {
@@ -77,7 +79,7 @@ class ZeroGContractService {
         if (!this.zeroGService || !this.zeroGService.wallet) {
             throw new Error('[ZeroGContractService] ZeroG wallet not available');
         }
-        this.pokerGameContract = new (require('ethers').Contract)(
+        this.pokerGameContract = new ethers.Contract(
             address, this.pokerGameAbi, this.zeroGService.wallet
         );
         console.log(`[ZeroGContractService] PokerGame0G connected at ${address}`);
@@ -87,7 +89,7 @@ class ZeroGContractService {
         if (!this.zeroGService || !this.zeroGService.wallet) {
             throw new Error('[ZeroGContractService] ZeroG wallet not available');
         }
-        this.inftContract = new (require('ethers').Contract)(
+        this.inftContract = new ethers.Contract(
             address, this.inftAbi, this.zeroGService.wallet
         );
         console.log(`[ZeroGContractService] PokerHandINFT connected at ${address}`);
@@ -97,7 +99,6 @@ class ZeroGContractService {
 
     async deposit(playerAddress, valueEth) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
-        const ethers = require('ethers');
         const tx = await this.pokerGameContract.deposit({
             value: ethers.parseEther(valueEth.toString())
         });
@@ -106,7 +107,6 @@ class ZeroGContractService {
 
     async withdraw(amountEth) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
-        const ethers = require('ethers');
         const tx = await this.pokerGameContract.withdraw(ethers.parseEther(amountEth.toString()));
         return await tx.wait();
     }
@@ -115,7 +115,6 @@ class ZeroGContractService {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
         
         const { handId, winners, amounts, totalPot, rake, stateHash } = gameResult;
-        const ethers = require('ethers');
 
         const parsedAmounts = amounts.map(a => ethers.parseEther(a.toString()));
         const tx = await this.pokerGameContract.settle(

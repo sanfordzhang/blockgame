@@ -139,6 +139,7 @@ async function initializeBlockchainServices() {
                     
                     const { initializeAll } = require('./blockchain/blockchainFactory');
                     const { zerog } = initializeAll();
+                    global.zeroGService = zerog;
 
                     if (zerog && zerog.initialized) {
                         // Initialize ZeroG Contract Service
@@ -260,23 +261,54 @@ async function initializeBlockchainServices() {
 // Initialize blockchain services
 initializeBlockchainServices();
 
-// Server wallet balance monitor
-const WARN_THRESHOLD = 50 * 1e6;  // 50 TRX warning
-const CRITICAL_THRESHOLD = 10 * 1e6; // 10 TRX critical
+// Server wallet balance monitor (supports both TRON and 0G modes)
+const TRON_WARN_THRESHOLD = 50 * 1e6;   // 50 TRX warning
+const TRON_CRITICAL_THRESHOLD = 10 * 1e6; // 10 TRX critical
+const ZEROG_WARN_THRESHOLD = 0.5;       // 0.5 0G warning
+const ZEROG_CRITICAL_THRESHOLD = 0.1;   // 0.1 0G critical
 
 async function checkServerWalletBalance() {
     if (!config.BLOCKCHAIN_ENABLED) return;
-    try {
-        const serverAddress = TronService.getSignerAddress();
-        const balance = await TronService.getTrxBalance(serverAddress);
-        const balanceTRX = (balance / 1e6).toFixed(2);
 
-        if (balance < CRITICAL_THRESHOLD) {
-            console.error(`[Server] 🚨 CRITICAL: Server wallet balance critically low: ${balanceTRX} TRX! Game operations will FAIL!`);
-        } else if (balance < WARN_THRESHOLD) {
-            console.warn(`[Server] ⚠️  WARNING: Server wallet balance low: ${balanceTRX} TRX. Please top up soon.`);
+    const is0GMode = config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both';
+
+    try {
+        if (is0GMode && global.zeroGService) {
+            // 0G mode: use ZeroGService
+            const serverAddress = global.zeroGService.getSignerAddress();
+            if (!serverAddress) {
+                console.warn('[Server] ZeroG wallet not initialized, skipping balance check');
+                return;
+            }
+            const balanceEth = await global.zeroGService.getBalance(serverAddress);
+            const balanceNum = parseFloat(balanceEth);
+
+            if (balanceNum < ZEROG_CRITICAL_THRESHOLD) {
+                console.error(`[Server] CRITICAL: Server 0G wallet balance critically low: ${balanceEth} 0G!`);
+            } else if (balanceNum < ZEROG_WARN_THRESHOLD) {
+                console.warn(`[Server] WARNING: Server 0G wallet balance low: ${balanceEth} 0G.`);
+            } else {
+                console.log(`[Server] Server 0G wallet balance: ${balanceEth} 0G (${serverAddress})`);
+            }
+        } else if (!is0GMode) {
+            // TRON mode: use TronService
+            const serverAddress = TronService.getSignerAddress();
+            if (!serverAddress) {
+                console.warn('[Server] TRON wallet not initialized, skipping balance check');
+                return;
+            }
+            const balance = await TronService.getTrxBalance(serverAddress);
+            const balanceTRX = (balance / 1e6).toFixed(2);
+
+            if (balance < TRON_CRITICAL_THRESHOLD) {
+                console.error(`[Server] CRITICAL: Server wallet balance critically low: ${balanceTRX} TRX!`);
+            } else if (balance < TRON_WARN_THRESHOLD) {
+                console.warn(`[Server] WARNING: Server wallet balance low: ${balanceTRX} TRX.`);
+            } else {
+                console.log(`[Server] Server wallet balance: ${balanceTRX} TRX (${serverAddress})`);
+            }
         } else {
-            console.log(`[Server] 💰 Server wallet balance: ${balanceTRX} TRX`);
+            console.log('[Server] 0G mode but zeroGService not yet available, will retry balance check later');
         }
     } catch (e) {
         console.error('[Server] Failed to check server wallet balance:', e.message);
