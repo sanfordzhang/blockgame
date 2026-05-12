@@ -1,121 +1,148 @@
 /**
- * Inject Mock MetaMask into Chrome debug browser for 0G testing
+ * Inject mock MetaMask with user's real address (0x8808...58Eb5)
+ * Strategy: Navigate first, wait for load, then FORCE override window.ethereum
+ * 
  * Usage: node inject-metamask.js
  */
 const CDP = require('chrome-remote-interface');
+const fs = require('fs');
 
-const PLAYER_ADDRESS = '0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc';
-const CHAIN_ID_HEX = '0x40EA'; // 16602 = 0G Testnet
+const PLAYER_ADDRESS = '0x8808FF950B9BfDdDE445Fd099262e80CEe858Eb5';
 
 (async () => {
     try {
-        const client = await CDP({ port: 9222 });
-        const { Page, Runtime } = client;
-        
+        // Step 1: Navigate to page
+        console.log('=== Navigating ===');
+        let client = await CDP({ port: 9222 });
+        let { Page } = client;
         await Page.enable();
+        await Page.navigate({ url: 'http://127.0.0.1:3001/' });
+        await client.close();
+        await new Promise(r => setTimeout(r, 4000));
+
+        // Step 2: Reconnect and inject AFTER page loaded
+        console.log('=== Reconnecting + Injecting ===');
+        client = await CDP({ port: 9222 });
+        const { Page: P2, Runtime } = client;
+        await P2.enable();
         await Runtime.enable();
-        
-        console.log('Injecting mock MetaMask for 0G Testnet...');
-        console.log(`  Account: ${PLAYER_ADDRESS}`);
-        console.log(`  Chain ID: ${CHAIN_ID_HEX} (0G Testnet)`);
+
+        // Force inject - delete whatever is there, put ours in
+        console.log('Injecting mock MetaMask with address:', PLAYER_ADDRESS);
         
         await Runtime.evaluate({
             expression: `
 (function() {
-    // Remove existing ethereum if any
-    delete window.ethereum;
+    var ADDR = '${PLAYER_ADDRESS}';
+    var CHAIN = '0x40DA';
+    
+    // Delete existing ethereum object entirely
+    Object.defineProperty(window, 'ethereum', {
+        value: {
+            isMetaMask: true,
+            _isMock: true,
+            request: async function(args) {
+                var m = args.method, p = args.params || [];
+                switch(m) {
+                    case 'eth_requestAccounts': return [ADDR];
+                    case 'eth_accounts': return [ADDR];
+                    case 'eth_chainId': return CHAIN;
+                    case 'eth_getBalance':
+                        try {
+                            var resp = await fetch('https://evmrpc-galileo.0g.ai', {
+                                method: 'POST',
+                                headers: {'Content-Type':'application/json'},
+                                body: JSON.stringify({jsonrpc:'2.0',method:'eth_getBalance',params:[p[0]||ADDR,'latest'],id:1})
+                            });
+                            var data = await resp.json();
+                            return data.result || '0x0';
+                        } catch(e) { return '0x0'; }
+                    case 'wallet_switchEthereumChain': return null;
+                    case 'wallet_addEthereumChain': return null;
+                    case 'personal_sign': return '0x' + 'a'.repeat(130);
+                    case 'eth_sendTransaction': return '0x' + '1'.repeat(64);
+                    default: return null;
+                }
+            },
+            on: function(e,h){if(!this._e)this._e={};if(!this._e[e])this._e[e]=[];this._e[e].push(h);},
+            removeListener: function(e,h){if(!this._e)return;if(this._e[e])this._e[e]=this._e[e].filter(function(x){return x!==h;});},
+            emit: function(e,d){if(!this._e||!this._e[e])return;this._e[e].forEach(function(h){try{h(d);}catch(ex){}});},
+            chainId: CHAIN,
+            selectedAddress: ADDR,
+            networkVersion: '16602'
+        },
+        writable: true,
+        configurable: true
+    });
 
-    var accounts = ['${PLAYER_ADDRESS}'];
-    var chainIdHex = '${CHAIN_ID_HEX}';
-
-    window.ethereum = {
-        isMetaMask: true,
-        isOKX: false,
-        request: async function(args) {
-            var method = args.method;
-            var params = args.params || [];
-            
-            switch(method) {
-                case 'eth_requestAccounts':
-                    console.log('[mockMM] eth_requestAccounts ->', accounts);
-                    return accounts;
-                case 'eth_accounts':
-                    return accounts;
-                case 'eth_chainId':
-                    return chainIdHex;
-                case 'eth_getBalance':
-                    // Return ~1 0G token balance
-                    return '0xde0b6b3a7640000';
-                case 'wallet_switchEthereumChain':
-                    console.log('[mockMM] wallet_switchEthereumChain ->', params[0].chainId);
-                    return null;
-                case 'wallet_addEthereumChain':
-                    console.log('[mockMM] wallet_addEthereumChain ->', params[0].chainName);
-                    return null;
-                case 'personal_sign':
-                    return '0x' + 'a'.repeat(130);
-                case 'eth_sendTransaction':
-                    console.log('[mockMM] tx to:', params[0]?.to);
-                    return '0x' + '1'.repeat(64);
-                default:
-                    console.log('[mockMM] unhandled:', method, JSON.stringify(params).substring(0,100));
-                    return null;
-            }
-        },
-        on: function(event, handler) {
-            if (!this._events) this._events = {};
-            if (!this._events[event]) this._events[event] = [];
-            this._events[event].push(handler);
-        },
-        removeListener: function(event, handler) {
-            if (!this._events) return;
-            if (this._events[event]) {
-                this._events[event] = this._events[event].filter(function(h) { return h !== handler; });
-            }
-        },
-        emit: function(event, data) {
-            if (!this._events || !this._events[event]) return;
-            this._events[event].forEach(function(h) {
-                try { h(data); } catch(e) {}
-            });
-        },
-        _events: {},
-        chainId: chainIdHex,
-        selectedAddress: accounts[0],
-        networkVersion: '16602'
-    };
-
-    // Fire events after a short delay so React context can pick up
     setTimeout(function() {
-        window.ethereum.emit('accountsChanged', accounts);
-        window.ethereum.emit('chainChanged', chainIdHex);
+        window.ethereum.emit('accountsChanged', [ADDR]);
+        window.ethereum.emit('chainChanged', CHAIN);
     }, 200);
-
-    return 'Mock MetaMask injected successfully';
+    
+    return 'injected:' + ADDR;
 })()`,
             returnByValue: true,
             awaitPromise: true
         });
-        
-        // Verify injection
-        const verify = await Runtime.evaluate({
-            expression: `
-(function() {
+
+        // Verify
+        const v = await Runtime.evaluate({
+            expression: `({
+                addr: window.ethereum?.selectedAddress,
+                chainId: window.ethereum?.chainId,
+                isMetaMask: window.ethereum?.isMetaMask
+            })`,
+            returnByValue: true
+        });
+        console.log('Verified:', JSON.stringify(v.result.value));
+
+        if (v.result.value.addr?.toLowerCase() !== PLAYER_ADDRESS.toLowerCase()) {
+            throw new Error('Injection failed! Got: ' + v.result.value.addr);
+        }
+
+        // Screenshot before click
+        const ss1 = await P2.captureScreenshot({ format: 'png' });
+        fs.writeFileSync('screenshots/fix-before-click.png', Buffer.from(ss1.data, 'base64'));
+
+        // Click 0G / EVM button
+        console.log('\n=== Clicking 0G / EVM button ===');
+        await Runtime.evaluate({
+            expression: `(function() {
+    var btns = Array.from(document.querySelectorAll('button'));
+    var btn = btns.find(function(b) { return b.textContent.indexOf('0G') !== -1; });
+    if (btn) { btn.click(); return 'clicked'; }
+    return 'not found: ' + btns.map(function(b){return b.textContent}).join('|');
+})()`,
+            returnByValue: true
+        });
+
+        await new Promise(r => setTimeout(r, 5000));
+
+        // Screenshot after click
+        const ss2 = await P2.captureScreenshot({ format: 'png' });
+        fs.writeFileSync('screenshots/fix-after-click-real.png', Buffer.from(ss2.data, 'base64'));
+
+        const result = await Runtime.evaluate({
+            expression: `(function() {
     return {
-        hasEthereum: !!window.ethereum,
-        isMetaMask: window.ethereum?.isMetaMask,
-        address: window.ethereum?.selectedAddress,
-        chainId: window.ethereum?.chainId
+        type: localStorage.getItem('wallet_type'),
+        addr: localStorage.getItem('wallet_address'),
+        text: document.body.innerText.substring(0, 1000)
     };
 })()`,
             returnByValue: true
         });
         
-        console.log('\\n=== Injection Result ===');
-        console.log(JSON.stringify(verify.result.value, null, 2));
-        
+        console.log('\n=== RESULT ===');
+        console.log('Wallet type:', result.result.value.type);
+        console.log('Address:', result.result.value.addr);
+        console.log('Preview:', result.result.value.text.substring(0, 350));
+        console.log('\nScreenshots:');
+        console.log('  Before: screenshots/fix-before-click.png');
+        console.log('  After:  screenshots/fix-after-click-real.png');
+
         await client.close();
-        console.log('\\nDone! Now click the "0G / EVM" button in browser.');
     } catch (e) {
         console.error('Error:', e.message);
         process.exit(1);

@@ -28,3 +28,5 @@ yarn-error.log*
 /test-results
 /test-results_副本
 /ai_engine/models/nfsp_v1_副本
+/screenshots
+/logs

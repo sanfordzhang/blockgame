@@ -11,14 +11,14 @@ const ZeroGContext = createContext(null);
 // Chain configurations
 const CHAIN_CONFIGS = {
     testnet: {
-        chainId: '0x40EA', // 16602 in hex
+        chainId: '0x40DA', // 16602 in hex (0G Testnet)
         chainName: '0G Testnet',
         nativeCurrency: { name: '0G Token', symbol: '0G', decimals: 18 },
         rpcUrls: ['https://evmrpc-galileo.0g.ai'],
         blockExplorerUrls: ['https://chainscan-galileo.0g.ai']
     },
     mainnet: {
-        chainId: '0x4115', // 16661 in hex
+        chainId: '0x4115', // 16661 in hex (0G Mainnet)
         chainName: '0G Mainnet',
         nativeCurrency: { name: '0G Token', symbol: '0G', decimals: 18 },
         rpcUrls: ['https://rpc.0g.ai'],

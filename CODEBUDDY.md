@@ -288,3 +288,11 @@ const PLAYER2 = {
     address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
     privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
 };
+
+## 文件新建存放规则
+所有测试脚本文件放在tests目录
+所有log文件放入logs目录
+所有CDP脚本文件放入cdp-scripts目录
+
+## 自动化测试，截图，模拟点击操作，包括签名、充值、游戏流程等，参考以下文档
+docs/Tronlink_Deposit_AutoSign.md

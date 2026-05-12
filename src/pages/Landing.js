@@ -10,7 +10,7 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance } from '../utils/zeroGInteract';
+import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, disconnectWallet, ensureCorrectChain } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
@@ -127,8 +127,56 @@ const Landing = () => {
       const tronReady = !!(window.tronLink || window.tronWeb);
       setTronLinkInstalled(tronReady);
 
-      // Do NOT auto-read address or trigger connection here.
-      // Address is only set when user explicitly clicks a connect button.
+      // === Auto-restore 0G connection from localStorage ===
+      try {
+        const savedType = localStorage.getItem('wallet_type');
+        const savedAddress = localStorage.getItem('wallet_address');
+        
+        console.log('[Landing-RESTORE] Check:', { savedType, savedAddress, hasEthereum: !!window.ethereum });
+
+        if (savedType === 'zerog' && savedAddress && window.ethereum) {
+          console.log('[Landing-RESTORE] Entering 0G restore branch...');
+          console.log('[Landing] Restoring 0G connection from localStorage:', savedAddress);
+
+          // Silently verify session is still valid (eth_accounts does NOT trigger popup)
+          try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+
+            if (!accounts || accounts.length === 0) {
+              // eth_accounts returned empty — wallet extension exists but user hasn't
+              // authorized it (or it's a different wallet like Brave Wallet).
+              // Still restore from saved state — don't clear!
+              console.log('[Landing-RESTORE] eth_accounts empty, restoring from saved state:', savedAddress);
+              setLocalWalletAddress(savedAddress);
+              setWalletAddress(savedAddress);
+              setLocalWalletType('zerog');
+              setWalletType('zerog');
+            } else if (accounts[0].toLowerCase() === savedAddress.toLowerCase()) {
+              setLocalWalletAddress(savedAddress);
+              setWalletAddress(savedAddress);
+              setLocalWalletType('zerog');
+              setWalletType('zerog');
+              console.log('[Landing-RESTORE] 0G connection restored successfully (verified)');
+            } else {
+              // A DIFFERENT address is now active — stale data, clear it
+              console.log('[Landing-RESTORE] Address changed, clearing. Got:', accounts[0], 'Expected:', savedAddress);
+              localStorage.removeItem('wallet_type');
+              localStorage.removeItem('wallet_address');
+            }
+          } catch (verifyErr) {
+            console.warn('[Landing] Failed to verify 0G session:', verifyErr.message);
+          }
+        } else if (savedType === 'tron' && savedAddress) {
+          // TRON: just restore the state (no silent verification possible for TronLink)
+          setLocalWalletAddress(savedAddress);
+          setWalletAddress(savedAddress);
+          setLocalWalletType('tron');
+          setWalletType('tron');
+          console.log('[Landing] TRON connection restored from localStorage');
+        }
+      } catch (e) {
+        console.warn('[Landing] Failed to restore wallet:', e.message);
+      }
     };
 
     checkWallets();
@@ -298,6 +346,10 @@ const Landing = () => {
           setWalletAddress(address);
           setLocalWalletType('tron');
           setWalletType('tron'); // global for Navbar
+
+          // Persist connection state so it survives page refresh
+          localStorage.setItem('wallet_type', 'tron');
+          localStorage.setItem('wallet_address', address);
           
           // Check if registered (don't auto-redirect, let user see the status)
           const registered = await isPlayerRegistered(address);
@@ -368,6 +420,13 @@ const Landing = () => {
     try {
       if (localWalletType === 'zerog') {
         // ====== 0G Deposit Path ======
+        // Ensure we're on the correct 0G chain (fixes "invalid chain id for signer" error)
+        try { await ensureCorrectChain('testnet'); } catch (chainErr) {
+          setError(chainErr.message);
+          setDepositing(false);
+          return;
+        }
+
         const amountEth = parseFloat(depositAmount);
         if (!amountEth || amountEth <= 0) {
           setError(t('errDepositAmount'));
@@ -393,9 +452,9 @@ const Landing = () => {
         console.log('[Landing] 0G deposit tx:', txHash);
         
         holdWalletBalance(60000);
-        // ⚠️ TESTNET: 0.1 0G ≡ 100M SUN (rate=1000x for faucet compatibility)
-        // PRODUCTION: change (100/0.1) to (100/60) for market rate
-        setContractBalance(prev => prev + amountEth * 1000 * 1e6);
+        // For 0G: store contract balance in same 0G token units (not SUN)
+        // amountEth is already in 0G tokens, add directly
+        setContractBalance(prev => prev + amountEth);
         setWalletBalanceForce(prev => Math.max(0, prev - amountEth));
       } else {
         // ====== TRON Deposit Path ======
@@ -421,9 +480,10 @@ const Landing = () => {
         attempts++;
         try {
           if (localWalletType === 'zerog') {
-            // For 0G, poll via server API
+            // For 0G: keep contractBalance as-is from optimistic update
+            // (polling contract balance requires on-chain query, skip for testnet)
             const bal = await get0GBalance(walletAddress);
-            setContractBalance(parseFloat(bal) * 1e6); // rough conversion for display
+            setWalletBalance(parseFloat(bal));
           } else {
             const balance = await getPlayerBalance(walletAddress);
             setContractBalance(balance.balance);
@@ -639,6 +699,13 @@ const Landing = () => {
     try {
       if (localWalletType === 'zerog') {
         // ====== 0G Authorization Path ======
+        // Ensure we're on the correct 0G chain
+        try { await ensureCorrectChain('testnet'); } catch (chainErr) {
+          setError(chainErr.message);
+          setAuthorizing(false);
+          return;
+        }
+
         console.log('[Landing] Authorizing server via 0G contract...');
         
         const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
@@ -908,6 +975,11 @@ const Landing = () => {
                       setWalletAddress(result.address);
                       setLocalWalletType('zerog');
                       setWalletType('zerog'); // global for Navbar
+
+                      // Persist connection state so it survives page refresh
+                      localStorage.setItem('wallet_type', 'zerog');
+                      localStorage.setItem('wallet_address', result.address);
+                      console.log('[Landing] 0G connection saved to localStorage');
                     }
                   } catch (e) {
                     if (e.code === 4001) {
@@ -928,8 +1000,40 @@ const Landing = () => {
           ) : (
             <>
               <WalletInfo>
-                <span>Wallet: {formatAddress(walletAddress)}</span>
-                <span>{localWalletType === 'zerog' ? '0G' : 'TRX'}: {formatTrx(walletBalance)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <span>Wallet: {formatAddress(walletAddress)}</span>
+                    <span>{localWalletType === 'zerog' ? '0G' : 'TRX'}: {localWalletType === 'zerog' ? parseFloat(walletBalance).toFixed(4) : formatTrx(walletBalance)}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem('wallet_type');
+                      localStorage.removeItem('wallet_address');
+                      setLocalWalletAddress(null);
+                      setWalletAddress(null);
+                      setLocalWalletType(null);
+                      setWalletType(null);
+                      setIsRegistered(false);
+                      setContractBalance(0);
+                      setLockedBalance(0);
+                      setWalletBalanceRaw(0);
+                      disconnectWallet();
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #e74c3c',
+                      color: '#e74c3c',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.75rem',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Disconnect current wallet and switch network"
+                  >
+                    Disconnect
+                  </button>
+                </div>
                 {walletBalance === 0 && (
                   <small style={{ color: '#f0883e', fontSize: '0.8rem', display: 'block', marginTop: '0.25rem' }}>
                     If you just topped up from faucet, please wait a few seconds for the balance to update, but you can continue to deposit.
@@ -984,20 +1088,20 @@ const Landing = () => {
                   <BalanceInfo>
                     <BalanceRow>
                       <span>Wallet {localWalletType === 'zerog' ? '0G' : 'TRX'}:</span>
-                      <span>{formatTrx(walletBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{localWalletType === 'zerog' ? parseFloat(walletBalance).toFixed(4) : formatTrx(walletBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     <BalanceRow>
                       <span>Game Balance:</span>
-                      <span>{formatTrx(gameBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{localWalletType === 'zerog' ? parseFloat(gameBalance).toFixed(4) : formatTrx(gameBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     <BalanceRow>
                       <span>Bankroll:</span>
-                      <span>{formatTrx(bankroll)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{localWalletType === 'zerog' ? parseFloat(bankroll).toFixed(4) : formatTrx(bankroll)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     {lockedBalance > 0 && (
                       <BalanceRow style={{ color: '#f0883e', fontSize: '0.8rem' }}>
                         <span>  └─ Locked:</span>
-                        <span>{formatTrx(lockedBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
+                        <span>{localWalletType === 'zerog' ? parseFloat(lockedBalance).toFixed(4) : formatTrx(lockedBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                       </BalanceRow>
                     )}
                   </BalanceInfo>
@@ -1032,10 +1136,10 @@ const Landing = () => {
 
                   <WithdrawSection>
                     <WithdrawInfo>
-                      <span>{t('withdrawable')} {formatTrx(bankroll)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{t('withdrawable')} {localWalletType === 'zerog' ? parseFloat(bankroll).toFixed(4) : formatTrx(bankroll)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                       {lockedBalance > 0 && (
                         <LockedWarning>
-                          ⚠️ {formatTrx(lockedBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'} {t('locked')}
+                          ⚠️ {localWalletType === 'zerog' ? parseFloat(lockedBalance).toFixed(4) : formatTrx(lockedBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'} {t('locked')}
                         </LockedWarning>
                       )}
                     </WithdrawInfo>
@@ -1045,7 +1149,7 @@ const Landing = () => {
                         disabled={withdrawing || bankroll <= 0}
                         style={{ flex: 1 }}
                       >
-                        {withdrawing ? t('withdrawing') : t('withdrawAmount')(formatTrx(bankroll))}
+                        {withdrawing ? t('withdrawing') : `Withdraw ${localWalletType === 'zerog' ? parseFloat(bankroll).toFixed(4) + ' 0G' : formatTrx(bankroll) + ' TRX'}`}
                       </Button>
                     </WithdrawButtons>
                     {lockedBalance > 0 && (

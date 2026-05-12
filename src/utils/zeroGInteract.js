@@ -4,9 +4,25 @@
  */
 
 const CHAIN_IDS = {
-    TESTNET: '0x40EA',   // 16602
-    MAINNET: '0x4115'    // 16661
+    TESTNET: '0x40DA',   // 16602 (0G Testnet)
+    MAINNET: '0x4115'    // 16661 (0G Mainnet)
 };
+
+// === Global pending request guard ===
+// Prevents "wallet_requestPermissions already pending" error when multiple
+// connect/switch calls happen simultaneously (e.g., button click + page auto-restore)
+let _pendingRequest = null;
+
+function _setPending(promise) {
+    _pendingRequest = promise;
+    promise.finally(() => {
+        if (_pendingRequest === promise) _pendingRequest = null;
+    });
+}
+
+function _isPending() {
+    return _pendingRequest !== null;
+}
 
 /**
  * Check if an EVM wallet (MetaMask/OKX) is available
@@ -17,18 +33,25 @@ export function hasEvmWallet() {
 }
 
 /**
- * Connect wallet and get accounts
+ * Connect wallet and get accounts (with deduplication guard)
  * @returns {Promise<{address: string, addresses: string[]}>} Object with primary address
  */
 export async function connectWallet() {
     if (!hasEvmWallet()) {
         throw new Error('No EVM wallet found. Install MetaMask.');
     }
-    const addresses = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    return {
-        address: addresses[0],
-        addresses
-    };
+
+    if (_isPending()) {
+        console.warn('[zeroG] Request already pending, waiting for existing...');
+        try { return await _pendingRequest; } catch { /* fall through */ }
+    }
+
+    const p = (async () => {
+        const addresses = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        return { address: addresses[0], addresses };
+    })();
+    _setPending(p);
+    return p;
 }
 
 /**
@@ -39,11 +62,16 @@ export function disconnectWallet() {
 }
 
 /**
- * Switch to 0G network with robust error handling
- * @param {'testnet'|'mainnet'} network 
+ * Switch to 0G network with robust error handling (with deduplication guard)
+ * @param {'testnet'|'mainnet'} network
  */
 export async function switchChain(network = 'testnet') {
     if (!hasEvmWallet()) throw new Error('No wallet');
+
+    if (_isPending()) {
+        console.warn('[zeroG] Switch chain request already pending, waiting...');
+        try { return await _pendingRequest; } catch { /* fall through */ }
+    }
 
     const configs = {
         testnet: {
@@ -63,58 +91,74 @@ export async function switchChain(network = 'testnet') {
     };
 
     const cfg = configs[network];
+    const targetChainId = parseInt(cfg.chainId, 16);
 
-    try {
-        // Step 1: Try switching to existing chain
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: cfg.chainId }]
-        });
-        console.log('[zeroG] Successfully switched to', cfg.chainName);
-        return;
-    } catch (switchError) {
-        console.warn('[zeroG] switch error:', switchError.code, switchError.message);
-        
-        // Step 2: Chain not added yet (code 4902)
-        if (switchError.code === 4902) {
-            try {
-                const addParams = [{
-                    chainId: cfg.chainId,
-                    chainName: cfg.chainName,
-                    nativeCurrency: cfg.nativeCurrency,
-                    rpcUrls: cfg.rpcUrls,
-                    blockExplorerUrls: cfg.blockExplorerUrls
-                }];
-                console.log('[zeroG] Adding chain...', cfg.chainName, addParams[0]);
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: addParams
-                });
-                console.log('[zeroG] Chain added successfully');
-                
-                // After adding, switch again
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: cfg.chainId }]
-                });
+    const p = (async () => {
+        // Pre-check: already on correct chain?
+        try {
+            const currentCid = await window.ethereum.request({ method: 'eth_chainId' });
+            if (parseInt(currentCid, 16) === targetChainId) {
+                console.log('[zeroG] Already on', cfg.chainName);
                 return;
-            } catch (addError) {
-                console.error('[zeroG] Add chain error:', addError.code, addError.message);
-                throw new Error(`Failed to add ${cfg.chainName}: ${addError.message}`);
             }
+        } catch (e) {
+            console.warn('[zeroG] Chain check failed:', e.message);
         }
-        
-        // Step 3: User rejected (4001) or other known codes
-        if (switchError.code === 4001) {
-            throw new Error('User rejected network switch');
+
+        try {
+            // Step 1: Try switching to existing chain
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: cfg.chainId }]
+            });
+            console.log('[zeroG] Successfully switched to', cfg.chainName);
+            return;
+        } catch (switchError) {
+            console.warn('[zeroG] switch error:', switchError.code, switchError.message);
+            
+            // Step 2: Chain not added yet (code 4902)
+            if (switchError.code === 4902) {
+                try {
+                    const addParams = [{
+                        chainId: cfg.chainId,
+                        chainName: cfg.chainName,
+                        nativeCurrency: cfg.nativeCurrency,
+                        rpcUrls: cfg.rpcUrls,
+                        blockExplorerUrls: cfg.blockExplorerUrls
+                    }];
+                    console.log('[zeroG] Adding chain...', cfg.chainName, addParams[0]);
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: addParams
+                    });
+                    console.log('[zeroG] Chain added successfully');
+                    
+                    // After adding, switch again
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: cfg.chainId }]
+                    });
+                    return;
+                } catch (addError) {
+                    console.error('[zeroG] Add chain error:', addError.code, addError.message);
+                    throw new Error(`Failed to add ${cfg.chainName}: ${addError.message}`);
+                }
+            }
+            
+            // Step 3: User rejected (4001) or other known codes
+            if (switchError.code === 4001) {
+                throw new Error('User rejected network switch');
+            }
+            if (switchError.code === -32002) {
+                throw new Error('Request pending — please check your wallet popup');
+            }
+            
+            // Unknown error
+            throw switchError;
         }
-        if (switchError.code === -32002) {
-            throw new Error('Request pending — please check your wallet popup');
-        }
-        
-        // Unknown error
-        throw switchError;
-    }
+    })();
+    _setPending(p);
+    return p;
 }
 
 /**
@@ -157,22 +201,63 @@ export async function sendTransaction(tx) {
 }
 
 /**
- * Get ETH/native token balance for address
+ * Get ETH/native token balance for address via 0G RPC directly (NOT through MetaMask)
+ * This ensures we always get 0G balance regardless of which chain MetaMask is currently on.
  * @param {string} [address] - Address to query (default: first account)
  * @returns {Promise<string>} Balance as decimal ETH string
  */
 export async function getBalance(address) {
-    if (!hasEvmWallet()) return '0';
-
-    const addr = address || (await window.ethereum.request({ method: 'eth_accounts' }))[0];
+    // Always try 0G RPC first for accurate balance reading
+    const addr = address || (hasEvmWallet() ? (await window.ethereum.request({ method: 'eth_accounts' }))[0] : null);
     if (!addr) return '0';
 
-    const bal = await window.ethereum.request({
-        method: 'eth_getBalance',
-        params: [addr, 'latest']
-    });
+    // Use direct RPC call to 0G Testnet to get real 0G balance
+    const OG_RPC_URLS = [
+        'https://evmrpc-galileo.0g.ai',   // testnet primary
+        'https://rpc.0g.ai'                // mainnet fallback
+    ];
 
-    return (parseInt(bal, 16) / 1e18).toString();
+    for (const rpcUrl of OG_RPC_URLS) {
+        try {
+            const response = await fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_getBalance',
+                    params: [addr, 'latest'],
+                    id: 1
+                })
+            });
+            const data = await response.json();
+            if (data.result) {
+                const balWei = parseInt(data.result, 16);
+                const bal = (balWei / 1e18).toString();
+                console.log(`[zeroG] Balance via ${rpcUrl}: ${bal} 0G`);
+                return bal;
+            }
+        } catch (e) {
+            console.warn(`[zeroG] Failed ${rpcUrl}:`, e.message);
+        }
+    }
+
+    // Fallback: use wallet provider if available and on correct chain
+    if (hasEvmWallet()) {
+        try {
+            const cid = await window.ethereum.request({ method: 'eth_chainId' });
+            if (cid === '0x40DA' || cid === '0x4115') {  // 0G testnet or mainnet
+                const bal = await window.ethereum.request({
+                    method: 'eth_getBalance',
+                    params: [addr, 'latest']
+                });
+                return (parseInt(bal, 16) / 1e18).toString();
+            }
+        } catch (e) {
+            console.warn('[zeroG] Wallet fallback failed:', e.message);
+        }
+    }
+
+    return '0';
 }
 
 /**
@@ -208,6 +293,43 @@ export async function isOn0GNetwork() {
 }
 
 /**
+ * Ensure wallet is on the correct 0G chain before sending transactions.
+ * Fixes "invalid chain id for signer: have X want Y" errors.
+ *
+ * @param {'testnet'|'mainnet'} [network='testnet']
+ * @throws {Error} If not on correct chain and switch fails
+ */
+export async function ensureCorrectChain(network = 'testnet') {
+    if (!hasEvmWallet()) throw new Error('No wallet');
+
+    const expectedCid = parseInt(CHAIN_IDS[network.toUpperCase()], 16);
+    const actualCid = await getChainId();
+
+    if (actualCid === expectedCid) return; // Already correct
+
+    console.warn(`[zeroG] Chain mismatch! Expected ${expectedCid} (0${network}), got ${actualCid}. Switching...`);
+
+    // Try to auto-switch
+    try {
+        await switchChain(network);
+        // Verify after switch
+        const newCid = await getChainId();
+        if (newCid !== expectedCid) {
+            throw new Error(
+                `Failed to switch to ${network} network. ` +
+                `Current chain: ${newCid}, Expected: ${expectedCid} (${network === 'testnet' ? '0x40DA' : '0x4115'}). ` +
+                `Please manually switch your wallet to 0G ${network === 'testnet' ? 'Testnet' : 'Mainnet'} first.`
+            );
+        }
+    } catch (err) {
+        throw new Error(
+            `Cannot proceed — wrong chain. Wallet is on chain ${actualCid}, need ${expectedCid} (0G ${network}). ` +
+            `Switch error: ${err.message}`
+        );
+    }
+}
+
+/**
  * Shorten long hashes for display
  * @param {string} hash 
  * @returns {string}
@@ -228,6 +350,7 @@ export default {
     formatAddress,
     getChainId,
     isOn0GNetwork,
+    ensureCorrectChain,
     shortenHash,
     CHAIN_IDS
 };
