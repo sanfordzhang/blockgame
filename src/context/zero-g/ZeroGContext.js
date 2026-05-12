@@ -238,19 +238,10 @@ export const ZeroGProvider = ({ children }) => {
         };
     }, [address, disconnectWallet, refreshBalance]);
 
-    // Auto-reconnect if previously connected
-    useEffect(() => {
-        if (hasEvmWallet()) {
-            window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
-                if (accounts.length > 0) {
-                    setAddress(accounts[0]);
-                    setIsConnected(true);
-                    _fetchNetworkInfo();
-                    refreshBalance();
-                }
-            }).catch(() => {});
-        }
-    }, []); // eslint-disable-line
+    // NOTE: Auto-reconnect removed — user must explicitly click Connect button.
+    // Previously this effect auto-restored connection from eth_accounts,
+    // which caused unwanted behavior (e.g., conflicting with TRON mode).
+    // If you want to re-enable, guard with a user preference check.
 
     const value = {
         // State

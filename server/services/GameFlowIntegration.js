@@ -7,6 +7,25 @@ const contractService = require('../blockchain/ContractService');
 const gameSettlementService = require('./GameSettlementService');
 const transactionQueue = require('../blockchain/TransactionQueue');
 const { SC_BALANCE_SYNCED } = require('../pokergame/actions');
+const config = require('../config');
+
+// Lazy-load SettlementRouter for 0G mode support
+let _settlementRouter = null;
+function getSettlementRouter() {
+    if (!_settlementRouter) {
+        try {
+            _settlementRouter = require('./SettlementRouter');
+        } catch (e) {
+            console.warn('[GameFlowIntegration] SettlementRouter not available:', e.message);
+        }
+    }
+    return _settlementRouter;
+}
+
+// ⚠️ TESTNET exchange rate constant: how many SUN per 0.001 of 0G token
+// Derived from: 0.1 0G deposit ≡ 100M SUN game balance → 1 SUN ≡ 1e-9 0G
+// PRODUCTION: change to market rate (~1 SUN ≡ 6e-7 0G)
+const ZEROG_EXCHANGE_RATE = 1e9; // SUN → 0G divisor
 
 class GameFlowIntegration {
     constructor() {
@@ -417,32 +436,47 @@ class GameFlowIntegration {
         });
 
         // 【要求4和5】合约调用，加入重试机制
+        // 根据区块链模式选择结算路径：TRON 用 leaveTableSession，0G 用 settle（含 SUN→0G 转换）
         const MAX_RETRIES = 3;
         const RETRY_DELAY = 2000;
         let result = null;
         let lastError = null;
+        const isZeroGMode = (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both');
 
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                console.log(`[GameFlowIntegration] leaveTableSession attempt ${attempt}/${MAX_RETRIES}`);
-                result = await Promise.race([
-                    contractService.leaveTableSession(tableId, stack),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Transaction timeout')), 30000)
-                    )
-                ]);
-                console.log(`[GameFlowIntegration] ✅ leaveTableSession SUCCESS on attempt ${attempt}`);
+                if (isZeroGMode) {
+                    // 0G MODE: use leaveTableSession (mirrors TRON's leaveTableSession)
+                    const router = getSettlementRouter();
+                    if (router && router.zerogContractService) {
+                        const stackWei = BigInt(stack);  // SUN-equivalent → wei for 0G
+                        console.log(`[GameFlowIntegration] 0G leaveTableSession attempt ${attempt}/${MAX_RETRIES}, stack=${stack} SUN (${stackWei} wei)`);
+                        result = await router.zerogContractService.leaveTableSession(playerAddress, stackWei);
+                        console.log(`[GameFlowIntegration] OK 0G leaveTableSession SUCCESS on attempt ${attempt}`);
+                    } else {
+                        console.warn('[GameFlowIntegration] ZeroGContractService not available, skipping on-chain settlement');
+                        result = { fallback: true, message: 'ZeroG service not initialized' };
+                    }
+                } else {
+                    console.log(`[GameFlowIntegration] leaveTableSession attempt ${attempt}/${MAX_RETRIES}`);
+                    result = await Promise.race([
+                        contractService.leaveTableSession(tableId, stack),
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Transaction timeout')), 30000)
+                        )
+                    ]);
+                    console.log(`[GameFlowIntegration] OK leaveTableSession SUCCESS on attempt ${attempt}`);
+                }
                 break;
-            } catch (sessionError) {
-                lastError = sessionError;
-                console.error(`[GameFlowIntegration] ❌ leaveTableSession FAILED attempt ${attempt}: ${sessionError.message}`);
+            } catch (err) {
+                lastError = err;
+                console.error(`[GameFlowIntegration] X leaveTable FAILED attempt ${attempt}: ${err.message}`);
 
-                // 尝试备用方法
-                if (attempt === 1) {
+                if (!isZeroGMode && attempt === 1) {
                     try {
                         console.log('[GameFlowIntegration] Trying fallback: regular leaveTable');
                         result = await contractService.leaveTable(tableId);
-                        console.log('[GameFlowIntegration] ✅ regular leaveTable SUCCESS');
+                        console.log('[GameFlowIntegration] OK regular leaveTable SUCCESS');
                         break;
                     } catch (regularError) {
                         console.error(`[GameFlowIntegration] Regular leaveTable also failed: ${regularError.message}`);
@@ -455,7 +489,6 @@ class GameFlowIntegration {
                 }
             }
         }
-
         if (!result) {
             // 【要求5】所有重试都失败，启动异步重试任务
             console.error(`[GameFlowIntegration] All ${MAX_RETRIES} attempts failed, starting async retry task`);

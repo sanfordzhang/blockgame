@@ -10,6 +10,8 @@ const GlobalState = ({ children }) => {
   const [tables, setTables] = useState(null);
   const [players, setPlayers] = useState(null);
   const [walletAddress, setWalletAddressRaw] = useState('');
+  // Track which chain the user connected with: 'tron' | 'zerog' | null
+  const [walletType, setWalletTypeRaw] = useState(null);
 
   // Clear chipsAmount when wallet address changes, preventing balance bleed between accounts
   const setWalletAddress = useCallback((addr) => {
@@ -18,6 +20,16 @@ const GlobalState = ({ children }) => {
         setChipsAmount(null);
       }
       return addr;
+    });
+  }, []);
+
+  // Set wallet type and clear chips on chain switch
+  const setWalletType = useCallback((type) => {
+    setWalletTypeRaw((prev) => {
+      if (prev && type && prev !== type) {
+        setChipsAmount(null);
+      }
+      return type;
     });
   }, []);
 
@@ -40,6 +52,8 @@ const GlobalState = ({ children }) => {
         setPlayers,
         walletAddress,
         setWalletAddress,
+        walletType,
+        setWalletType,
       }}
     >
       {children}

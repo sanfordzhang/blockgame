@@ -39,7 +39,7 @@ export function disconnectWallet() {
 }
 
 /**
- * Switch to 0G network
+ * Switch to 0G network with robust error handling
  * @param {'testnet'|'mainnet'} network 
  */
 export async function switchChain(network = 'testnet') {
@@ -65,19 +65,55 @@ export async function switchChain(network = 'testnet') {
     const cfg = configs[network];
 
     try {
+        // Step 1: Try switching to existing chain
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: cfg.chainId }]
         });
+        console.log('[zeroG] Successfully switched to', cfg.chainName);
+        return;
     } catch (switchError) {
+        console.warn('[zeroG] switch error:', switchError.code, switchError.message);
+        
+        // Step 2: Chain not added yet (code 4902)
         if (switchError.code === 4902) {
-            await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [cfg]
-            });
-        } else {
-            throw switchError;
+            try {
+                const addParams = [{
+                    chainId: cfg.chainId,
+                    chainName: cfg.chainName,
+                    nativeCurrency: cfg.nativeCurrency,
+                    rpcUrls: cfg.rpcUrls,
+                    blockExplorerUrls: cfg.blockExplorerUrls
+                }];
+                console.log('[zeroG] Adding chain...', cfg.chainName, addParams[0]);
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: addParams
+                });
+                console.log('[zeroG] Chain added successfully');
+                
+                // After adding, switch again
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: cfg.chainId }]
+                });
+                return;
+            } catch (addError) {
+                console.error('[zeroG] Add chain error:', addError.code, addError.message);
+                throw new Error(`Failed to add ${cfg.chainName}: ${addError.message}`);
+            }
         }
+        
+        // Step 3: User rejected (4001) or other known codes
+        if (switchError.code === 4001) {
+            throw new Error('User rejected network switch');
+        }
+        if (switchError.code === -32002) {
+            throw new Error('Request pending — please check your wallet popup');
+        }
+        
+        // Unknown error
+        throw switchError;
     }
 }
 

@@ -68,28 +68,22 @@ export const TronProvider = ({ children }) => {
   const [isInstalled, setIsInstalled] = useState(false);
 
   /**
-   * Check if TronLink is installed
+   * Check if TronLink is installed (PASSIVE only — no address reading, no popup)
    */
   useEffect(() => {
     const checkInstallation = () => {
+      // Passive detection only: check if object exists (no address access)
       const installed = isTronLinkInstalled();
       setIsInstalled(installed);
-      
-      if (installed && window.tronLink) {
-        // Check if already connected
-        const addr = getCurrentAddress();
-        if (addr) {
-          setAddress(addr);
-          setIsConnected(true);
-        }
-      }
+      // Do NOT call getCurrentAddress() here — it triggers TronLink popup.
+      // Address is only set when user explicitly clicks Connect button.
     };
 
     checkInstallation();
-    
+
     // Re-check after a delay (TronLink might still be loading)
     const timeout = setTimeout(checkInstallation, 1000);
-    
+
     return () => clearTimeout(timeout);
   }, []);
 

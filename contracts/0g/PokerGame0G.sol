@@ -28,6 +28,7 @@ contract PokerGame0G is AccessControl {
     event DelegateAuthorized(address indexed player, address indexed delegate);
     event DelegateRevoked(address indexed player);
     event OperatorChanged(address indexed oldOperator, address indexed newOperator);
+    event PlayerLeftTable(address indexed player, uint256 finalStack);
 
     // ============ State Variables ============
     mapping(address => uint256) public custodyBalance;
@@ -140,6 +141,24 @@ contract PokerGame0G is AccessControl {
         handStateHashes[handId] = stateHash;
 
         emit Settled(handId, winners, amounts, totalPot, rake, stateHash);
+    }
+
+    // ============ Table Session (Join/Leave) ============
+
+    /**
+     * @notice Player leaves table — return final stack to custody balance
+     * @dev Only callable by OPERATOR_ROLE. Mirrors TRON's leaveTableSession semantics.
+     * @param player Player address leaving the table
+     * @param finalStack Player's remaining stack in SUN-equivalent wei units
+     */
+    function leaveTableSession(address player, uint256 finalStack)
+        external
+        onlyOperator
+    {
+        require(player != address(0), "Invalid player address");
+        // Add stack back to custody balance (same as settle but for single player leave)
+        custodyBalance[player] += finalStack;
+        emit PlayerLeftTable(player, finalStack);
     }
 
     // ============ Delegate Authorization ============

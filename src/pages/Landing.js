@@ -11,6 +11,7 @@ import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
 import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance } from '../utils/zeroGInteract';
+import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
 import locaContext from '../context/localization/locaContext';
@@ -46,7 +47,7 @@ const MarketingHeadline = styled(Heading)`
 `;
 
 const Landing = () => {
-  const { setWalletAddress, setChipsAmount } = useContext(globalContext);
+  const { setWalletAddress, setChipsAmount, setWalletType } = useContext(globalContext);
   const { socket } = useContext(socketContext);
   const { t } = useContext(locaContext);
   const navigate = useNavigate();
@@ -104,7 +105,7 @@ const Landing = () => {
   const [revoking, setRevoking] = useState(false);
   const [serverAddress, setServerAddress] = useState(null);
   // Track which wallet type is connected: 'tron' | 'zerog' | null
-  const [walletType, setWalletType] = useState(null);
+  const [localWalletType, setLocalWalletType] = useState(null);
 
   // Calculate balances
   // contractBalance = balance (available in contract)
@@ -164,23 +165,23 @@ const Landing = () => {
       if (walletAddress) {
         try {
           // For 0G/EVM mode, skip TRON-specific checks (registration handled differently)
-          if (walletType === 'zerog') {
-            setIsRegistered(true); // 0G players are auto-registered via server API
+          if (localWalletType === 'zerog') {
             const bal = await get0GBalance(walletAddress);
+            setIsRegistered(true);
             setWalletBalance(parseFloat(bal));
             return;
           }
 
           const registered = await isPlayerRegistered(walletAddress);
           setIsRegistered(registered);
-          
+
           // Get balances
           if (registered) {
             const balance = await getPlayerBalance(walletAddress);
             setContractBalance(balance.balance);
             setLockedBalance(balance.locked || 0);
           }
-          
+
           const trxBalance = await getTrxBalance(walletAddress);
           setWalletBalance(trxBalance);
         } catch (err) {
@@ -189,7 +190,16 @@ const Landing = () => {
       }
     };
     checkRegistration();
-  }, [walletAddress, walletType]);
+  }, [walletAddress, localWalletType]);
+
+  // Update default deposit amount based on chain type
+  useEffect(() => {
+    if (localWalletType === 'zerog') {
+      setDepositAmount('0.1'); // ⚠️ TESTNET: faucet limit=0.1/day → PRODUCTION: change back to ~60 (market rate)
+    } else {
+      setDepositAmount('100');
+    }
+  }, [localWalletType]);
 
   // Fetch server address on mount (don't wait for socket)
   useEffect(() => {
@@ -251,7 +261,7 @@ const Landing = () => {
     setRefreshing(true);
     try {
       // For 0G/EVM mode, use 0G balance
-      if (walletType === 'zerog') {
+      if (localWalletType === 'zerog') {
         const bal = await get0GBalance(walletAddress);
         setWalletBalance(parseFloat(bal));
       } else {
@@ -286,7 +296,8 @@ const Landing = () => {
           const address = result.address;
           setLocalWalletAddress(address);
           setWalletAddress(address);
-          setWalletType('tron');
+          setLocalWalletType('tron');
+          setWalletType('tron'); // global for Navbar
           
           // Check if registered (don't auto-redirect, let user see the status)
           const registered = await isPlayerRegistered(address);
@@ -349,36 +360,76 @@ const Landing = () => {
     }
   };
 
+  // Deposit handler (supports both TRON and 0G)
   const handleDeposit = async () => {
     setDepositing(true);
     setError(null);
 
     try {
-      const amount = parseTrx(depositAmount);
-      if (amount <= 0) {
-        setError(t('errDepositAmount'));
-        return;
+      if (localWalletType === 'zerog') {
+        // ====== 0G Deposit Path ======
+        const amountEth = parseFloat(depositAmount);
+        if (!amountEth || amountEth <= 0) {
+          setError(t('errDepositAmount'));
+          return;
+        }
+        
+        console.log('[Landing] Depositing', amountEth, '0G to contract...');
+        const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+        const DEPOSIT_ABI = ['function deposit() payable'];
+        const valueWei = '0x' + (amountEth * 1e18).toString(16);
+        
+        const txParams = {
+          from: walletAddress,
+          to: POKERGAME_0G_ADDRESS,
+          data: new ethers.utils.Interface(DEPOSIT_ABI).encodeFunctionData('deposit'),
+          value: valueWei
+        };
+        
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [txParams]
+        });
+        console.log('[Landing] 0G deposit tx:', txHash);
+        
+        holdWalletBalance(60000);
+        // ⚠️ TESTNET: 0.1 0G ≡ 100M SUN (rate=1000x for faucet compatibility)
+        // PRODUCTION: change (100/0.1) to (100/60) for market rate
+        setContractBalance(prev => prev + amountEth * 1000 * 1e6);
+        setWalletBalanceForce(prev => Math.max(0, prev - amountEth));
+      } else {
+        // ====== TRON Deposit Path ======
+        const amount = parseTrx(depositAmount);
+        if (amount <= 0) {
+          setError(t('errDepositAmount'));
+          return;
+        }
+
+        console.log('Depositing', amount, 'SUN');
+        const tx = await depositTrx(amount);
+        console.log('Deposit tx:', tx);
+
+        holdWalletBalance(60000);
+        setContractBalance(prev => prev + amount);
+        setWalletBalanceForce(prev => Math.max(0, prev - amount));
       }
 
-      console.log('Depositing', amount, 'SUN');
-      const tx = await depositTrx(amount);
-      console.log('Deposit tx:', tx);
-
-      // Optimistic update: immediately reflect deposit in both balances, hold 60s
-      holdWalletBalance(60000);
-      setContractBalance(prev => prev + amount);
-      setWalletBalanceForce(prev => Math.max(0, prev - amount));
-
-      // Poll contract balance until confirmed (UI already shows correct value)
+      // Poll balance until confirmed
       const prevContractBalance = contractBalance;
       let attempts = 0;
       const poll = async () => {
         attempts++;
         try {
-          const balance = await getPlayerBalance(walletAddress);
-          setContractBalance(balance.balance);
-          setLockedBalance(balance.locked || 0);
-          if (balance.balance > prevContractBalance || attempts >= 15) return;
+          if (localWalletType === 'zerog') {
+            // For 0G, poll via server API
+            const bal = await get0GBalance(walletAddress);
+            setContractBalance(parseFloat(bal) * 1e6); // rough conversion for display
+          } else {
+            const balance = await getPlayerBalance(walletAddress);
+            setContractBalance(balance.balance);
+            setLockedBalance(balance.locked || 0);
+          }
+          if (attempts >= 15) return;
         } catch (e) { console.error('Balance poll error:', e); }
         setTimeout(poll, 3000);
       };
@@ -386,7 +437,18 @@ const Landing = () => {
       
     } catch (err) {
       console.error('Deposit error:', err);
-      setError(err.message || t('errDepositFailed'));
+      if (localWalletType === 'zerog') {
+        const errMsg = err.message || '';
+        if (errMsg.includes('rejected') || errMsg.includes('4001')) {
+          setError('Deposit rejected by user');
+        } else if (errMsg.includes('insufficient funds')) {
+          setError('Insufficient 0G balance');
+        } else {
+          setError(`0G Deposit failed: ${errMsg}`);
+        }
+      } else {
+        setError(err.message || t('errDepositFailed'));
+      }
     } finally {
       setDepositing(false);
     }
@@ -414,7 +476,7 @@ const Landing = () => {
       // Pre-flight: check contract balance >= withdraw amount
       try {
         const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
-        if (tronWeb && walletType !== 'zerog') {
+        if (tronWeb && localWalletType !== 'zerog') {
           const contractAddress = getContractAddress();
           const contractTrxBalance = await tronWeb.trx.getBalance(contractAddress);
           if (contractTrxBalance < amount) {
@@ -474,7 +536,7 @@ const Landing = () => {
 
     // If there's locked balance, show warning
     if (lockedBalance > 0) {
-      const currency = walletType === 'zerog' ? '0G' : 'TRX';
+      const currency = localWalletType === 'zerog' ? '0G' : 'TRX';
       const confirmWithdrawAll = window.confirm(
         `You have ${formatTrx(lockedBalance)} ${currency} locked in an active game.\n` +
         `Withdrawing available balance ${formatTrx(bankroll)} ${currency} — locked balance will remain.\n` +
@@ -559,10 +621,9 @@ const Landing = () => {
     }
   };
 
-  // Handle delegate authorization
+  // Handle delegate authorization (supports both TRON and 0G)
   const handleAuthorizeServer = async () => {
     if (!serverAddress) {
-      // Request server address if not available
       if (socket && socket.connected) {
         socket.emit(CS_CHECK_DELEGATE, { walletAddress });
         setError(t('errServerAddr'));
@@ -576,40 +637,82 @@ const Landing = () => {
     setError(null);
 
     try {
-      // Verify registration status before authorizing
-      console.log('[Landing] Checking registration before authorize...');
-      const registered = await isPlayerRegistered(walletAddress);
-      if (!registered) {
-        setError(t('errNotRegistered'));
-        setIsRegistered(false);
-        return;
-      }
-
-      console.log('[Landing] Authorizing server:', serverAddress);
-      const result = await setDelegate(serverAddress);
-      console.log('[Landing] setDelegate result:', result);
-      
-      if (result.success) {
-        // Notify server about the authorization
+      if (localWalletType === 'zerog') {
+        // ====== 0G Authorization Path ======
+        console.log('[Landing] Authorizing server via 0G contract...');
+        
+        const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+        const POKERGAME_ABI = [
+          'function authorizeDelegate(address delegate) returns (bool)',
+          'function isDelegateAuthorized(address player, address delegate) view returns (bool)'
+        ];
+        
+        const txParams = {
+          from: walletAddress,
+          to: POKERGAME_0G_ADDRESS,
+          data: new ethers.utils.Interface(POKERGAME_ABI).encodeFunctionData(
+            'authorizeDelegate', [serverAddress]
+          )
+        };
+        
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [txParams]
+        });
+        console.log('[Landing] 0G authorize tx:', txHash);
+        
         if (socket && socket.connected) {
           socket.emit('CS_SET_DELEGATE', { 
             delegateAddress: serverAddress, 
-            txId: result.tx 
+            txId: txHash,
+            chainType: 'zerog'
           });
         }
-        
-        // Optimistically update state
         setDelegateAuthorized(true);
+
+      } else {
+        // ====== TRON Authorization Path ======
+        console.log('[Landing] Checking registration before authorize...');
+        const registered = await isPlayerRegistered(walletAddress);
+        if (!registered) {
+          setError(t('errNotRegistered'));
+          setIsRegistered(false);
+          return;
+        }
+
+        console.log('[Landing] Authorizing server:', serverAddress);
+        const result = await setDelegate(serverAddress);
+        console.log('[Landing] setDelegate result:', result);
+        
+        if (result.success) {
+          if (socket && socket.connected) {
+            socket.emit('CS_SET_DELEGATE', { 
+              delegateAddress: serverAddress, 
+              txId: result.tx,
+              chainType: 'tron'
+            });
+          }
+          setDelegateAuthorized(true);
+        }
       }
     } catch (err) {
       console.error('[Landing] Authorization error:', err);
-      // Handle specific contract errors
       const errMsg = err.message || '';
-      if (errMsg.includes('REVERT') || errMsg.includes('not registered')) {
-        setError('Authorization failed: Not registered. Please register first.');
-        setIsRegistered(false);
+      if (localWalletType === 'zerog') {
+        if (errMsg.includes('rejected') || errMsg.includes('4001')) {
+          setError('Authorization rejected by user');
+        } else if (errMsg.includes('insufficient funds') || errMsg.includes('balance')) {
+          setError('Insufficient 0G balance for gas fee');
+        } else {
+          setError(`0G Authorization failed: ${errMsg}`);
+        }
       } else {
-        setError(errMsg || 'Authorization failed, please try again');
+        if (errMsg.includes('REVERT') || errMsg.includes('not registered')) {
+          setError('Authorization failed: Not registered. Please register first.');
+          setIsRegistered(false);
+        } else {
+          setError(errMsg || 'Authorization failed, please try again');
+        }
       }
     } finally {
       setAuthorizing(false);
@@ -755,7 +858,7 @@ const Landing = () => {
             headingClass="h6"
             textCenteredOnMobile
             dangerouslySetInnerHTML={{
-              __html: `Deposit ${walletType === 'zerog' ? '0G' : 'TRX'} to start playing. <span style="color: #24516a">Withdraw anytime.</span>`,
+              __html: `Deposit ${localWalletType === 'zerog' ? '0G' : 'TRX'} to start playing. <span style="color: #24516a">Withdraw anytime.</span>`,
             }}
           />
         </Markdown>
@@ -778,6 +881,12 @@ const Landing = () => {
                 large
                 fullWidthOnMobile
                 onClick={async () => {
+                  // Check if EVM wallet is available first
+                  if (!window.ethereum) {
+                    setError('EVM wallet (MetaMask / OKX) not detected in this browser.\n\nOptions:\n• Install MetaMask extension and reload\n• Use OKX Wallet\n• For testing: run `node inject-metamask.js` to inject a mock wallet');
+                    return;
+                  }
+
                   try {
                     const result = await connectZeroGWallet();
                     if (result?.address) {
@@ -787,14 +896,27 @@ const Landing = () => {
                         console.log('[Landing] Switched to 0G Testnet');
                       } catch (switchErr) {
                         console.warn('[Landing] Failed to auto-switch 0G network:', switchErr.message);
-                        setError('Failed to switch to 0G network. Please add it manually in MetaMask.');
+
+                        // If chain not added, provide helpful guidance
+                        if (switchErr.code === 4902 || switchErr.message?.includes('add')) {
+                          setError('0G network not found in wallet. Please add it manually:\nNetwork Name: 0G Testnet\nRPC URL: https://evmrpc-galileo.0g.ai\nChain ID: 16602\nSymbol: 0G');
+                        } else {
+                          setError(`Failed to switch to 0G network: ${switchErr.message}`);
+                        }
                       }
                       setLocalWalletAddress(result.address);
                       setWalletAddress(result.address);
-                      setWalletType('zerog');
+                      setLocalWalletType('zerog');
+                      setWalletType('zerog'); // global for Navbar
                     }
                   } catch (e) {
-                    setError('MetaMask not found. Please install MetaMask or use TRON.');
+                    if (e.code === 4001) {
+                      setError('Connection cancelled by user.');
+                    } else if (e.message?.includes('not found') || e.message?.includes('Install')) {
+                      setError(`${e.message}\n\nTip: For testing, run "node inject-metamask.js" to simulate a MetaMask wallet.`);
+                    } else {
+                      setError(e.message || 'Failed to connect 0G wallet');
+                    }
                   }
                 }}
                 style={{ flex: 1, background: '#627eea', borderColor: '#627eea' }}
@@ -807,7 +929,7 @@ const Landing = () => {
             <>
               <WalletInfo>
                 <span>Wallet: {formatAddress(walletAddress)}</span>
-                <span>{walletType === 'zerog' ? '0G' : 'TRX'}: {formatTrx(walletBalance)}</span>
+                <span>{localWalletType === 'zerog' ? '0G' : 'TRX'}: {formatTrx(walletBalance)}</span>
                 {walletBalance === 0 && (
                   <small style={{ color: '#f0883e', fontSize: '0.8rem', display: 'block', marginTop: '0.25rem' }}>
                     If you just topped up from faucet, please wait a few seconds for the balance to update, but you can continue to deposit.
@@ -838,8 +960,8 @@ const Landing = () => {
                     {/* Faucet hint for users without balance */}
                     {walletBalance === 0 && (
                       <FaucetLink>
-                        Need test {walletType === 'zerog' ? '0G' : 'TRX'}?{' '}
-                        {walletType === 'zerog' ? (
+                        Need test {localWalletType === 'zerog' ? '0G' : 'TRX'}?{' '}
+                        {localWalletType === 'zerog' ? (
                           <span>Visit <a href="https://faucet.0g.ai" target="_blank" rel="noopener noreferrer">0G Faucet</a> for test tokens</span>
                         ) : (
                           <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">
@@ -861,21 +983,21 @@ const Landing = () => {
                 <>
                   <BalanceInfo>
                     <BalanceRow>
-                      <span>Wallet {walletType === 'zerog' ? '0G' : 'TRX'}:</span>
-                      <span>{formatTrx(walletBalance)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>Wallet {localWalletType === 'zerog' ? '0G' : 'TRX'}:</span>
+                      <span>{formatTrx(walletBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     <BalanceRow>
                       <span>Game Balance:</span>
-                      <span>{formatTrx(gameBalance)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{formatTrx(gameBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     <BalanceRow>
                       <span>Bankroll:</span>
-                      <span>{formatTrx(bankroll)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{formatTrx(bankroll)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                     </BalanceRow>
                     {lockedBalance > 0 && (
                       <BalanceRow style={{ color: '#f0883e', fontSize: '0.8rem' }}>
                         <span>  └─ Locked:</span>
-                        <span>{formatTrx(lockedBalance)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
+                        <span>{formatTrx(lockedBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                       </BalanceRow>
                     )}
                   </BalanceInfo>
@@ -884,7 +1006,7 @@ const Landing = () => {
                       type="number"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder={`Amount in ${walletType === 'zerog' ? '0G' : 'TRX'}`}
+                      placeholder={`Amount in ${localWalletType === 'zerog' ? '0G' : 'TRX'}`}
                       min="1"
                     />
                     <Button
@@ -910,10 +1032,10 @@ const Landing = () => {
 
                   <WithdrawSection>
                     <WithdrawInfo>
-                      <span>{t('withdrawable')} {formatTrx(bankroll)} {walletType === 'zerog' ? '0G' : 'TRX'}</span>
+                      <span>{t('withdrawable')} {formatTrx(bankroll)} {localWalletType === 'zerog' ? '0G' : 'TRX'}</span>
                       {lockedBalance > 0 && (
                         <LockedWarning>
-                          ⚠️ {formatTrx(lockedBalance)} {walletType === 'zerog' ? '0G' : 'TRX'} {t('locked')}
+                          ⚠️ {formatTrx(lockedBalance)} {localWalletType === 'zerog' ? '0G' : 'TRX'} {t('locked')}
                         </LockedWarning>
                       )}
                     </WithdrawInfo>
@@ -942,8 +1064,8 @@ const Landing = () => {
                     )}
                   </WithdrawSection>
                   <FaucetLink>
-                    Need test {walletType === 'zerog' ? '0G' : 'TRX'}?{' '}
-                    {walletType === 'zerog' ? (
+                    Need test {localWalletType === 'zerog' ? '0G' : 'TRX'}?{' '}
+                    {localWalletType === 'zerog' ? (
                       <span>Visit <a href="https://faucet.0g.ai" target="_blank" rel="noopener noreferrer">0G Faucet</a></span>
                     ) : (
                       <a href="https://nileex.io/join/getJoinPage" target="_blank" rel="noopener noreferrer">

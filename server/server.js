@@ -110,29 +110,9 @@ async function initializeBlockchainServices() {
             EventListener.init(TronService, ContractService);
             EventListener.start();
 
-            // Set server as table owner for table 1 (so server can settle games)
-            try {
-                const serverAddress = TronService.getSignerAddress();
-                console.log('[Server] Server address:', serverAddress);
-
-                const currentOwner = await ContractService.getTableOwner(1);
-                console.log('[Server] Current table 1 owner:', currentOwner);
-
-                if (currentOwner !== serverAddress) {
-                    console.log('[Server] Setting server as table owner for table 1...');
-                    await ContractService.setTableOwner(1, serverAddress);
-                    console.log('[Server] ✅ Server set as table owner for table 1');
-                } else {
-                    console.log('[Server] ✅ Server is already table owner for table 1');
-                }
-            } catch (tableOwnerError) {
-                console.warn('[Server] ⚠️ Could not set table owner:', tableOwnerError.message);
-                console.warn('[Server] This may affect game settlement. Make sure server wallet is contract owner.');
-            }
-
             console.log('[Server] Blockchain services initialized successfully');
 
-            // ============ Initialize 0G (ZeroGravity) services ============
+            // ============ Initialize 0G (ZeroGravity) services (BEFORE blocking setTableOwner) ============
             if (config.ZEROG_ENABLED && (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both')) {
                 try {
                     console.log('[Server] Initializing 0G blockchain services...');
@@ -189,6 +169,9 @@ async function initializeBlockchainServices() {
                         }
 
                         console.log('[Server] ✅ All 0G services initialized successfully');
+
+                        // 0G 初始化完成后立即检查双链余额
+                        checkServerWalletBalance();
                     }
                 } catch (zgError) {
                     console.error('[Server] ❌ 0G services initialization failed:', zgError.message);
@@ -197,9 +180,29 @@ async function initializeBlockchainServices() {
             } else if (config.ZEROG_ENABLED) {
                 console.log('[Server] ℹ️ 0G enabled but BLOCKCHAIN_MODE is not "0g" or "both", skipping 0G init');
             } else {
-                console.log('[Server] ℹ️ 0G disabled (ZEROG_ENABLED=false)');
+                console.log('[Server] ℹ️ 0G disabled, skipping 0G initialization');
             }
-            
+
+            // Set server as table owner for table 1 (blocking on-chain TX - moved AFTER 0G init)
+            try {
+                const serverAddress = TronService.getSignerAddress();
+                console.log('[Server] Server address:', serverAddress);
+
+                const currentOwner = await ContractService.getTableOwner(1);
+                console.log('[Server] Current table 1 owner:', currentOwner);
+
+                if (currentOwner !== serverAddress) {
+                    console.log('[Server] Setting server as table owner for table 1...');
+                    await ContractService.setTableOwner(1, serverAddress);
+                    console.log('[Server] ✅ Server set as table owner for table 1');
+                } else {
+                    console.log('[Server] ✅ Server is already table owner for table 1');
+                }
+            } catch (tableOwnerError) {
+                console.warn('[Server] ⚠️ Could not set table owner:', tableOwnerError.message);
+                console.warn('[Server] This may affect game settlement. Make sure server wallet is contract owner.');
+            }
+
             // Initialize AMM Services
             const ammPoolAddress = process.env.AMM_POOL_ADDRESS;
             const ammRouterAddress = process.env.AMM_ROUTER_ADDRESS;
@@ -270,45 +273,56 @@ const ZEROG_CRITICAL_THRESHOLD = 0.1;   // 0.1 0G critical
 async function checkServerWalletBalance() {
     if (!config.BLOCKCHAIN_ENABLED) return;
 
-    const is0GMode = config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both';
-
     try {
-        if (is0GMode && global.zeroGService) {
-            // 0G mode: use ZeroGService
-            const serverAddress = global.zeroGService.getSignerAddress();
-            if (!serverAddress) {
-                console.warn('[Server] ZeroG wallet not initialized, skipping balance check');
-                return;
-            }
-            const balanceEth = await global.zeroGService.getBalance(serverAddress);
-            const balanceNum = parseFloat(balanceEth);
+        // ====== TRON 余额检查（当模式不是纯 0G 时都检查）======
+        if (config.BLOCKCHAIN_MODE !== '0g') {
+            try {
+                const serverAddress = TronService.getSignerAddress();
+                if (!serverAddress) {
+                    console.warn('[Server] TRON wallet not initialized, skipping balance check');
+                } else {
+                    const balance = await TronService.getTrxBalance(serverAddress);
+                    const balanceTRX = (balance / 1e6).toFixed(2);
 
-            if (balanceNum < ZEROG_CRITICAL_THRESHOLD) {
-                console.error(`[Server] CRITICAL: Server 0G wallet balance critically low: ${balanceEth} 0G!`);
-            } else if (balanceNum < ZEROG_WARN_THRESHOLD) {
-                console.warn(`[Server] WARNING: Server 0G wallet balance low: ${balanceEth} 0G.`);
-            } else {
-                console.log(`[Server] Server 0G wallet balance: ${balanceEth} 0G (${serverAddress})`);
+                    if (balance < TRON_CRITICAL_THRESHOLD) {
+                        console.error(`[Server] CRITICAL: Server TRON wallet balance critically low: ${balanceTRX} TRX!`);
+                    } else if (balance < TRON_WARN_THRESHOLD) {
+                        console.warn(`[Server] WARNING: Server TRON wallet balance low: ${balanceTRX} TRX.`);
+                    } else {
+                        console.log(`[Server] Server TRON wallet balance: ${balanceTRX} TRX (${serverAddress})`);
+                    }
+                }
+            } catch (e) {
+                console.error('[Server] Failed to check TRON wallet balance:', e.message);
             }
-        } else if (!is0GMode) {
-            // TRON mode: use TronService
-            const serverAddress = TronService.getSignerAddress();
-            if (!serverAddress) {
-                console.warn('[Server] TRON wallet not initialized, skipping balance check');
-                return;
-            }
-            const balance = await TronService.getTrxBalance(serverAddress);
-            const balanceTRX = (balance / 1e6).toFixed(2);
+        }
 
-            if (balance < TRON_CRITICAL_THRESHOLD) {
-                console.error(`[Server] CRITICAL: Server wallet balance critically low: ${balanceTRX} TRX!`);
-            } else if (balance < TRON_WARN_THRESHOLD) {
-                console.warn(`[Server] WARNING: Server wallet balance low: ${balanceTRX} TRX.`);
-            } else {
-                console.log(`[Server] Server wallet balance: ${balanceTRX} TRX (${serverAddress})`);
+        // ====== 0G 余额检查（当模式是 0G 或 both 时检查）======
+        if ((config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both') && global.zeroGService) {
+            try {
+                const zgServerAddress = global.zeroGService.getSignerAddress();
+                if (!zgServerAddress) {
+                    console.warn('[Server] ZeroG wallet not initialized, skipping balance check');
+                } else {
+                    const balanceEth = await global.zeroGService.getBalance(zgServerAddress);
+                    const balanceNum = parseFloat(balanceEth);
+
+                    if (balanceNum < ZEROG_CRITICAL_THRESHOLD) {
+                        console.error(`[Server] CRITICAL: Server 0G wallet balance critically low: ${balanceEth} 0G!`);
+                    } else if (balanceNum < ZEROG_WARN_THRESHOLD) {
+                        console.warn(`[Server] WARNING: Server 0G wallet balance low: ${balanceEth} 0G.`);
+                    } else {
+                        console.log(`[Server] Server 0G wallet balance: ${balanceEth} 0G (${zgServerAddress})`);
+                    }
+                }
+            } catch (e) {
+                console.error('[Server] Failed to check 0G wallet balance:', e.message);
             }
-        } else {
-            console.log('[Server] 0G mode but zeroGService not yet available, will retry balance check later');
+        }
+
+        // 0G service 未就绪时的提示（both 或 0g 模式）
+        if ((config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both') && !global.zeroGService) {
+            console.log('[Server] 0G service not yet available, will retry balance check later (every 6h)');
         }
     } catch (e) {
         console.error('[Server] Failed to check server wallet balance:', e.message);

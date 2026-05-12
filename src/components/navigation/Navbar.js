@@ -11,6 +11,7 @@ import Spacer from '../layout/Spacer';
 import LangSwitcher from './LangSwitcher';
 import locaContext from '../../context/localization/locaContext';
 import { useZeroG } from '../../context/zero-g/ZeroGContext';
+import globalContext from '../../context/global/globalContext';
 
 const StyledNav = styled.nav`
   padding: 0.75rem 0;
@@ -96,6 +97,9 @@ const Navbar = ({
 }) => {
   const { t } = useContext(locaContext);
   const { address: zeroGAddress, isConnected: zeroGConnected } = useZeroG() || {};
+  // Prefer global walletType (set by Landing.js on connect), fallback to ZeroGContext
+  const { walletType: globalWalletType } = useContext(globalContext) || {};
+  const effectiveWalletType = globalWalletType || (zeroGConnected ? 'zerog' : 'tron');
   const navigate = useNavigate();
 
   // Go to home page Deposit section
@@ -142,8 +146,8 @@ const Navbar = ({
           {/* 右侧工具区 */}
           <Spacer>
             {/* Task 9.6: Chain Indicator Badge */}
-            <ChainBadge chain={zeroGConnected ? 'zerog' : 'tron'}>
-              {zeroGConnected ? '0G' : 'TRON'}
+            <ChainBadge chain={effectiveWalletType}>
+              {effectiveWalletType === 'zerog' ? '0G' : 'TRON'}
             </ChainBadge>
             <LangSwitcher />
             <HamburgerButton clickHandler={openNavMenu} />

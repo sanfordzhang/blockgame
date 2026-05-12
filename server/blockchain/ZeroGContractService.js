@@ -129,6 +129,20 @@ class ZeroGContractService {
         return await tx.wait();
     }
 
+    /**
+     * Player leaves table — return final stack to custody balance
+     * @param {string} playerAddress - Player wallet address
+     * @param {number|string} finalStack - Final stack in wei (0G smallest unit)
+     */
+    async leaveTableSession(playerAddress, finalStack) {
+        if (!this.pokerGameContract) throw new Error('PokerGame not connected');
+        const tx = await this.pokerGameContract.leaveTableSession(
+            playerAddress,
+            BigInt(finalStack)  // already in wei
+        );
+        return await tx.wait();
+    }
+
     async authorizePlayer(playerAddress) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
         const serverAddr = this.zeroGService.getSignerAddress();
