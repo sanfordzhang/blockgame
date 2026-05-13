@@ -55,20 +55,52 @@ class ZeroGContractService {
 
     loadAbis() {
         try {
-            const basePath = path.join(__dirname, '../../build/contracts');
-            
-            const pgPath = path.join(basePath, 'PokerGame0G.json');
-            if (fs.existsSync(pgPath)) {
-                const pgArtifact = JSON.parse(fs.readFileSync(pgPath, 'utf8'));
-                this.pokerGameAbi = pgArtifact.abi;
-                console.log('[ZeroGContractService] PokerGame0G ABI loaded');
+            // Check multiple possible locations for compiled artifacts:
+            // 1. Hardhat artifacts (standard): artifacts/contracts/0g/*.sol/
+            // 2. TronBox build (legacy): build/contracts/
+            const searchPaths = [
+                path.join(__dirname, '../../artifacts/contracts/0g'),
+                path.join(__dirname, '../../build/contracts')
+            ];
+
+            let found = false;
+
+            for (const baseDir of searchPaths) {
+                // PokerGame0G - try both with and without .sol subfolder
+                const pgCandidates = [
+                    path.join(baseDir, 'PokerGame0G.sol', 'PokerGame0G.json'),
+                    path.join(baseDir, 'PokerGame0G.json')
+                ];
+                for (const pgPath of pgCandidates) {
+                    if (fs.existsSync(pgPath)) {
+                        const pgArtifact = JSON.parse(fs.readFileSync(pgPath, 'utf8'));
+                        this.pokerGameAbi = pgArtifact.abi;
+                        console.log('[ZeroGContractService] PokerGame0G ABI loaded from:', pgPath);
+                        found = true;
+                        break;
+                    }
+                }
+                if (this.pokerGameAbi) break;
+
+                // PokerHandINFT
+                const inftCandidates = [
+                    path.join(baseDir, 'PokerHandINFT.sol', 'PokerHandINFT.json'),
+                    path.join(baseDir, 'PokerHandINFT.json')
+                ];
+                for (const inftPath of inftCandidates) {
+                    if (fs.existsSync(inftPath)) {
+                        const inftArtifact = JSON.parse(fs.readFileSync(inftPath, 'utf8'));
+                        this.inftAbi = inftArtifact.abi;
+                        console.log('[ZeroGContractService] PokerHandINFT ABI loaded from:', inftPath);
+                        break;
+                    }
+                }
             }
 
-            const inftPath = path.join(basePath, 'PokerHandINFT.json');
-            if (fs.existsSync(inftPath)) {
-                const inftArtifact = JSON.parse(fs.readFileSync(inftPath, 'utf8'));
-                this.inftAbi = inftArtifact.abi;
-                console.log('[ZeroGContractService] PokerHandINFT ABI loaded');
+            if (!found) {
+                console.warn('[ZeroGContractService] ⚠️ PokerGame0G ABI not found in any of:', searchPaths);
+            } else {
+                console.log('[ZeroGContractService] ABI loading complete');
             }
         } catch (e) {
             console.error('[ZeroGContractService] Failed to load ABIs:', e.message);
@@ -146,8 +178,46 @@ class ZeroGContractService {
     async authorizePlayer(playerAddress) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
         const serverAddr = this.zeroGService.getSignerAddress();
-        const tx = await this.pokerGameContract.authorizeDelegate(playerAddress);
+        const tx = await this.pokerGameContract.authorizeDelegate(serverAddr);
         return await tx.wait();
+    }
+
+    /**
+     * Check if player has authorized a specific delegate address
+     * @param {string} playerAddress - Player's EVM address
+     * @param {string} delegateAddress - Delegate address to check
+     * @returns {Promise<boolean>}
+     */
+    async isAuthorizedDelegate(playerAddress, delegateAddress) {
+        if (!this.pokerGameContract) {
+            console.warn('[ZeroGContractService] PokerGame not connected, cannot check authorization');
+            return false;
+        }
+        try {
+            const result = await this.pokerGameContract.isDelegateFor(
+                playerAddress,
+                delegateAddress
+            );
+            return Boolean(result);
+        } catch (e) {
+            console.error('[ZeroGContractService] isAuthorizedDelegate error:', e.message);
+            return false;
+        }
+    }
+
+    /**
+     * Get player's current delegate address from contract
+     * @param {string} playerAddress - Player's EVM address
+     * @returns {Promise<string|null>} Delegate address or null
+     */
+    async getPlayerDelegate(playerAddress) {
+        if (!this.pokerGameContract) return null;
+        try {
+            return await this.pokerGameContract.delegates(playerAddress);
+        } catch (e) {
+            console.error('[ZeroGContractService] getPlayerDelegate error:', e.message);
+            return null;
+        }
     }
 
     async getCustodyBalance(playerAddress) {

@@ -293,6 +293,86 @@ export async function getBalance(address) {
 }
 
 /**
+ * Get player's custody (game) balance from PokerGame0G contract
+ * Uses server API first, falls back to direct RPC call
+ * @param {string} address - EVM wallet address
+ * @returns {Promise<string>} Balance as decimal string (in 0G tokens)
+ */
+export async function getCustodyBalance(address) {
+    if (!address || !address.startsWith('0x')) return '0';
+
+    // Try server API first
+    try {
+        const serverPort = (typeof process !== 'undefined' && process.env?.REACT_APP_SERVER_PORT) || '7778';
+        const response = await fetch(`http://127.0.0.1:${serverPort}/api/0g/balance/${address}`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.balance) {
+                console.log('[zeroG] Custody balance via API:', data.balance);
+                return data.balance;
+            }
+        }
+    } catch (e) {
+        console.warn('[zeroG] API balance fetch failed, trying RPC:', e.message);
+    }
+
+    // Fallback: direct RPC call to PokerGame0G contract
+    const CONTRACT_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+    const ABI = ['function getCustodyBalance(address player) view returns (uint256)'];
+
+    try {
+        const iface = new ethers.utils.Interface(ABI);
+        const data = iface.encodeFunctionData('getCustodyBalance', [address]);
+
+        for (const rpcUrl of [
+            'https://evmrpc-galileo.0g.ai',
+            'https://rpc.0g.ai'
+        ]) {
+            try {
+                const response = await fetch(rpcUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'eth_call',
+                        params: [{ to: CONTRACT_ADDRESS, data: data }, 'latest'],
+                        id: 1
+                    })
+                });
+                const result = await response.json();
+                if (result.result) {
+                    const balWei = parseInt(result.result, 16);
+                    const bal = (balWei / 1e18).toString();
+                    console.log(`[zeroG] Custody balance via ${rpcUrl}: ${bal}`);
+                    return bal;
+                }
+            } catch (e) { /* try next RPC */ }
+        }
+    } catch (e) {
+        console.error('[zeroG] RPC custody balance failed:', e.message);
+    }
+
+    return '0';
+}
+
+/**
+ * Normalize a balance value that might be in wei (raw uint256) or decimal.
+ * If value > 1e12, treat as wei and convert to decimal by dividing 1e18.
+ * @param {string|number} val
+ * @returns {string} Decimal balance string
+ */
+export function normalizeBalance(val) {
+    if (!val) return '0';
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (!isFinite(num)) return '0';
+    // If value > 1 trillion, it's likely raw wei — convert
+    if (num > 1e12) {
+        return (num / 1e18).toString();
+    }
+    return num.toString();
+}
+
+/**
  * Format address for display
  * @param {string} address - Full EVM address
  * @param {number} [startChars=6] - Chars to show at start

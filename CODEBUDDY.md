@@ -296,3 +296,10 @@ const PLAYER2 = {
 
 ## 自动化测试，截图，模拟点击操作，包括签名、充值、游戏流程等，参考以下文档
 docs/Tronlink_Deposit_AutoSign.md
+
+## 0G配置信息：
+ 
+服务器钱包地址:
+0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc
+
+玩家地址：0x8808ff950b9bfddde445fd099262e80cee858eb5

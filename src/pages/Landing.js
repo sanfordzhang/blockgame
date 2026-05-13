@@ -10,7 +10,7 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract } from '../utils/zeroGInteract';
+import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, getCustodyBalance, normalizeBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
@@ -104,6 +104,8 @@ const Landing = () => {
   const [authorizing, setAuthorizing] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [serverAddress, setServerAddress] = useState(null);
+  // 0G/EVM server wallet address (separate from TRON address for dual-chain)
+  const [zeroGServerAddress, setZeroGServerAddress] = useState(null);
   // Track which wallet type is connected: 'tron' | 'zerog' | null
   const [localWalletType, setLocalWalletType] = useState(null);
 
@@ -219,6 +221,15 @@ const Landing = () => {
             const bal = await get0GBalance(walletAddress);
             setIsRegistered(true);
             setWalletBalance(parseFloat(bal));
+
+            // Fetch 0G game balance from PokerGame0G contract
+            try {
+              const custodyBal = await getCustodyBalance(walletAddress);
+              setContractBalance(parseFloat(normalizeBalance(custodyBal)));
+              console.log('[Landing] 0G custody balance (checkReg):', normalizeBalance(custodyBal));
+            } catch (e) {
+              console.warn('[Landing] Failed to fetch 0G custody balance:', e.message);
+            }
             return;
           }
 
@@ -300,6 +311,10 @@ const Landing = () => {
           setServerAddress(data.serverWalletAddress);
           console.log('[Landing] Server address from API:', data.serverWalletAddress);
         }
+        if (data.zeroGServerWalletAddress) {
+          setZeroGServerAddress(data.zeroGServerWalletAddress);
+          console.log('[Landing] 0G Server address from API:', data.zeroGServerWalletAddress);
+        }
       } catch (err) {
         console.error('[Landing] Failed to fetch server address:', err);
       }
@@ -329,6 +344,10 @@ const Landing = () => {
         if (data.serverAddress) {
           setServerAddress(data.serverAddress);
         }
+        if (data.zeroGServerAddress) {
+          setZeroGServerAddress(data.zeroGServerAddress);
+          console.log('[Landing] 0G server address received:', data.zeroGServerAddress);
+        }
         setDelegateAuthorized(data.isAuthorized);
       };
       
@@ -353,6 +372,17 @@ const Landing = () => {
       if (localWalletType === 'zerog') {
         const bal = await get0GBalance(walletAddress);
         setWalletBalance(parseFloat(bal));
+
+        // Also fetch game (custody) balance from PokerGame0G contract
+        if (isRegistered) {
+          try {
+            const custodyBal = await getCustodyBalance(walletAddress);
+            setContractBalance(parseFloat(normalizeBalance(custodyBal)));
+            console.log('[Landing] 0G custody balance:', normalizeBalance(custodyBal));
+          } catch (e) {
+            console.warn('[Landing] Failed to fetch 0G custody balance:', e.message);
+          }
+        }
       } else {
         // Get wallet TRX balance
         const trxBalance = await getTrxBalance(walletAddress);
@@ -804,14 +834,19 @@ const Landing = () => {
         const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
         const POKERGAME_ABI = [
           'function authorizeDelegate(address delegate) returns (bool)',
-          'function isDelegateAuthorized(address player, address delegate) view returns (bool)'
+          'function isDelegateFor(address player, address delegate) view returns (bool)'
         ];
+        
+        const delegateAddr = zeroGServerAddress || serverAddress;
+        if (!delegateAddr || !delegateAddr.startsWith('0x')) {
+          throw new Error('0G server address not available. Please refresh and try again.');
+        }
         
         const txParams = {
           from: walletAddress,
           to: POKERGAME_0G_ADDRESS,
           data: new ethers.utils.Interface(POKERGAME_ABI).encodeFunctionData(
-            'authorizeDelegate', [serverAddress]
+            'authorizeDelegate', [delegateAddr]
           )
         };
         
@@ -1290,7 +1325,7 @@ const Landing = () => {
                     {!delegateAuthorized && (
                       <Button
                         onClick={handleAuthorizeServer}
-                        disabled={authorizing || !serverAddress}
+                        disabled={authorizing || (!serverAddress && !zeroGServerAddress)}
                         style={{ 
                           width: '100%', 
                           background: '#28a745', 

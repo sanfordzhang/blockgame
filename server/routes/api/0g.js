@@ -98,6 +98,43 @@ router.get('/inft/:tokenId', (req, res) => {
     res.status(404).json({ error: `INFT #${req.params.tokenId} not found` });
 });
 
+// ============ Balance Queries ============
+
+/**
+ * @route GET /api/0g/balance/:walletAddress
+ * @desc Get player's custody balance from PokerGame0G contract
+ */
+router.get('/balance/:walletAddress', async (req, res) => {
+    try {
+        const { getZeroGService } = require('../../blockchain/blockchainFactory');
+        const ZeroGContractService = require('../../blockchain/ZeroGContractService');
+
+        const walletAddress = req.params.walletAddress;
+        if (!walletAddress || !walletAddress.startsWith('0x')) {
+            return res.status(400).json({ error: 'Invalid EVM address' });
+        }
+
+        const zgService = getZeroGService();
+        if (!zgService || !zgService.initialized) {
+            return res.json({ success: false, balance: '0', error: '0G service not initialized' });
+        }
+
+        const zgContractService = new ZeroGContractService();
+        zgContractService.init(zgService, process.env.ZEROG_NETWORK || 'testnet');
+
+        const rawBalance = await zgContractService.getCustodyBalance(walletAddress);
+        // Convert from wei (smallest unit) to decimal 0G tokens
+        const rawNum = BigInt(rawBalance || '0');
+        const balanceDecimal = Number(rawNum) / 1e18;
+        console.log('[0G API] Balance query:', { player: walletAddress, raw: rawBalance, decimal: balanceDecimal.toFixed(6) });
+
+        res.json({ success: true, balance: balanceDecimal.toString() });
+    } catch (error) {
+        console.error('[0G API] Balance error:', error.message);
+        res.status(500).json({ success: false, balance: '0', error: error.message });
+    }
+});
+
 // ============ AI System Status ============
 
 router.get('/ai-status', (req, res) => {

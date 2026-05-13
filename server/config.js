@@ -74,6 +74,11 @@ config.setServerWalletAddress = (address) => {
   config.SERVER_WALLET_ADDRESS = address;
 };
 
+// Function to set 0G/EVM server wallet address (called by ZeroGService after init)
+config.setZeroGWalletAddress = (address) => {
+  config.ZEROG_WALLET_ADDRESS = address;
+};
+
 // Log blockchain configuration on load
 console.log('[Config] ========== BLOCKCHAIN CONFIG ==========');
 console.log(`[Config] BLOCKCHAIN_ENABLED: ${config.BLOCKCHAIN_ENABLED}`);

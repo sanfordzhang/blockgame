@@ -50,6 +50,7 @@ const configureRoutes = (app) => {
       tronNetwork: config.TRON_NETWORK,
       contractAddress: config.CONTRACT_ADDRESS,
       serverWalletAddress: config.SERVER_WALLET_ADDRESS,
+      zeroGServerWalletAddress: config.ZEROG_WALLET_ADDRESS || null,
       // New contract addresses
       tournamentContract: process.env.TOURNAMENT_CONTRACT_ADDRESS,
       nftContract: process.env.NFT_CONTRACT_ADDRESS,

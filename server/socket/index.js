@@ -94,6 +94,8 @@ const config = require('../config');
 const gameFlowIntegration = require('../services/GameFlowIntegration');
 const contractService = require('../blockchain/ContractService');
 const tronService = require('../blockchain/TronService');
+const { getZeroGService } = require('../blockchain/blockchainFactory');
+const ZeroGContractService = require('../blockchain/ZeroGContractService');
 const { initTournamentHandlers } = require('./tournamentHandler');
 const { initAIHandlers, executeAIAction } = require('./aiHandler');
 
@@ -324,12 +326,52 @@ const init = (socket, io) => {
     
     if (config.BLOCKCHAIN_ENABLED) {
       try {
-        // Check if player has authorized this server as delegate
-        const serverAddress = tronService.getSignerAddress();
-        const isAuthorized = await contractService.isAuthorizedDelegate(player.id, serverAddress);
-        
-        console.log('[Socket] Delegate check:', { player: player.id, server: serverAddress, isAuthorized });
-        
+        // Detect player chain type by address format
+        const isZeroGPlayer = player.id.startsWith('0x');
+        let isAuthorized = false;
+        let serverAddress = null;
+
+        if (isZeroGPlayer) {
+          // 0G/EVM path: check 0G contract authorization
+          const zgService = getZeroGService();
+          console.log('[Socket] 0G service status:', {
+            exists: !!zgService,
+            initialized: zgService?.initialized,
+            hasWallet: !!zgService?.wallet
+          });
+
+          if (!zgService || !zgService.initialized) {
+            socket.emit(SC_DELEGATE_ERROR, {
+              message: '0G 服务未初始化。请确认 .env.testnet 中配置了 ZEROG_PRIVATE_KEY 并重启服务端。',
+              needAuthorization: true
+            });
+            return;
+          }
+
+          const zgContractService = new ZeroGContractService();
+          zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
+
+          serverAddress = zgService.getSignerAddress();
+          console.log('[Socket] 0G Delegate check:', { player: player.id, server: serverAddress });
+
+          if (!serverAddress) {
+            socket.emit(SC_DELEGATE_ERROR, {
+              message: '0G 签名地址获取失败，请检查 ZEROG_PRIVATE_KEY 配置',
+              needAuthorization: true
+            });
+            return;
+          }
+
+          isAuthorized = await zgContractService.isAuthorizedDelegate(player.id, serverAddress);
+          console.log('[Socket] 0G isAuthorized result:', isAuthorized);
+        } else {
+          // TRON path: existing logic
+          serverAddress = tronService.getSignerAddress();
+          isAuthorized = await contractService.isAuthorizedDelegate(player.id, serverAddress);
+        }
+
+        console.log('[Socket] Delegate check:', { player: player.id, server: serverAddress, isAuthorized, isZeroGPlayer });
+
         if (!isAuthorized) {
           // Player needs to authorize the server first
           socket.emit(SC_DELEGATE_ERROR, {
@@ -594,6 +636,18 @@ const init = (socket, io) => {
     }
 
     const serverAddress = tronService.getSignerAddress();
+
+    // Also get 0G server address for EVM authorization
+    let zeroGServerAddress = null;
+    try {
+      const zgService = getZeroGService();
+      if (zgService) {
+        zeroGServerAddress = zgService.getSignerAddress();
+      }
+    } catch (e) {
+      console.warn('[Socket] Failed to get 0G signer address:', e.message);
+    }
+
     const cached = delegateCache[walletAddress];
     const CACHE_TTL = 60 * 1000; // 1 minute
 
@@ -602,28 +656,51 @@ const init = (socket, io) => {
       socket.emit(SC_DELEGATE_STATUS, {
         isAuthorized: cached.isAuthorized,
         serverAddress,
+        zeroGServerAddress,
         playerAddress: walletAddress
       });
       return;
     }
 
     try {
-      const isAuthorized = await contractService.isAuthorizedDelegate(walletAddress, serverAddress);
+      // Detect player chain type by address format
+      const isZeroGPlayer = walletAddress.startsWith('0x');
+      let isAuthorized = false;
+
+      if (isZeroGPlayer) {
+        // Check 0G contract authorization for EVM players
+        try {
+          const zgService = getZeroGService();
+          const zgContractService = new ZeroGContractService();
+          zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
+
+          if (zeroGServerAddress) {
+            isAuthorized = await zgContractService.isAuthorizedDelegate(walletAddress, zeroGServerAddress);
+            console.log('[Socket] CS_CHECK_DELEGATE (0G):', { player: walletAddress, isAuthorized });
+          }
+        } catch (e) {
+          console.error('[Socket] 0G delegate check error:', e.message);
+        }
+      } else {
+        // TRON path (existing logic)
+        isAuthorized = await contractService.isAuthorizedDelegate(walletAddress, serverAddress);
+      }
+
       delegateCache[walletAddress] = { isAuthorized, ts: Date.now() };
 
-      console.log('[Socket] CS_CHECK_DELEGATE:', { player: walletAddress, isAuthorized });
+      console.log('[Socket] CS_CHECK_DELEGATE:', { player: walletAddress, isAuthorized, isZeroGPlayer });
 
-      socket.emit(SC_DELEGATE_STATUS, { isAuthorized, serverAddress, playerAddress: walletAddress });
+      socket.emit(SC_DELEGATE_STATUS, { isAuthorized, serverAddress, zeroGServerAddress, playerAddress: walletAddress });
     } catch (error) {
       console.error('[Socket] Error checking delegate:', error.message);
-      socket.emit(SC_DELEGATE_STATUS, { isAuthorized: false, error: error.message, serverAddress });
+      socket.emit(SC_DELEGATE_STATUS, { isAuthorized: false, error: error.message, serverAddress, zeroGServerAddress });
     }
   });
   
   /**
    * Handle setDelegate success from frontend (player signed the transaction)
    */
-  socket.on(CS_SET_DELEGATE, async ({ delegateAddress, txId }) => {
+  socket.on(CS_SET_DELEGATE, async ({ delegateAddress, txId, chainType } = {}) => {
     const player = players[socket.id];
     
     console.log('[Socket] CS_SET_DELEGATE:', { delegateAddress, txId, player: player?.id });
@@ -648,17 +725,45 @@ const init = (socket, io) => {
 
     // Verify on-chain in background with retries (don't block the response)
     const verify = async () => {
-      for (let i = 0; i < 10; i++) {
-        await new Promise(r => setTimeout(r, 6000));
+      // Determine chain type from player address format
+      const isZeroGPlayer = player.id.startsWith('0x');
+
+      if (isZeroGPlayer && chainType === 'zerog') {
+        // 0G on-chain verification
         try {
-          const currentDelegate = await contractService.getPlayerDelegate(player.id);
-          if (currentDelegate && currentDelegate.toLowerCase() === delegateAddress.toLowerCase()) {
-            console.log('[Socket] ✅ Delegate on-chain verified for player:', player.id);
-            return;
+          const zgService = getZeroGService();
+          const zgContractService = new ZeroGContractService();
+          zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
+
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 6000));
+            try {
+              const currentDelegate = await zgContractService.getPlayerDelegate(player.id);
+              if (currentDelegate &&
+                  currentDelegate.toLowerCase() === delegateAddress.toLowerCase()) {
+                console.log('[Socket] ✅ 0G Delegate on-chain verified for player:', player.id);
+                return;
+              }
+            } catch (e) { /* ignore, keep retrying */ }
           }
-        } catch (e) { /* ignore, keep retrying */ }
+          console.warn('[Socket] ⚠️ 0G Delegate on-chain verification timed out for player:', player.id);
+        } catch (e) {
+          console.warn('[Socket] ⚠️ 0G delegate verification failed:', e.message);
+        }
+      } else {
+        // TRON on-chain verification (existing logic)
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 6000));
+          try {
+            const currentDelegate = await contractService.getPlayerDelegate(player.id);
+            if (currentDelegate && currentDelegate.toLowerCase() === delegateAddress.toLowerCase()) {
+              console.log('[Socket] ✅ Delegate on-chain verified for player:', player.id);
+              return;
+            }
+          } catch (e) { /* ignore, keep retrying */ }
+        }
+        console.warn('[Socket] ⚠️ Delegate on-chain verification timed out for player:', player.id);
       }
-      console.warn('[Socket] ⚠️ Delegate on-chain verification timed out for player:', player.id);
     };
     verify();
   });
