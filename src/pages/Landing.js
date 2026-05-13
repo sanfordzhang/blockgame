@@ -10,7 +10,7 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, disconnectWallet, ensureCorrectChain } from '../utils/zeroGInteract';
+import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
@@ -213,7 +213,9 @@ const Landing = () => {
       if (walletAddress) {
         try {
           // For 0G/EVM mode, skip TRON-specific checks (registration handled differently)
-          if (localWalletType === 'zerog') {
+          // Check both localWalletType state AND address format (0x = EVM) for race condition safety
+          const isEvmAddress = walletAddress.toLowerCase().startsWith('0x');
+          if (localWalletType === 'zerog' || isEvmAddress) {
             const bal = await get0GBalance(walletAddress);
             setIsRegistered(true);
             setWalletBalance(parseFloat(bal));
@@ -248,6 +250,45 @@ const Landing = () => {
       setDepositAmount('100');
     }
   }, [localWalletType]);
+
+  // === Listen for external wallet disconnection (MetaMask lock/switch/disconnect) ===
+  useEffect(() => {
+    if (!window.ethereum || localWalletType !== 'zerog') return;
+
+    const handleAccountsChanged = (accounts) => {
+      console.log('[Landing] accountsChanged event:', accounts);
+
+      if (!accounts || accounts.length === 0) {
+        // User disconnected in MetaMask / locked wallet
+        console.log('[Landing] Wallet disconnected externally');
+        localStorage.removeItem('wallet_type');
+        localStorage.removeItem('wallet_address');
+        setLocalWalletAddress(null);
+        setWalletAddress(null);
+        setLocalWalletType(null);
+        setWalletType(null);
+        setIsRegistered(false);
+        setContractBalance(0);
+        setLockedBalance(0);
+        setWalletBalanceRaw(0);
+        disconnectWallet();
+      } else if (accounts[0].toLowerCase() !== walletAddress?.toLowerCase()) {
+        // User switched to a different account
+        console.log('[Landing] Account switched:', accounts[0]);
+        localStorage.setItem('wallet_address', accounts[0]);
+        setLocalWalletAddress(accounts[0]);
+        setWalletAddress(accounts[0]);
+      }
+    };
+
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+
+    return () => {
+      try {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      } catch (_) { /* ignore cleanup errors */ }
+    };
+  }, [localWalletType, walletAddress]);
 
   // Fetch server address on mount (don't wait for socket)
   useEffect(() => {
@@ -531,36 +572,66 @@ const Landing = () => {
     setError(null);
 
     try {
-      const amount = bankroll; // Withdraw all available balance
+      let amount = bankroll; // Withdraw all available balance
+      const isZeroG = localWalletType === 'zerog';
 
-      // Pre-flight: check contract balance >= withdraw amount
-      try {
-        const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
-        if (tronWeb && localWalletType !== 'zerog') {
-          const contractAddress = getContractAddress();
-          const contractTrxBalance = await tronWeb.trx.getBalance(contractAddress);
-          if (contractTrxBalance < amount) {
-            setError(
-              `Contract TRX insufficient (${formatTrx(contractTrxBalance)} TRX available). ` +
-              `Please contact support — contract needs to be topped up.`
-            );
+      // === 0G Withdraw Path ===
+      if (isZeroG) {
+        if (amount <= 0) {
+          setError(t('errNoBalance'));
+          setWithdrawing(false);
+          return;
+        }
+        console.log('Withdrawing', amount, '0G');
+        const txHash = await withdrawFromContract(amount);
+        console.log('0G Withdraw tx:', txHash);
+
+        // Optimistic update (0G amount stays as-is)
+        holdWalletBalance(60000);
+        setContractBalance(0);
+        setWalletBalanceForce(prev => prev + amount);
+
+      // === TRON Withdraw Path ===
+      } else {
+        // Ensure amount is integer (TRX contract requires SUN as uint256)
+        if (!Number.isInteger(amount)) {
+          console.warn('[Landing] Non-integer bankroll, rounding down:', amount, '->', Math.floor(amount));
+          amount = Math.floor(amount);
+          if (amount <= 0) {
+            setError(t('errNoBalance'));
             setWithdrawing(false);
             return;
           }
         }
-      } catch (preflightErr) {
-        console.warn('[Landing] Pre-flight balance check failed (non-fatal):', preflightErr.message);
-        // Non-fatal: proceed with withdraw, let contract reject if needed
+
+        // Pre-flight: check contract balance >= withdraw amount
+        try {
+          const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+          if (tronWeb) {
+            const contractAddress = getContractAddress();
+            const contractTrxBalance = await tronWeb.trx.getBalance(contractAddress);
+            if (contractTrxBalance < amount) {
+              setError(
+                `Contract TRX insufficient (${formatTrx(contractTrxBalance)} TRX available). ` +
+                `Please contact support — contract needs to be topped up.`
+              );
+              setWithdrawing(false);
+              return;
+            }
+          }
+        } catch (preflightErr) {
+          console.warn('[Landing] Pre-flight balance check failed (non-fatal):', preflightErr.message);
+        }
+
+        console.log('Withdrawing', amount, 'SUN');
+        const tx = await withdrawTrx(amount);
+        console.log('Withdraw tx:', tx);
+
+        // Optimistic update
+        holdWalletBalance(60000);
+        setContractBalance(0);
+        setWalletBalanceForce(prev => prev + amount);
       }
-
-      console.log('Withdrawing', amount, 'SUN');
-      const tx = await withdrawTrx(amount);
-      console.log('Withdraw tx:', tx);
-
-      // Optimistic update: immediately reflect withdrawal in both balances, hold 60s
-      holdWalletBalance(60000);
-      setContractBalance(0);
-      setWalletBalanceForce(prev => prev + amount);
 
       // Poll contract balance until confirmed (UI already shows correct value)
       const prevContractBalance = contractBalance;
@@ -609,14 +680,36 @@ const Landing = () => {
     setError(null);
 
     try {
-      // Only withdraw available balance (bankroll)
-      const amount = bankroll;
-      console.log('Withdrawing all available:', amount, 'SUN');
-      const tx = await withdrawTrx(amount);
-      console.log('Withdraw tx:', tx);
+      let amount = bankroll;
+      const isZeroG = localWalletType === 'zerog';
 
-      // Optimistic update - after withdraw, balance becomes 0 (locked remains)
-      setContractBalance(0);
+      if (isZeroG) {
+        if (amount <= 0) {
+          setError(t('errNoWithdrawBal'));
+          setWithdrawing(false);
+          return;
+        }
+        console.log('Withdrawing all available:', amount, '0G');
+        const txHash = await withdrawFromContract(amount);
+        console.log('0G Withdraw tx:', txHash);
+        setContractBalance(0);
+      } else {
+        if (!Number.isInteger(amount)) {
+          console.warn('[Landing] Non-integer bankroll, rounding down:', amount, '->', Math.floor(amount));
+          amount = Math.floor(amount);
+          if (amount <= 0) {
+            setError(t('errNoWithdrawBal'));
+            setWithdrawing(false);
+            return;
+          }
+        }
+        console.log('Withdrawing all available:', amount, 'SUN');
+        const tx = await withdrawTrx(amount);
+        console.log('Withdraw tx:', tx);
+
+        // Optimistic update - after withdraw, balance becomes 0 (locked remains)
+        setContractBalance(0);
+      }
 
       // Refresh actual balance in background
       setTimeout(async () => {

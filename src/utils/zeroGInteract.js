@@ -3,6 +3,8 @@
  * Used alongside ZeroGContext for direct wallet/contract interactions
  */
 
+import { ethers } from 'ethers';
+
 const CHAIN_IDS = {
     TESTNET: '0x40DA',   // 16602 (0G Testnet)
     MAINNET: '0x4115'    // 16661 (0G Mainnet)
@@ -198,6 +200,36 @@ export async function sendTransaction(tx) {
     });
 
     return hash;
+}
+
+/**
+ * Withdraw from PokerGame0G contract
+ * @param {number|string} amountEth - Amount in ETH (e.g., 0.1 for 0.1 0G)
+ * @returns {Promise<string>} Transaction hash
+ */
+export async function withdrawFromContract(amountEth) {
+    if (!hasEvmWallet()) throw new Error('No wallet');
+
+    // PokerGame0G contract address (testnet)
+    const CONTRACT_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+
+    // withdraw(uint256 amount) ABI
+    const abi = [
+        "function withdraw(uint256 amount) external"
+    ];
+
+    // Build calldata
+    const iface = new ethers.utils.Interface(abi);
+    const amountWei = ethers.utils.parseEther(amountEth.toString());
+    const data = iface.encodeFunctionData('withdraw', [amountWei]);
+
+    console.log(`[zeroG] Withdrawing ${amountEth} 0G (${amountWei.toString()} wei)`);
+
+    return sendTransaction({
+        to: CONTRACT_ADDRESS,
+        data: data,
+        value: '0x0'
+    });
 }
 
 /**

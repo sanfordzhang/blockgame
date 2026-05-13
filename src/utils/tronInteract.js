@@ -45,8 +45,8 @@ const NETWORKS = {
   }
 };
 
-// Default network
-let currentNetwork = process.env.REACT_APP_NETWORK || 'mainnet';
+// Default network (use getEnvVar helper for browser compatibility)
+let currentNetwork = getEnvVar('REACT_APP_NETWORK', 'mainnet');
 
 /**
  * Check if TronLink is installed
