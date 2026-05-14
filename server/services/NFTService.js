@@ -685,6 +685,7 @@ module.exports = {
                         txHash: receipt.hash,
                         blockNumber: receipt.blockNumber.toString(),
                         tokenId: actualTokenId,
+                        onchainTokenId: actualTokenId,
                         contractAddress: inftAddr
                     };
                     console.log(`[NFTService] ✅ 0G Mint SUCCESS! tx=${receipt.hash} tokenId=#${actualTokenId}`);
@@ -720,7 +721,9 @@ module.exports = {
                 signature: null,
                 claimId: claim._id.toString(),
                 metadataURI,
-                tokenId,
+                tokenId: onchainResult.tokenId,
+                localTokenId: tokenId,
+                onchainTokenId: onchainResult.onchainTokenId || onchainResult.tokenId,
                 achievementType: achievementTypeName,
                 metadata,
                 onchainContractAddress: process.env.ZEROG_INFT_ADDRESS || process.env.NFT_CONTRACT_ONCHAIN,

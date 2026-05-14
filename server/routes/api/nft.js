@@ -339,7 +339,11 @@ router.post('/confirm-mint', async (req, res) => {
                     const abi = JSON.parse(fs.readFileSync(abiPath, 'utf8')).abi;
                     const inftAddr = process.env.ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
                     const inft = new ethers6.Contract(inftAddr, abi, zgService.provider);
-                    const receipt = await zgService.provider.getTransactionReceipt(txHash);
+                    let receipt = await zgService.provider.getTransactionReceipt(txHash);
+                    for (let attempt = 0; !receipt && attempt < 20; attempt++) {
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        receipt = await zgService.provider.getTransactionReceipt(txHash);
+                    }
                     const mintEvent = receipt?.logs
                         ?.map((log) => {
                             try { return inft.interface.parseLog(log); } catch (_) { return null; }

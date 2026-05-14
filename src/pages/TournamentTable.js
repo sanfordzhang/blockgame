@@ -6,7 +6,7 @@ import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
 import { getPlayerBalance } from '../utils/tronInteract';
-import { getCustodyBalance } from '../utils/zeroGInteract';
+import { getCustodyBalance, switchChain } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
 import { TournamentGameProvider, TournamentGameContext } from '../context/game/TournamentGameContext';
 import PokerTable from '../components/game/PokerTable';
@@ -36,6 +36,7 @@ const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d
 const importINFTToMetaMask = async (tokenId) => {
   if (!window.ethereum || !tokenId) return false;
   try {
+    await switchChain('testnet');
     return await window.ethereum.request({
       method: 'wallet_watchAsset',
       params: {
@@ -349,7 +350,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                   tokenId: data.tokenId || data.onchainResult?.tokenId
                 });
                 const serverTx = data.txHash || data.onchainResult?.txHash;
-                const mintedTokenId = data.onchainResult?.tokenId || data.onchainTokenId || data.tokenId;
+                const mintedTokenId = data.onchainTokenId || data.onchainResult?.onchainTokenId || data.onchainResult?.tokenId || data.tokenId;
                 const imported = await importINFTToMetaMask(mintedTokenId);
                 Swal.fire({
                   title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
@@ -457,7 +458,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                   console.log('[NFT] 0G INFT mint tx:', txHash);
 
                   // Update database with txHash
-                  let mintedTokenId = data.onchainTokenId || data.tokenId;
+                  let mintedTokenId = data.onchainTokenId || data.onchainResult?.onchainTokenId || data.onchainResult?.tokenId || data.tokenId;
                   try {
                     const confirmResponse = await fetch(`${API_BASE}/api/nft/confirm-mint`, {
                       method: 'POST',
