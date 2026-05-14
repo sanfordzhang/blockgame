@@ -72,9 +72,11 @@ export const ZeroGProvider = ({ children }) => {
 
                 // Get current network
                 await _fetchNetworkInfo();
-                
+
                 // Fetch balance
                 await refreshBalance();
+
+                return accounts[0]; // Return address for immediate use (avoids stale closure)
             }
         } catch (err) {
             if (err.code === 4001) {

@@ -215,3 +215,42 @@ node set-nft-baseuri-public.js https://infants-freelance-laugh-corners.trycloudf
   - Cards: 10h 9d 8c 7s 6h ✅
 
   TronLink 刷新方法：打开 TronLink → NFT → 找到 #18 → 下拉刷新（或删除后重新导入合约地址 TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC）。
+
+
+## 文件新建存放规则
+所有测试脚本文件放在tests目录
+所有log文件放入logs目录
+所有CDP脚本文件放入cdp-scripts目录
+
+## 自动化测试，截图，模拟点击操作，包括签名、充值、游戏流程等，参考以下文档
+docs/Tronlink_Deposit_AutoSign.md
+
+## 0G配置信息：
+ 
+服务器钱包地址:
+0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc
+
+玩家地址：0x8808ff950b9bfddde445fd099262e80cee858eb5
+
+
+## 钱包相关操作的鼠标点击位置信息
+钱包断开连接两次点击操作位置：
+  [ 60] [CLICK] (1464, 883) [P] t=  21.98s
+  [ 74] [CLICK] (1362, 380) [P] t=  27.80s
+
+点击0G/EVM 按钮：
+  [ 19] [CLICK] ( 492, 758) [P] t=   4.64s
+
+钱包选择钱包MetaMask：
+  [ 20] [CLICK] (1208, 271) [P] t=   5.08s
+
+钱包连接网络Connect：
+  [ 41] [CLICK] (1425, 875) [P] t=  13.47s
+
+钱包确认连接：
+  [ 41] [CLICK] (1425, 875) [P] t=  13.47s
+
+浏览器刷新页面操作：
+  [ 16] [CLICK] (  93,  96) [P] t=   4.20s
+
+以上是钱包相关操作的鼠标点击位置,参考mouse-operations.json.replay.py回放执行相关操作完成钱包选择，连接网络，确认，断开网络等操作，配合CDP完成整个连接网络，Deposit，WithDraw，Authorize Sever等功能测试，同时检查浏览器日志是否有错误

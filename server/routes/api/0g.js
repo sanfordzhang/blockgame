@@ -98,6 +98,18 @@ router.get('/inft/:tokenId', (req, res) => {
     res.status(404).json({ error: `INFT #${req.params.tokenId} not found` });
 });
 
+/**
+ * @route GET /api/0g/infts/:address
+ * @desc Get all INFTs owned by an address
+ */
+router.get('/infts/:address', (req, res) => {
+    const ctrl = getController();
+    if (ctrl && ctrl.getINFTsByAddress) {
+        return ctrl.getINFTsByAddress(req, res);
+    }
+    res.json({ success: true, infts: [] });
+});
+
 // ============ Balance Queries ============
 
 /**

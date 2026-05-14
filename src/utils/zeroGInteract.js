@@ -304,7 +304,8 @@ export async function getCustodyBalance(address) {
     // Try server API first
     try {
         const serverPort = (typeof process !== 'undefined' && process.env?.REACT_APP_SERVER_PORT) || '7778';
-        const response = await fetch(`http://127.0.0.1:${serverPort}/api/0g/balance/${address}`);
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+        const response = await fetch(`http://${host}:${serverPort}/api/0g/balance/${address}`);
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.balance) {

@@ -343,7 +343,7 @@ const NFTGallery = () => {
   const contextWalletAddress = useContext(globalContext)?.walletAddress;
   const { setWalletAddress } = useContext(globalContext);
   const { address: tronLinkAddress } = useTronLink();
-  const { address: zeroGAddress, isConnected: zeroGConnected } = useZeroG() || {};
+  const { address: zeroGAddress, isConnected: zeroGConnected, connectWallet: connectZeroG } = useZeroG() || {};
   const { openModal, closeModal } = useContext(modalContext);
   const [nfts, setNfts] = useState([]);
   
@@ -605,11 +605,13 @@ const NFTGallery = () => {
     setLoading(false);
   };
 
-  // Task 10.1: Fetch INFTs from 0G chain via /api/0g/inft/:address
-  const fetchINFTs = async () => {
+  // Task 10.1: Fetch INFTs from 0G chain via /api/0g/infts/:address
+  const fetchINFTs = async (addressOverride) => {
     setInftLoading(true);
     try {
-      const res = await fetch(`/api/0g/inft/${zeroGAddress || walletAddress}`);
+      const targetAddress = addressOverride || zeroGAddress || walletAddress;
+      console.log('[INFT] Fetching for address:', targetAddress);
+      const res = await fetch(`/api/0g/infts/${targetAddress}`);
       const data = await res.json();
       if (data.success) {
         setInfts(data.infts || []);
@@ -714,7 +716,7 @@ const NFTGallery = () => {
         </Tab>
         <Tab
           active={tab === 'infts'}
-          onClick={() => { setTab('infts'); if (!zeroGConnected) alert('Connect 0G wallet to view INFTs'); else fetchINFTs(); }}
+          onClick={async () => { setTab('infts'); if (!zeroGConnected) { try { const addr = await connectZeroG(); fetchINFTs(addr); } catch(e) { console.error('0G connect error:', e); } } else fetchINFTs(); }}
           style={{ opacity: zeroGConnected ? 1 : 0.5 }}
         >
           0G / INFT {zeroGConnected && `(${infts.length})`}
@@ -842,7 +844,7 @@ const NFTGallery = () => {
               <Text textCentered color="rgba(255,255,255,0.7)" marginTop="2rem">
                 Connect your 0G wallet to view Interactive NFTs (ERC-7857)
               </Text>
-              <Button primary onClick={() => window.location.href = '/'}>
+              <Button primary onClick={async () => { try { await connectZeroG(); } catch(e) { console.error('0G connect error:', e); } }}>
                 Connect 0G Wallet
               </Button>
             </>
@@ -855,8 +857,29 @@ const NFTGallery = () => {
             </>
           ) : (
             <NFTGrid>
-              {infts.map((inft) => (
+              {infts.map((inft) => {
+                // Extract embedded image from metadataURI (data:application/json;base64,{...image:"data:..."})
+                const inftImage = (() => {
+                  if (!inft.metadataURI) return null;
+                  try {
+                    const b64 = inft.metadataURI.split(',')[1];
+                    if (!b64) return null;
+                    const json = JSON.parse(atob(b64));
+                    return json.image || null;
+                  } catch(e) { return null; }
+                })();
+
+                return (
                 <CollectionCard key={inft.tokenId} rarity={inft.handType || 6}>
+                  {inftImage ? (
+                    <GameScreenshotWrapper style={{ cursor: 'pointer' }} onClick={() => setEnlargedScreenshot(inftImage)}>
+                      <ScreenshotImage src={inftImage} alt={`${rarityNames[inft.handType] || 'INFT'} #${inft.tokenId}`} />
+                      <AchievementBadge rarity={inft.handType || 6} style={{ position: 'absolute', top: '8px', left: '8px' }}>
+                        <span>{achievementTypes[inft.handType]?.icon || '🃏'}</span>
+                        <span>INFT #{inft.tokenId}</span>
+                      </AchievementBadge>
+                    </GameScreenshotWrapper>
+                  ) : (
                   <GameScreenshot rarity={inft.handType || 6}>
                     <AchievementBadge rarity={inft.handType || 6}>
                       <span>{achievementTypes[inft.handType]?.icon || '🃏'}</span>
@@ -866,6 +889,7 @@ const NFTGallery = () => {
                       Storage Hash: {(inft.storageRootHash || '').slice(0, 12)}...
                     </Text>
                   </GameScreenshot>
+                  )}
                   <CollectionInfo>
                     <Container flexDirection="row" justifyContent="space-between">
                       <Heading as="h4" color="#fff">{rarityNames[inft.handType] || 'INFT'}</Heading>
@@ -885,7 +909,8 @@ const NFTGallery = () => {
                     </AchievementType>
                   </CollectionInfo>
                 </CollectionCard>
-              ))}
+                );
+              })}
             </NFTGrid>
           )}
         </Container>

@@ -3,7 +3,7 @@ import socket from '../../socket';
 import globalContext from '../global/globalContext';
 import { SC_NFT_ACHIEVEMENT_EARNED, SC_NFT_MINT_READY } from '../../pokergame/actions';
 
-const API_BASE = process.env.REACT_APP_SERVER_URI || `http://127.0.0.1:${process.env.REACT_APP_SERVER_PORT || '7778'}`;
+const API_BASE = process.env.REACT_APP_SERVER_URI || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${process.env.REACT_APP_SERVER_PORT || '7778'}`;
 
 export const TournamentGameContext = createContext();
 

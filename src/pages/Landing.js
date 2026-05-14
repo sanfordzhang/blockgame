@@ -145,14 +145,15 @@ const Landing = () => {
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
 
             if (!accounts || accounts.length === 0) {
-              // eth_accounts returned empty — wallet extension exists but user hasn't
-              // authorized it (or it's a different wallet like Brave Wallet).
-              // Still restore from saved state — don't clear!
-              console.log('[Landing-RESTORE] eth_accounts empty, restoring from saved state:', savedAddress);
-              setLocalWalletAddress(savedAddress);
-              setWalletAddress(savedAddress);
-              setLocalWalletType('zerog');
-              setWalletType('zerog');
+              // eth_accounts returned empty — MetaMask is locked or not authorized.
+              // Must clear state so user stays on landing page and must re-connect.
+              console.log('[Landing-RESTORE] eth_accounts empty (wallet locked?), clearing stale wallet state');
+              localStorage.removeItem('wallet_type');
+              localStorage.removeItem('wallet_address');
+              setLocalWalletAddress('');
+              setWalletAddress('');
+              setLocalWalletType('');
+              setWalletType('');
             } else if (accounts[0].toLowerCase() === savedAddress.toLowerCase()) {
               setLocalWalletAddress(savedAddress);
               setWalletAddress(savedAddress);

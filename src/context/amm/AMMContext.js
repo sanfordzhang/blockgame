@@ -9,8 +9,8 @@ const AMMContext = createContext(null);
 
 const API_BASE = process.env.REACT_APP_SERVER_URI
   || (process.env.REACT_APP_SERVER_PORT
-    ? `http://127.0.0.1:${process.env.REACT_APP_SERVER_PORT}`
-    : 'http://127.0.0.1:7778');
+    ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${process.env.REACT_APP_SERVER_PORT}`
+    : `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:7778`);
 
 export function AMMProvider({ children, tronLink }) {
     // 池状态

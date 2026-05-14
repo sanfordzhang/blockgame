@@ -622,19 +622,122 @@ module.exports = {
         
         await claim.save();
         console.log(`[NFTService] NFT saved to database: ${achievementTypeName} for ${walletAddress.substring(0, 10)}...`);
+
+        // ========== 0G ON-CHAIN MINT (when in 0G or both mode) ==========
+        let onchainResult = null;
+        const blockchainMode = process.env.BLOCKCHAIN_MODE || 'tron';
         
-        // Generate signature using ethers.js (works even without nftServiceInstance)
+        if (blockchainMode === '0g' || blockchainMode === 'both') {
+            try {
+                const ethers6 = require('ethers6');
+                const { getZeroGService } = require('../blockchain/blockchainFactory');
+                const zgService = getZeroGService();
+                
+                if (zgService && zgService.initialized && zgService.wallet) {
+                    console.log(`[NFTService] 🎰 0G On-Chain Mint: ${achievementTypeName} → ${walletAddress.substring(0, 10)}...`);
+                    
+                    const abiPath = require('path').resolve(
+                        __dirname, '../../artifacts/contracts/0g/PokerHandINFT.sol/PokerHandINFT.json'
+                    );
+                    const abi = JSON.parse(require('fs').readFileSync(abiPath, 'utf8')).abi;
+                    const inftAddr = process.env.ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+                    const inftContract = new ethers6.Contract(inftAddr, abi, zgService.wallet);
+                    
+                    // Build metadata with real game screenshot
+                    let metaUri;
+                    if (data.screenshot && data.screenshot.startsWith('data:image')) {
+                        // Use game screenshot as NFT image
+                        metaUri = JSON.stringify({
+                            name: `${achievementTypeName} INFT #${tokenId}`,
+                            description: `Real ${achievementTypeName} achievement from 0G Poker Game #${gameId}`,
+                            image: data.screenshot,
+                            attributes: [
+                                { trait_type: 'Hand Type', value: achievementTypeName },
+                                { trait_type: 'Standard', value: 'ERC-7857' },
+                                { trait_type: 'Game', value: `#${gameId}` }
+                            ]
+                        });
+                        metaUri = 'data:application/json;base64,' + Buffer.from(metaUri).toString('base64');
+                    } else {
+                        // Fallback: generate SVG without screenshot
+                        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><defs><linearGradient id="g" x1="0%" y1="0" x2="100%" y2="100%"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient></defs><rect width="300" height="400" rx="16" fill="url(#g)"/><text x="150" y="160" text-anchor="middle" font-size="32" fill="white" font-weight="bold">' + achievementTypeName + '</text><text x="150" y="210" text-anchor="middle" font-size="14" fill="#ddd">0G Poker Game #' + gameId + '</text><text x="150" y="235" text-anchor="middle" font-size="12" fill="#bbb">ERC-7857 INFT</text></svg>';
+                        metaUri = 'data:application/json;base64,' + Buffer.from(JSON.stringify({
+                            name: `${achievementTypeName} INFT`, 
+                            description: `Achievement for ${achievementTypeName} in 0G Poker`,
+                            image: 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64'),
+                            attributes: [{trait_type:'Hand Type',value:achievementTypeName},{trait_type:'Standard',value:'ERC-7857'},{trait_type:'Game',value:'#'+gameId}]
+                        })).toString('base64');
+                    }
+                    
+                    // Call mint(address to, string handType, string storageRootHash, string metadataURI)
+                    const tx = await inftContract.mint(
+                        walletAddress.startsWith('0x') ? walletAddress : ('0x' + walletAddress),
+                        achievementTypeName,
+                        '0x0000000000000000000000000000000000000000000000000000000000000000000000',
+                        metaUri,
+                        { gasLimit: 800000 }
+                    );
+                    
+                    const receipt = await tx.wait();
+                    const newTokenId = receipt.blockNumber.toString(); // Use block number as ref until we get actual token ID
+                    
+                    // Get balance to find actual token ID
+                    const bal = await inftContract.balanceOf(
+                        walletAddress.startsWith('0x') ? walletAddress : ('0x' + walletAddress)
+                    );
+                    const actualTokenId = bal.toString();
+                    
+                    onchainResult = {
+                        success: true,
+                        chain: '0G',
+                        txHash: receipt.hash,
+                        blockNumber: receipt.blockNumber.toString(),
+                        tokenId: actualTokenId,
+                        contractAddress: inftAddr
+                    };
+                    console.log(`[NFTService] ✅ 0G Mint SUCCESS! tx=${receipt.hash} tokenId=#${actualTokenId}`);
+                    
+                    // Update DB claim with on-chain data
+                    claim.txHash = receipt.hash;
+                    claim.onchainTokenId = parseInt(actualTokenId);
+                    await claim.save();
+                } else {
+                    console.warn('[NFTService] 0G service not available, skipping on-chain mint');
+                }
+            } catch (ogErr) {
+                console.error('[NFTService] ❌ 0G On-Chain Mint ERROR:', ogErr.message);
+                onchainResult = { success: false, error: ogErr.message, chain: '0g' };
+            }
+        }
+
+        // Generate signature using ethers.js (TRON fallback / verification path)
         const timestamp = Math.floor(Date.now() / 1000);
         const cardsStr = parsedCards.map(c => `${c.rank}${c.suit}`).join(' ');
         const metadata = generateMetadata(achievementTypeName, tokenId, cardsStr);
         
-        // Generate compact signature using server private key
+        // Generate compact signature using server private key (optional for 0G mode)
         const ethers = require('ethers');
 
-        // Validate SERVER_PRIVATE_KEY exists
+        // If 0G on-chain mint already succeeded, return immediately (signature not needed)
+        if (onchainResult && onchainResult.success) {
+            console.log(`[NFTService] ✅ 0G on-chain mint succeeded, returning success (signature optional for 0G mode)`);
+            return {
+                success: true,
+                ...onchainResult,
+                signature: null,
+                tokenId,
+                achievementType: achievementTypeName,
+                metadata,
+                onchainContractAddress: process.env.ZEROG_INFT_ADDRESS || process.env.NFT_CONTRACT_ONCHAIN,
+            };
+        }
+
+        // Validate SERVER_PRIVATE_KEY exists (required for TRON signing path or fallback)
         if (!process.env.SERVER_PRIVATE_KEY) {
-            console.error('[NFTService] ERROR: SERVER_PRIVATE_KEY is not configured!');
-            throw new Error('Server signing key not configured');
+            console.warn('[NFTService] WARN: SERVER_PRIVATE_KEY not configured - cannot generate NFT signature');
+
+            // No 0G result AND no private key - cannot proceed
+            throw new Error('Server signing key not configured. Please add SERVER_PRIVATE_KEY to your .env file.');
         }
 
         let serverWallet;
