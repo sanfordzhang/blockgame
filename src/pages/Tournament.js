@@ -234,14 +234,19 @@ const EmptyState = styled.div`
 
 const Tournament = () => {
   const navigate = useNavigate();
-  const { walletAddress, setWalletAddress } = useContext(globalContext);
+  const { walletAddress, setWalletAddress, setWalletType } = useContext(globalContext);
   const { t } = useContext(locaContext);
   const { openModal } = useContext(modalContext);
   const { connect, isConnecting, isConnected, address } = useTron();
-  const { address: zeroGAddress, isConnected: zeroGConnected } = useZeroG() || {};
+  const {
+    address: zeroGAddress,
+    isConnected: zeroGConnected,
+    connectWallet: connectZeroGWallet,
+    switchTo0GNetwork,
+  } = useZeroG() || {};
 
   // Detect blockchain mode from wallet address
-  const currentAddress = walletAddress || address || zeroGAddress;
+  const currentAddress = walletAddress || address || zeroGAddress || localStorage.getItem('wallet_address');
   const isZeroG = (currentAddress || '').startsWith('0x') ||
                    localStorage.getItem('wallet_type') === 'zerog';
   const currencySymbol = isZeroG ? '0G' : 'TRX';
@@ -269,8 +274,58 @@ const Tournament = () => {
   useEffect(() => {
     if (zeroGAddress && zeroGAddress !== walletAddress) {
       setWalletAddress(zeroGAddress);
+      if (setWalletType) setWalletType('zerog');
+      localStorage.setItem('wallet_type', 'zerog');
+      localStorage.setItem('wallet_address', zeroGAddress);
     }
-  }, [zeroGAddress, walletAddress, setWalletAddress]);
+  }, [zeroGAddress, walletAddress, setWalletAddress, setWalletType]);
+
+  const persistWallet = useCallback((walletType, nextAddress) => {
+    if (!nextAddress) return;
+    setWalletAddress(nextAddress);
+    if (setWalletType) setWalletType(walletType);
+    localStorage.setItem('wallet_type', walletType);
+    localStorage.setItem('wallet_address', nextAddress);
+    localStorage.setItem('testWalletAddress', nextAddress);
+  }, [setWalletAddress, setWalletType]);
+
+  const connectPreferredWallet = useCallback(async () => {
+    const savedType = localStorage.getItem('wallet_type');
+    const shouldUseZeroG = savedType === 'zerog' ||
+      zeroGConnected ||
+      (walletAddress || zeroGAddress || '').startsWith('0x') ||
+      (!!window.ethereum && !address);
+
+    if (shouldUseZeroG) {
+      if (!connectZeroGWallet) {
+        throw new Error('0G wallet connector is unavailable');
+      }
+      const connectedAddress = zeroGAddress || await connectZeroGWallet();
+      try {
+        await switchTo0GNetwork?.('testnet');
+      } catch (networkErr) {
+        console.warn('[Tournament] Failed to switch to 0G network:', networkErr.message);
+      }
+      persistWallet('zerog', connectedAddress);
+      return connectedAddress;
+    }
+
+    await connect();
+    const tronAddress = address || localStorage.getItem('wallet_address');
+    if (tronAddress) {
+      persistWallet('tron', tronAddress);
+    }
+    return tronAddress;
+  }, [
+    address,
+    connect,
+    connectZeroGWallet,
+    persistWallet,
+    switchTo0GNetwork,
+    walletAddress,
+    zeroGAddress,
+    zeroGConnected,
+  ]);
 
   // 默认测试配置（当合约未配置时使用）
   const DEFAULT_CONFIGS = [
@@ -355,48 +410,27 @@ const Tournament = () => {
     setCreating(false);
   };
 
-  const handleJoinTournament = async (tournamentId, buyIn) => {
-    if (!walletAddress && !isConnected) {
-      // 定义连接钱包回调
-      const handleConnectWallet = async () => {
-        try {
-          await connect();
-          // connect 成功后会触发 useEffect 同步地址
-        } catch (err) {
-          setError(t('errConnectFailed') + err.message);
-        }
-      };
-      
-      openModal(
-        () => <Text>Please connect your wallet to join a tournament.</Text>,
-        'Wallet Required',
-        isConnecting ? 'Connecting...' : 'Connect Wallet',
-        handleConnectWallet
-      );
-      return;
-    }
+  const handleJoinTournament = async (tournamentId, buyIn, addressOverride) => {
+    const joinTournament = async (joinAddress) => {
+      const effectiveAddress = joinAddress || address || zeroGAddress || walletAddress || localStorage.getItem('wallet_address');
+      if (!effectiveAddress) {
+        throw new Error(t('errNoAddress'));
+      }
 
-    // 使用 TronContext 的地址（更可靠）
-    const currentAddress = address || walletAddress;
-    if (!currentAddress) {
-      setError(t('errNoAddress'));
-      return;
-    }
-
-    // 定义join逻辑
-    const handleJoin = async () => {
       try {
         setError(null);
+        const isJoiningZeroG = effectiveAddress.startsWith('0x') ||
+          localStorage.getItem('wallet_type') === 'zerog';
         
         // Fetch game balance from contract (0G uses custody balance, TRON uses player balance)
         let clientBalance = 0;
         try {
-          if (isZeroG) {
-            const custBal = await getCustodyBalance(currentAddress);
+          if (isJoiningZeroG) {
+            const custBal = await getCustodyBalance(effectiveAddress);
             clientBalance = parseFloat(custBal) * 1e18;
             console.log('[Tournament] Client-side 0G custody balance:', custBal, '0G');
           } else {
-            const balInfo = await getPlayerBalance(currentAddress);
+            const balInfo = await getPlayerBalance(effectiveAddress);
             clientBalance = (balInfo.balance || 0) + (balInfo.locked || 0);
             console.log('[Tournament] Client-side TRX balance:', clientBalance / 1e6, 'TRX');
           }
@@ -408,7 +442,7 @@ const Tournament = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            walletAddress: currentAddress,
+            walletAddress: effectiveAddress,
             clientBalance  // Pass browser-fetched balance for server-side validation
           })
         });
@@ -418,19 +452,43 @@ const Tournament = () => {
           const modal = document.querySelector('[id="wrapper"]');
           if (modal) modal.click();
           
-          // 保存钱包地址到 localStorage (测试模式支持)
-          localStorage.setItem('testWalletAddress', currentAddress);
+          persistWallet(isJoiningZeroG ? 'zerog' : 'tron', effectiveAddress);
           
           // 导航到游戏页面，传递钱包地址参数
-          navigate(`/tournament/${tournamentId}/play?address=${currentAddress}`);
+          navigate(`/tournament/${tournamentId}/play?address=${effectiveAddress}`);
         } else {
-          setError(t('errJoinFailed') + (data.error || 'Unknown error'));
+          throw new Error(t('errJoinFailed') + (data.error || 'Unknown error'));
         }
       } catch (error) {
         console.error('Failed to join tournament:', error);
-        setError(t('errJoinFailed') + error.message);
+        setError(error.message.startsWith(t('errJoinFailed')) ? error.message : t('errJoinFailed') + error.message);
+        throw error;
       }
     };
+
+    const existingAddress = addressOverride || address || zeroGAddress || walletAddress || localStorage.getItem('wallet_address');
+    if (!existingAddress && !isConnected && !zeroGConnected) {
+      const handleConnectAndJoin = async () => {
+        try {
+          const connectedAddress = await connectPreferredWallet();
+          if (!connectedAddress) {
+            throw new Error(t('errNoAddress'));
+          }
+          await joinTournament(connectedAddress);
+        } catch (err) {
+          setError(t('errConnectFailed') + err.message);
+          throw err;
+        }
+      };
+
+      openModal(
+        () => <Text>Please connect your wallet to join a tournament.</Text>,
+        'Wallet Required',
+        isConnecting ? 'Connecting...' : 'Connect Wallet',
+        handleConnectAndJoin
+      );
+      return;
+    }
 
     openModal(
       () => (
@@ -441,7 +499,7 @@ const Tournament = () => {
       ),
       'Join Tournament',
       'Confirm',
-      handleJoin
+      () => joinTournament(existingAddress)
     );
   };
 

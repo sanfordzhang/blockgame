@@ -341,7 +341,7 @@ const CardDisplay = styled.div`
 
 const NFTGallery = () => {
   const contextWalletAddress = useContext(globalContext)?.walletAddress;
-  const { setWalletAddress } = useContext(globalContext);
+  const { setWalletAddress, setWalletType } = useContext(globalContext);
   const { address: tronLinkAddress } = useTronLink();
   const { address: zeroGAddress, isConnected: zeroGConnected, connectWallet: connectZeroG } = useZeroG() || {};
   const { openModal, closeModal } = useContext(modalContext);
@@ -367,8 +367,19 @@ const NFTGallery = () => {
   const walletAddress = useMemo(() => {
     if (contextWalletAddress) return contextWalletAddress;
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('address') || localStorage.getItem('testWalletAddress');
+    return urlParams.get('address') || localStorage.getItem('wallet_address') || localStorage.getItem('testWalletAddress');
   }, [contextWalletAddress]);
+  const zeroGWalletAddress = zeroGAddress || ((walletAddress || '').startsWith('0x') ? walletAddress : null);
+  const hasZeroGWallet = !!zeroGWalletAddress;
+
+  const persistZeroGWallet = useCallback((addr) => {
+    if (!addr) return;
+    setWalletAddress(addr);
+    if (setWalletType) setWalletType('zerog');
+    localStorage.setItem('wallet_type', 'zerog');
+    localStorage.setItem('wallet_address', addr);
+    localStorage.setItem('testWalletAddress', addr);
+  }, [setWalletAddress, setWalletType]);
 
   // Achievement types with numeric rarity
   const achievementTypes = {
@@ -378,6 +389,12 @@ const NFTGallery = () => {
     FULL_HOUSE: { name: 'Full House', rarity: 4, icon: '🏠' },
     FLUSH: { name: 'Flush', rarity: 5, icon: '♠️' },
     STRAIGHT: { name: 'Straight', rarity: 6, icon: '📊' },
+    'Royal Flush': { name: 'Royal Flush', rarity: 1, icon: '👑' },
+    'Straight Flush': { name: 'Straight Flush', rarity: 2, icon: '🔥' },
+    'Four of a Kind': { name: 'Four of a Kind', rarity: 3, icon: '💎' },
+    'Full House': { name: 'Full House', rarity: 4, icon: '🏠' },
+    'Flush': { name: 'Flush', rarity: 5, icon: '♠️' },
+    'Straight': { name: 'Straight', rarity: 6, icon: '📊' },
     // Also support numeric keys from database
     1: { name: 'Royal Flush', rarity: 1, icon: '👑' },
     2: { name: 'Straight Flush', rarity: 2, icon: '🔥' },
@@ -609,7 +626,12 @@ const NFTGallery = () => {
   const fetchINFTs = async (addressOverride) => {
     setInftLoading(true);
     try {
-      const targetAddress = addressOverride || zeroGAddress || walletAddress;
+      const targetAddress = addressOverride || zeroGWalletAddress || walletAddress;
+      if (!targetAddress) {
+        setInfts([]);
+        setInftLoading(false);
+        return;
+      }
       console.log('[INFT] Fetching for address:', targetAddress);
       const res = await fetch(`/api/0g/infts/${targetAddress}`);
       const data = await res.json();
@@ -716,11 +738,24 @@ const NFTGallery = () => {
         </Tab>
         <Tab
           active={tab === 'infts'}
-          onClick={async () => { setTab('infts'); if (!zeroGConnected) { try { const addr = await connectZeroG(); fetchINFTs(addr); } catch(e) { console.error('0G connect error:', e); } } else fetchINFTs(); }}
-          style={{ opacity: zeroGConnected ? 1 : 0.5 }}
+          onClick={async () => {
+            setTab('infts');
+            if (hasZeroGWallet) {
+              fetchINFTs(zeroGWalletAddress);
+              return;
+            }
+            try {
+              const addr = await connectZeroG();
+              persistZeroGWallet(addr);
+              fetchINFTs(addr);
+            } catch(e) {
+              console.error('0G connect error:', e);
+            }
+          }}
+          style={{ opacity: hasZeroGWallet || zeroGConnected ? 1 : 0.5 }}
         >
-          0G / INFT {zeroGConnected && `(${infts.length})`}
-          {!zeroGConnected && <span style={{ marginLeft: '0.3rem', fontSize: '0.7rem' }}>(🔒)</span>}
+          0G / INFT {(hasZeroGWallet || zeroGConnected) && `(${infts.length})`}
+          {!hasZeroGWallet && !zeroGConnected && <span style={{ marginLeft: '0.3rem', fontSize: '0.7rem' }}>(🔒)</span>}
         </Tab>
         <Tab active={tab === 'types'} onClick={() => setTab('types')}>
           Achievement Types
@@ -839,12 +874,20 @@ const NFTGallery = () => {
         <Container flexDirection="column" alignItems="center" gap="1rem">
           {inftLoading ? (
             <Text textCentered color="#fff">Loading INFTs from 0G chain...</Text>
-          ) : !zeroGConnected ? (
+          ) : !hasZeroGWallet && !zeroGConnected ? (
             <>
               <Text textCentered color="rgba(255,255,255,0.7)" marginTop="2rem">
                 Connect your 0G wallet to view Interactive NFTs (ERC-7857)
               </Text>
-              <Button primary onClick={async () => { try { await connectZeroG(); } catch(e) { console.error('0G connect error:', e); } }}>
+              <Button primary onClick={async () => {
+                try {
+                  const addr = await connectZeroG();
+                  persistZeroGWallet(addr);
+                  fetchINFTs(addr);
+                } catch(e) {
+                  console.error('0G connect error:', e);
+                }
+              }}>
                 Connect 0G Wallet
               </Button>
             </>
@@ -858,8 +901,13 @@ const NFTGallery = () => {
           ) : (
             <NFTGrid>
               {infts.map((inft) => {
+                const achievement = achievementTypes[inft.handType] || {};
+                const rarity = achievement.rarity || (typeof inft.handType === 'number' ? inft.handType : 6);
                 // Extract embedded image from metadataURI (data:application/json;base64,{...image:"data:..."})
                 const inftImage = (() => {
+                  if (inft.gameScreenshot && inft.gameScreenshot.length > 100) {
+                    return `data:image/${inft.screenshotFormat || 'png'};base64,${inft.gameScreenshot}`;
+                  }
                   if (!inft.metadataURI) return null;
                   try {
                     const b64 = inft.metadataURI.split(',')[1];
@@ -870,19 +918,19 @@ const NFTGallery = () => {
                 })();
 
                 return (
-                <CollectionCard key={inft.tokenId} rarity={inft.handType || 6}>
+                <CollectionCard key={inft.tokenId} rarity={rarity}>
                   {inftImage ? (
                     <GameScreenshotWrapper style={{ cursor: 'pointer' }} onClick={() => setEnlargedScreenshot(inftImage)}>
-                      <ScreenshotImage src={inftImage} alt={`${rarityNames[inft.handType] || 'INFT'} #${inft.tokenId}`} />
-                      <AchievementBadge rarity={inft.handType || 6} style={{ position: 'absolute', top: '8px', left: '8px' }}>
-                        <span>{achievementTypes[inft.handType]?.icon || '🃏'}</span>
+                      <ScreenshotImage src={inftImage} alt={`${achievement.name || 'INFT'} #${inft.tokenId}`} />
+                      <AchievementBadge rarity={rarity} style={{ position: 'absolute', top: '8px', left: '8px' }}>
+                        <span>{achievement.icon || '🃏'}</span>
                         <span>INFT #{inft.tokenId}</span>
                       </AchievementBadge>
                     </GameScreenshotWrapper>
                   ) : (
-                  <GameScreenshot rarity={inft.handType || 6}>
-                    <AchievementBadge rarity={inft.handType || 6}>
-                      <span>{achievementTypes[inft.handType]?.icon || '🃏'}</span>
+                  <GameScreenshot rarity={rarity}>
+                    <AchievementBadge rarity={rarity}>
+                      <span>{achievement.icon || '🃏'}</span>
                       <span>INFT #{inft.tokenId}</span>
                     </AchievementBadge>
                     <Text size="0.7rem" color="rgba(255,255,255,0.7)">
@@ -892,8 +940,8 @@ const NFTGallery = () => {
                   )}
                   <CollectionInfo>
                     <Container flexDirection="row" justifyContent="space-between">
-                      <Heading as="h4" color="#fff">{rarityNames[inft.handType] || 'INFT'}</Heading>
-                      <CollectionRarityBadge rarity={inft.handType || 6}>
+                      <Heading as="h4" color="#fff">{achievement.name || inft.metadataName || 'INFT'}</Heading>
+                      <CollectionRarityBadge rarity={rarity}>
                         ERC-7857
                       </CollectionRarityBadge>
                     </Container>

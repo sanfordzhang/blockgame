@@ -269,15 +269,68 @@ class ZeroGController {
                 return res.json({ success: true, infts: [], count: 0 });
             }
 
+            const tokenIds = new Set();
+
+            // Prefer indexed mint events. Token IDs are not guaranteed to be 1..balance.
+            try {
+                const mintFilter = inftContract.filters.PokerHandMinted(null, null, address);
+                const events = await inftContract.queryFilter(mintFilter, 0, 'latest');
+                events.forEach((event) => {
+                    const tokenId = event?.args?.tokenId;
+                    if (tokenId !== undefined) tokenIds.add(tokenId.toString());
+                });
+            } catch (eventErr) {
+                console.warn('[0G] Mint event query failed:', eventErr.message);
+            }
+
+            // Database fallback for locally minted achievements.
+            try {
+                const NFTClaim = require('../models/NFTClaim');
+                const claims = await NFTClaim.find({
+                    playerAddress: address.toLowerCase(),
+                    onchainTokenId: { $ne: null }
+                }).sort({ claimedAt: -1 }).limit(50);
+                claims.forEach((claim) => tokenIds.add(String(claim.onchainTokenId)));
+            } catch (dbErr) {
+                console.warn('[0G] NFTClaim fallback failed:', dbErr.message);
+            }
+
+            // Last-resort bounded scan for older local deployments.
+            if (tokenIds.size === 0) {
+                for (let i = 1; i <= 200; i++) {
+                    try {
+                        const owner = await inftContract.ownerOf(i);
+                        if (owner.toLowerCase() === address.toLowerCase()) {
+                            tokenIds.add(String(i));
+                            if (tokenIds.size >= count) break;
+                        }
+                    } catch(e) {
+                        // Skip gaps/nonexistent token ids.
+                    }
+                }
+            }
+
+            const claimsByOnchainTokenId = new Map();
+            try {
+                const NFTClaim = require('../models/NFTClaim');
+                const claims = await NFTClaim.find({
+                    playerAddress: address.toLowerCase(),
+                    onchainTokenId: { $in: Array.from(tokenIds).map((id) => parseInt(id, 10)).filter(Number.isFinite) }
+                }).sort({ claimedAt: -1 }).limit(100);
+                claims.forEach((claim) => claimsByOnchainTokenId.set(String(claim.onchainTokenId), claim));
+            } catch (dbErr) {
+                console.warn('[0G] NFTClaim enrichment failed:', dbErr.message);
+            }
+
             // Query each token
             const infts = [];
-            for (let i = 1; i <= Math.min(count, 20); i++) {
+            for (const tokenId of Array.from(tokenIds).slice(0, 50)) {
                 try {
                     let owner;
-                    try { owner = await inftContract.ownerOf(i); } catch(e) { continue; }
+                    try { owner = await inftContract.ownerOf(tokenId); } catch(e) { continue; }
                     if (owner.toLowerCase() !== address.toLowerCase()) continue;
 
-                    const uri = await inftContract.tokenURI(i);
+                    const uri = await inftContract.tokenURI(tokenId);
 
                     // Decode metadata
                     let metadataImage = null, metadataName = '';
@@ -295,7 +348,7 @@ class ZeroGController {
                     // Try getPokerData
                     let pokerData = {};
                     try {
-                        const pd = await inftContract.getPokerData(i);
+                        const pd = await inftContract.getPokerData(tokenId);
                         pokerData = {
                             handType: pd?.handType || pd?.[0],
                             storageRootHash: pd?.storageRootHash || pd?.[1],
@@ -303,8 +356,10 @@ class ZeroGController {
                         };
                     } catch(e) { /* no poker data */ }
 
+                    const claim = claimsByOnchainTokenId.get(String(tokenId));
+
                     infts.push({
-                        tokenId: i,
+                        tokenId: parseInt(tokenId, 10),
                         owner,
                         tokenURI: uri,
                         metadataURI: uri,
@@ -313,10 +368,14 @@ class ZeroGController {
                         handType: pokerData.handType || 6,
                         storageRootHash: pokerData.storageRootHash,
                         rarity: pokerData.rarity,
-                        mintedAt: new Date().toISOString()
+                        mintedAt: claim?.mintedAt || claim?.claimedAt || new Date().toISOString(),
+                        gameId: claim?.gameId || null,
+                        gameScreenshot: claim?.gameScreenshot || null,
+                        screenshotFormat: claim?.screenshotFormat || 'png',
+                        cards: claim?.cards || []
                     });
                 } catch(e) {
-                    console.error(`[0G] Error fetching token ${i}:`, e.message);
+                    console.error(`[0G] Error fetching token ${tokenId}:`, e.message);
                 }
             }
 

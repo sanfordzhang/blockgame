@@ -63,43 +63,49 @@ class ZeroGContractService {
                 path.join(__dirname, '../../build/contracts')
             ];
 
-            let found = false;
-
             for (const baseDir of searchPaths) {
                 // PokerGame0G - try both with and without .sol subfolder
-                const pgCandidates = [
-                    path.join(baseDir, 'PokerGame0G.sol', 'PokerGame0G.json'),
-                    path.join(baseDir, 'PokerGame0G.json')
-                ];
-                for (const pgPath of pgCandidates) {
-                    if (fs.existsSync(pgPath)) {
-                        const pgArtifact = JSON.parse(fs.readFileSync(pgPath, 'utf8'));
-                        this.pokerGameAbi = pgArtifact.abi;
-                        console.log('[ZeroGContractService] PokerGame0G ABI loaded from:', pgPath);
-                        found = true;
-                        break;
+                if (!this.pokerGameAbi) {
+                    const pgCandidates = [
+                        path.join(baseDir, 'PokerGame0G.sol', 'PokerGame0G.json'),
+                        path.join(baseDir, 'PokerGame0G.json')
+                    ];
+                    for (const pgPath of pgCandidates) {
+                        if (fs.existsSync(pgPath)) {
+                            const pgArtifact = JSON.parse(fs.readFileSync(pgPath, 'utf8'));
+                            this.pokerGameAbi = pgArtifact.abi;
+                            console.log('[ZeroGContractService] PokerGame0G ABI loaded from:', pgPath);
+                            break;
+                        }
                     }
                 }
-                if (this.pokerGameAbi) break;
 
                 // PokerHandINFT
-                const inftCandidates = [
-                    path.join(baseDir, 'PokerHandINFT.sol', 'PokerHandINFT.json'),
-                    path.join(baseDir, 'PokerHandINFT.json')
-                ];
-                for (const inftPath of inftCandidates) {
-                    if (fs.existsSync(inftPath)) {
-                        const inftArtifact = JSON.parse(fs.readFileSync(inftPath, 'utf8'));
-                        this.inftAbi = inftArtifact.abi;
-                        console.log('[ZeroGContractService] PokerHandINFT ABI loaded from:', inftPath);
-                        break;
+                if (!this.inftAbi) {
+                    const inftCandidates = [
+                        path.join(baseDir, 'PokerHandINFT.sol', 'PokerHandINFT.json'),
+                        path.join(baseDir, 'PokerHandINFT.json')
+                    ];
+                    for (const inftPath of inftCandidates) {
+                        if (fs.existsSync(inftPath)) {
+                            const inftArtifact = JSON.parse(fs.readFileSync(inftPath, 'utf8'));
+                            this.inftAbi = inftArtifact.abi;
+                            console.log('[ZeroGContractService] PokerHandINFT ABI loaded from:', inftPath);
+                            break;
+                        }
                     }
                 }
+
+                if (this.pokerGameAbi && this.inftAbi) break;
             }
 
-            if (!found) {
+            if (!this.pokerGameAbi) {
                 console.warn('[ZeroGContractService] ⚠️ PokerGame0G ABI not found in any of:', searchPaths);
-            } else {
+            }
+            if (!this.inftAbi) {
+                console.warn('[ZeroGContractService] ⚠️ PokerHandINFT ABI not found in any of:', searchPaths);
+            }
+            if (this.pokerGameAbi || this.inftAbi) {
                 console.log('[ZeroGContractService] ABI loading complete');
             }
         } catch (e) {

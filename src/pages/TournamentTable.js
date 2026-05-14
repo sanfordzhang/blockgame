@@ -31,6 +31,26 @@ import './Play.scss';
 const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
 
 const API_BASE = process.env.REACT_APP_SERVER_URI || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${process.env.REACT_APP_SERVER_PORT || '7778'}`;
+const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+
+const importINFTToMetaMask = async (tokenId) => {
+  if (!window.ethereum || !tokenId) return false;
+  try {
+    return await window.ethereum.request({
+      method: 'wallet_watchAsset',
+      params: {
+        type: 'ERC721',
+        options: {
+          address: POKERHAND_INFT_ADDRESS,
+          tokenId: String(tokenId),
+        },
+      },
+    });
+  } catch (err) {
+    console.warn('[NFT] MetaMask auto-import failed:', err.message);
+    return false;
+  }
+};
 
 // NFT Achievement types mapping
 const achievementTypes = {
@@ -329,6 +349,8 @@ const TournamentTableGame = ({ tournamentId }) => {
                   tokenId: data.tokenId || data.onchainResult?.tokenId
                 });
                 const serverTx = data.txHash || data.onchainResult?.txHash;
+                const mintedTokenId = data.onchainResult?.tokenId || data.onchainTokenId || data.tokenId;
+                const imported = await importINFTToMetaMask(mintedTokenId);
                 Swal.fire({
                   title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
                   html: `
@@ -336,7 +358,9 @@ const TournamentTableGame = ({ tournamentId }) => {
                       <p>${_lang === 'zh'
                         ? `您的 ${achievement.name || nftAchievement.handType} INFT 已上链铸造！`
                         : `Your ${achievement.name || nftAchievement.handType} INFT has been minted!`}</p>
+                      <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? 'Token ID:' : 'Token ID:'} ${mintedTokenId || '-'}</p>
                       <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${serverTx?.substring(0, 18)}...</p>
+                      <p style="font-size:0.8rem;color:#aaa">${imported ? (_lang === 'zh' ? '已请求 MetaMask 导入 NFT' : 'MetaMask NFT import requested') : ''}</p>
                       <p style="font-size:0.8rem;color:#aaa">${data.warning || ''}</p>
                     </div>`,
                   icon: 'success',
@@ -384,8 +408,6 @@ const TournamentTableGame = ({ tournamentId }) => {
                     throw new Error('No Ethereum wallet (MetaMask) found');
                   }
 
-                  // Updated INFT contract address (with tokenURI override for MetaMask display)
-                  const POKERHAND_INFT_ADDRESS = '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
                   const abi = [
                     'function mint(address to, string handType, string storageRootHash, string metadataURI) returns (uint256)'
                   ];
@@ -486,8 +508,9 @@ const TournamentTableGame = ({ tournamentId }) => {
                   console.log('[NFT] 0G INFT mint tx:', txHash);
 
                   // Update database with txHash
+                  let mintedTokenId = data.onchainTokenId || data.tokenId;
                   try {
-                    await fetch(`${API_BASE}/api/nft/confirm-mint`, {
+                    const confirmResponse = await fetch(`${API_BASE}/api/nft/confirm-mint`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -497,9 +520,12 @@ const TournamentTableGame = ({ tournamentId }) => {
                         tokenId: data.tokenId
                       })
                     });
+                    const confirmData = await confirmResponse.json().catch(() => ({}));
+                    mintedTokenId = confirmData.onchainTokenId || confirmData.tokenId || mintedTokenId;
                   } catch (dbErr) {
                     console.error('[NFT] Failed to update database:', dbErr);
                   }
+                  const imported = await importINFTToMetaMask(mintedTokenId);
 
                   Swal.fire({
                     title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
@@ -508,7 +534,9 @@ const TournamentTableGame = ({ tournamentId }) => {
                         <p>${_lang === 'zh'
                           ? `您的 ${achievement.name || nftAchievement.handType} INFT 已上链铸造！`
                           : `Your ${achievement.name || nftAchievement.handType} INFT has been minted!`}</p>
+                        <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? 'Token ID:' : 'Token ID:'} ${mintedTokenId || '-'}</p>
                         <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${txHash?.substring(0, 18)}...</p>
+                        <p style="font-size:0.8rem;color:#aaa">${imported ? (_lang === 'zh' ? '已请求 MetaMask 导入 NFT' : 'MetaMask NFT import requested') : ''}</p>
                       </div>`,
                     icon: 'success',
                     showCancelButton: true,

@@ -231,6 +231,34 @@ router.post('/confirm-mint', async (req, res) => {
         
         console.log(`[NFT API] Confirming mint: ${walletAddress?.substring(0, 10)}... gameId=${gameId} tx=${txHash?.substring(0, 16)}...`);
         
+        let resolvedTokenId = tokenId;
+        if (walletAddress?.startsWith('0x') && txHash) {
+            try {
+                const { getZeroGService } = require('../../blockchain/blockchainFactory');
+                const ethers6 = require('ethers6');
+                const fs = require('fs');
+                const path = require('path');
+                const zgService = getZeroGService();
+                const abiPath = path.resolve(__dirname, '../../../artifacts/contracts/0g/PokerHandINFT.sol/PokerHandINFT.json');
+                if (zgService?.provider && fs.existsSync(abiPath)) {
+                    const abi = JSON.parse(fs.readFileSync(abiPath, 'utf8')).abi;
+                    const inftAddr = process.env.ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+                    const inft = new ethers6.Contract(inftAddr, abi, zgService.provider);
+                    const receipt = await zgService.provider.getTransactionReceipt(txHash);
+                    const mintEvent = receipt?.logs
+                        ?.map((log) => {
+                            try { return inft.interface.parseLog(log); } catch (_) { return null; }
+                        })
+                        .find((event) => event && event.name === 'PokerHandMinted');
+                    if (mintEvent?.args?.tokenId !== undefined) {
+                        resolvedTokenId = mintEvent.args.tokenId.toString();
+                    }
+                }
+            } catch (resolveErr) {
+                console.warn('[NFT API] Could not resolve 0G tokenId from receipt:', resolveErr.message);
+            }
+        }
+
         // Find the NFT record and update
         const result = await NFTClaim.updateOne(
             { 
@@ -240,7 +268,7 @@ router.post('/confirm-mint', async (req, res) => {
             { 
                 $set: { 
                     txHash: txHash,
-                    onchainTokenId: tokenId,
+                    onchainTokenId: resolvedTokenId ? parseInt(resolvedTokenId, 10) : tokenId,
                     mintedAt: new Date()
                 } 
             }
@@ -252,7 +280,12 @@ router.post('/confirm-mint', async (req, res) => {
         }
         
         console.log(`[NFT API] ✅ NFT record updated: ${result.modifiedCount} document(s)`);
-        res.json({ success: true, modifiedCount: result.modifiedCount });
+        res.json({
+            success: true,
+            modifiedCount: result.modifiedCount,
+            tokenId: resolvedTokenId,
+            onchainTokenId: resolvedTokenId
+        });
     } catch (error) {
         console.error('[NFT API] Confirm mint error:', error);
         res.status(500).json({ success: false, error: error.message });
