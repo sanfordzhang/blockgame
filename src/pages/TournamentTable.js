@@ -427,66 +427,15 @@ const TournamentTableGame = ({ tournamentId }) => {
                   const handType = HAND_TYPES[signature.achievementTypeId] || HAND_TYPES[8];
                   const handTypeName = handType.name;
 
-                  // Generate realistic poker table SVG with actual playing cards
-                  function generatePokerHandSVG(ht) {
-                    const W = 300, H = 400;
-                    const cards = ht.cards;
-                    const accent = ht.color;
-                    const cw = 40, ch = 56; // card width/height
-                    const gap = 6;
-                    const totalW = cards.length * cw + (cards.length - 1) * gap;
-                    const startX = (W - totalW) / 2;
+                  const metadataURI = data.metadataURI || (
+                    data.claimId
+                      ? `${API_BASE.replace(/\/$/, '')}/api/nft/metadata/inft/${data.claimId}`
+                      : null
+                  );
 
-                    function cardEl(c, x) {
-                      const suitMap = { '♥':'#D32F2F', '♦':'#D32F2F', '♠':'#212121', '♣':'#212121' };
-                      const suit = c.slice(-1);
-                      const rank = c.slice(0, -1);
-                      const sc = suitMap[suit] || '#000';
-                      return `<rect x="${x}" y="95" width="${cw}" height="${ch}" rx="4" fill="#FFF" stroke="#ccc" stroke-width="1"/>` +
-                        `<text x="${x+5}" y="113" font-size="11" font-weight="bold" fill="${sc}" font-family="Arial">${rank}</text>` +
-                        `<text x="${x+5}" y="124" font-size="10" fill="${sc}" font-family="Arial">${suit}</text>` +
-                        `<text x="${x+cw/2}" y="135" font-size="16" text-anchor="middle" fill="${sc}" font-family="Arial">${suit}</text>`;
-                    }
-
-                    let cardsSVG = '';
-                    cards.forEach((c, i) => { cardsSVG += cardEl(c, startX + i * (cw + gap)); });
-
-                    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
-                      `<defs>` +
-                        `<linearGradient id="felt" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0d5c2e"/><stop offset="100%" stop-color="#084422"/></linearGradient>` +
-                        `<linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${accent}"/><stop offset="100%" stop-color="${accent}88"/></linearGradient>` +
-                        `<filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.4"/></filter>` +
-                        `</defs>` +
-                      `<rect width="${W}" height="${H}" rx="16" fill="#111827"/>` +
-                      `<rect x="12" y="60" width="${W-24}" height="${H-80}" rx="12" fill="url(#felt)" filter="url(#shadow)"/>` +
-                      `<rect x="20" y="68" width="${W-40}" height="${H-96}" rx="8" fill="none" stroke="${accent}44" stroke-width="1" stroke-dasharray="4 3"/>` +
-                      `${cardsSVG}` +
-                      `<text x="${W/2}" y="78" text-anchor="middle" font-size="11" fill="${accent}" font-weight="bold" letter-spacing="2" font-family="Arial">POKER HAND</text>` +
-                      `<text x="${W/2}" y="180" text-anchor="middle" font-size="22" fill="#fff" font-weight="bold" font-family="Arial">${ht.name}</text>` +
-                      `<rect x="50" y="196" width="200" height="2" fill="${accent}" opacity="0.6" rx="1"/>` +
-                      `<text x="${W/2}" y="220" text-anchor="middle" font-size="11" fill="#9ca3af" font-family="Arial">0G Poker Tournament</text>` +
-                      `<text x="${W/2}" y="238" text-anchor="middle" font-size="10" fill="#6b7280" font-family="Arial">ERC-7857 Interactive NFT</text>` +
-                      `<g transform="translate(${W-44}, ${H-48})">` +
-                        `<circle cx="18" cy="18" r="16" fill="${accent}22" stroke="${accent}" stroke-width="1.5"/>` +
-                        `<text x="18" y="22" text-anchor="middle" font-size="14" fill="${accent}" font-family="Arial">♠</text>` +
-                      `</g>` +
-                      `</svg>`;
+                  if (!metadataURI) {
+                    throw new Error('Missing metadata URI for INFT mint');
                   }
-
-                  const svgImage = generatePokerHandSVG(handType);
-                  const svgBase64 = btoa(unescape(encodeURIComponent(svgImage)));
-                  const metadataObj = {
-                    name: `${handTypeName} INFT`,
-                    description: `Achievement NFT for ${handTypeName} in 0G Poker Tournament`,
-                    image: `data:image/svg+xml;base64,${svgBase64}`,
-                    attributes: [
-                      { trait_type: "Hand Type", value: handTypeName },
-                      { trait_type: "Standard", value: "ERC-7857" },
-                      { trait_type: "Game", value: "0G Poker" }
-                    ]
-                  };
-                  const metadataBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(metadataObj))));
-                  const metadataURI = `data:application/json;base64,${metadataBase64}`;
 
                   const iface = new ethers.utils.Interface(abi);
                   const mintData = iface.encodeFunctionData('mint', [

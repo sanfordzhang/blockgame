@@ -4,6 +4,31 @@ const NFTService = require('../../services/NFTService');
 const NFTClaim = require('../../models/NFTClaim');
 const { authMiddleware } = require('../../middleware/auth');
 
+function getPublicBaseUrl(req) {
+    if (process.env.NFT_PUBLIC_BASE_URL) {
+        return process.env.NFT_PUBLIC_BASE_URL.replace(/\/$/, '');
+    }
+
+    const forwardedProto = req.get('x-forwarded-proto');
+    const proto = forwardedProto || req.protocol || 'http';
+    return `${proto}://${req.get('host')}`;
+}
+
+function buildFallbackSvg(nft, displayId) {
+    const title = nft?.achievementType || 'Poker Hand';
+    const rarity = nft?.rarity || 'COMMON';
+    const cards = nft?.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+    return `<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">` +
+        `<rect width="800" height="450" fill="#101827"/>` +
+        `<rect x="28" y="28" width="744" height="394" rx="18" fill="#0d5c2e" stroke="#fbbf24" stroke-width="3"/>` +
+        `<text x="400" y="92" font-size="22" fill="#fbbf24" text-anchor="middle" font-family="Arial" font-weight="700">0G POKER INFT</text>` +
+        `<text x="400" y="190" font-size="46" fill="#ffffff" text-anchor="middle" font-family="Arial" font-weight="700">${title}</text>` +
+        `<text x="400" y="245" font-size="24" fill="#d1d5db" text-anchor="middle" font-family="Arial">${cards}</text>` +
+        `<text x="400" y="315" font-size="20" fill="#9ca3af" text-anchor="middle" font-family="Arial">${rarity} • ERC-7857</text>` +
+        `<text x="400" y="370" font-size="18" fill="#fbbf24" text-anchor="middle" font-family="Arial">#${displayId}</text>` +
+        `</svg>`;
+}
+
 // NFTService实例（用于牌型检测）
 const nftServiceInstance = new (require('../../services/NFTService').NFTService)({
     tronWeb: null,
@@ -102,6 +127,76 @@ router.get('/collection/:walletAddress', async (req, res) => {
         res.json({ success: true, nfts });
     } catch (error) {
         console.error('[NFT API] Collection error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * @route GET /api/nft/image/:claimId
+ * @desc Return the real game screenshot for an NFT claim.
+ */
+router.get('/image/:claimId', async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const nft = await NFTClaim.findById(claimId);
+
+        if (!nft) {
+            return res.status(404).send('NFT image not found');
+        }
+
+        if (nft.gameScreenshot && nft.gameScreenshot.length > 100) {
+            const format = nft.screenshotFormat || 'png';
+            res.set('Content-Type', `image/${format}`);
+            res.set('Cache-Control', 'public, max-age=31536000, immutable');
+            return res.send(Buffer.from(nft.gameScreenshot, 'base64'));
+        }
+
+        const displayId = nft.onchainTokenId || nft.tokenId;
+        res.set('Content-Type', 'image/svg+xml; charset=utf-8');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.send(buildFallbackSvg(nft, displayId));
+    } catch (error) {
+        console.error('[NFT API] Image error:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+/**
+ * @route GET /api/nft/metadata/inft/:claimId
+ * @desc Metadata used by 0G INFT tokenURI. Uses the stored real game screenshot.
+ */
+router.get('/metadata/inft/:claimId', async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const nft = await NFTClaim.findById(claimId);
+
+        if (!nft) {
+            return res.status(404).json({ success: false, error: 'NFT metadata not found' });
+        }
+
+        const baseUrl = getPublicBaseUrl(req);
+        const displayId = nft.onchainTokenId || nft.tokenId;
+        const cards = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+        const imageUrl = `${baseUrl}/api/nft/image/${claimId}`;
+
+        res.set('Cache-Control', 'public, max-age=300');
+        res.json({
+            name: `${nft.displayName || nft.achievementType} INFT #${displayId}`,
+            description: nft.handDescription || `Real ${nft.achievementType} achievement from 0G Poker`,
+            image: imageUrl,
+            external_url: `${baseUrl}/nft?address=${encodeURIComponent(nft.playerAddress)}`,
+            attributes: [
+                { trait_type: 'Hand Type', value: nft.achievementType },
+                { trait_type: 'Rarity', value: nft.rarity },
+                { trait_type: 'Cards', value: cards || 'Recorded in game' },
+                { trait_type: 'Standard', value: 'ERC-7857' },
+                { trait_type: 'Game ID', value: nft.gameId || 'Unknown' },
+                { trait_type: 'Token ID', value: displayId, display_type: 'number' },
+                { trait_type: 'Real Game Screenshot', value: nft.gameScreenshot ? 'Yes' : 'No' }
+            ]
+        });
+    } catch (error) {
+        console.error('[NFT API] INFT metadata error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

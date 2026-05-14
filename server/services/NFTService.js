@@ -635,6 +635,11 @@ module.exports = {
         // ========== 0G ON-CHAIN MINT (when in 0G or both mode) ==========
         let onchainResult = null;
         const blockchainMode = process.env.BLOCKCHAIN_MODE || 'tron';
+        const metadataURI = `${(
+            process.env.NFT_PUBLIC_BASE_URL ||
+            process.env.PUBLIC_API_BASE_URL ||
+            'http://127.0.0.1:7778'
+        ).replace(/\/$/, '')}/api/nft/metadata/inft/${claim._id.toString()}`;
         
         if (blockchainMode === '0g' || blockchainMode === 'both') {
             try {
@@ -652,36 +657,16 @@ module.exports = {
                     const inftAddr = process.env.ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
                     const inftContract = new ethers6.Contract(inftAddr, abi, zgService.wallet);
                     
-                    const displayCards = parsedCards.map(c => `${c.rank}${c.suit}`).join(' ');
-                    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" rx="16" fill="#111827"/><rect x="18" y="70" width="264" height="250" rx="12" fill="#0d5c2e"/><text x="150" y="132" text-anchor="middle" font-size="16" fill="#fbbf24" font-family="Arial" font-weight="700">0G POKER</text><text x="150" y="185" text-anchor="middle" font-size="26" fill="#ffffff" font-family="Arial" font-weight="700">' + zeroGHandTypeName + '</text><text x="150" y="220" text-anchor="middle" font-size="13" fill="#d1d5db" font-family="Arial">' + displayCards + '</text><text x="150" y="255" text-anchor="middle" font-size="11" fill="#9ca3af" font-family="Arial">Game #' + gameId + '</text><text x="150" y="290" text-anchor="middle" font-size="10" fill="#6b7280" font-family="Arial">ERC-7857 INFT</text></svg>';
-                    const metaUri = 'data:application/json;base64,' + Buffer.from(JSON.stringify({
-                        name: `${zeroGHandTypeName} INFT #${tokenId}`,
-                        description: `Real ${zeroGHandTypeName} achievement from 0G Poker Game #${gameId}`,
-                        image: 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64'),
-                        external_url: `game:${gameId}`,
-                        properties: {
-                            gameId,
-                            hasGameScreenshot: Boolean(data.screenshot),
-                            localClaimId: claim._id.toString()
-                        },
-                        attributes: [
-                            { trait_type: 'Hand Type', value: zeroGHandTypeName },
-                            { trait_type: 'Cards', value: displayCards || 'Recorded in game' },
-                            { trait_type: 'Standard', value: 'ERC-7857' },
-                            { trait_type: 'Game', value: `#${gameId}` }
-                        ]
-                    })).toString('base64');
-                    
                     const recipient = walletAddress.startsWith('0x') ? walletAddress : ('0x' + walletAddress);
                     const mintArgs = [
                         recipient,
                         zeroGHandTypeName,
                         '0x0000000000000000000000000000000000000000000000000000000000000000',
-                        metaUri
+                        metadataURI
                     ];
                     const estimatedGas = await inftContract.mint.estimateGas(...mintArgs);
                     const gasLimit = (estimatedGas * 130n) / 100n;
-                    console.log(`[NFTService] 0G mint gas estimate=${estimatedGas.toString()} limit=${gasLimit.toString()} metadataBytes=${Buffer.byteLength(metaUri, 'utf8')}`);
+                    console.log(`[NFTService] 0G mint gas estimate=${estimatedGas.toString()} limit=${gasLimit.toString()} metadataURI=${metadataURI}`);
 
                     // Call mint(address to, string handType, string storageRootHash, string metadataURI)
                     const tx = await inftContract.mint(...mintArgs, { gasLimit });
@@ -733,6 +718,8 @@ module.exports = {
                 success: true,
                 ...onchainResult,
                 signature: null,
+                claimId: claim._id.toString(),
+                metadataURI,
                 tokenId,
                 achievementType: achievementTypeName,
                 metadata,
@@ -800,6 +787,8 @@ module.exports = {
                 r: sig.r,
                 s: sig.s
             },
+            claimId: claim._id.toString(),
+            metadataURI,
             tokenId,
             achievementType: achievementTypeName,
             metadata,
