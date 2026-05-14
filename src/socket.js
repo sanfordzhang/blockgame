@@ -24,7 +24,7 @@ function getSocket() {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      autoConnect: false
+      autoConnect: true
     });
   }
   return socket;

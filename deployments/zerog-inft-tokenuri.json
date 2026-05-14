@@ -1,0 +1,16 @@
+{
+  "network": "zerogTestnet",
+  "chainId": 16602,
+  "deployedAt": "2026-05-13T10:43:44.571Z",
+  "contracts": {
+    "PokerHandINFT": {
+      "address": "0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5",
+      "txHash": "0xd8e466a960eda33ca892d76762496576c34287d3cf64cd9a1ec26d0b8baf8c16",
+      "features": [
+        "tokenURI override",
+        "ERC7857",
+        "MINTER_ROLE granted to PokerGame0G"
+      ]
+    }
+  }
+}

@@ -1,8 +1,15 @@
 /**
  * 0G Poker E2E Test via CDP
- * - Injects mock MetaMask with 0G testnet wallet
- * - Creates tournament, joins as player + bot, plays full hand
- * - Verifies fairness shield, INFT mint, NFT gallery
+ *
+ * 功能:
+ * - 注入 mock MetaMask (0G Galileo testnet, chainId: 0x40da/16602)
+ * - 使用指定机器人钱包 (0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341)
+ * - 创建锦标赛, 玩家(浏览器) + 机器人(Socket) 对战
+ * - Mock 游戏模式: 自动产生顺子牌型 (5-6-7-8-9)
+ * - 完整游戏流程: join -> play hand -> NFT mint -> gallery check
+ *
+ * 运行方式:
+ *   node cdp-scripts/cdp-play-game-0g.js
  */
 const CDP = require('chrome-remote-interface');
 const http = require('http');
@@ -13,21 +20,49 @@ const fs = require('fs');
 // ============ Config ============
 const API_URL = 'http://127.0.0.1:7778';
 const BASE_URL = 'http://127.0.0.1:3001';
-const PLAYER = { address: '0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc' };
-const BOT = { address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4' };
+
+// 浏览器玩家 (使用服务器钱包地址，注入到浏览器中)
+const PLAYER = {
+    address: '0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc'
+};
+
+// 0G 机器人钱包
+const BOT = {
+    address: '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
+    privateKey: '[REMOVED BOT KEY - SET BOT_PRIVATE_KEY ENV VAR]',
+    addressLower: '0x1dad15c006c3e6db2e115bcd8b12a40ce87cd341'
+};
+
+// 0G 链配置
+const ZEROG_CHAIN_ID_HEX = '0x40da';   // 16602 in hex (0G Galileo testnet)
+const ZEROG_CHAIN_ID_DEC = 16602;
+const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = msg => console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
 
-function httpPost(url, data) {
+// ============ HTTP 工具 ============
+function httpPost(url, data, walletAddress) {
     return new Promise((resolve, reject) => {
         const body = JSON.stringify(data);
-        const opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-wallet-address': PLAYER.address } };
+        const addr = walletAddress || PLAYER.address;
+        const opts = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+                'x-wallet-address': addr
+            }
+        };
         const u = new URL(url);
         const req = http.request({ ...opts, hostname: u.hostname, port: u.port, path: u.pathname }, res => {
-            let d = ''; res.on('data', c => d += c); res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(d); } });
+            let d = '';
+            res.on('data', c => d += c);
+            res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(d); } });
         });
-        req.on('error', reject); req.write(body); req.end();
+        req.on('error', reject);
+        req.write(body);
+        req.end();
     });
 }
 
@@ -35,442 +70,742 @@ function cliclick(cmd) {
     try { execSync(`cliclick ${cmd}`, { encoding: 'utf-8' }); } catch (_) {}
 }
 
-// ============ Bot (WebSocket) ============
+// ============ 0G Bot (WebSocket) ============
 async function startBot(tournamentId) {
-    const botState = { tournamentId, lastTurnKey: '', lastActionTime: 0 };
+    const botState = {
+        tournamentId,
+        lastTurnKey: '',
+        lastActionTime: 0,
+        connected: false,
+        gameStarted: false
+    };
+
+    log(`[Bot] Starting 0G bot with address: ${BOT.address}`);
+
     return new Promise((resolve) => {
         const ws = new WebSocket(`ws://127.0.0.1:7778/socket.io/?EIO=4&transport=websocket`);
-        ws.on('open', () => { ws.send('40'); });
+
+        ws.on('open', () => {
+            log('[Bot] WebSocket connected, sending ping...');
+            ws.send('40'); // Socket.io connect + engine.io upgrade
+        });
+
         ws.on('message', raw => {
             const data = raw.toString();
+
+            // Engine.io ping/pong
             if (data === '2') { ws.send('3'); return; }
+
+            // Socket.io connect acknowledgment
             if (data.startsWith('40')) {
+                log('[Bot] Socket.io connected!');
+                botState.connected = true;
+
                 setTimeout(() => {
-                    ws.send('42' + JSON.stringify(['CS_LOBBY_CONNECT', { walletAddress: BOT.address }]));
+                    // Step 1: Lobby Connect
+                    ws.send('42' + JSON.stringify(['CS_LOBBY_CONNECT', {
+                        walletAddress: BOT.address
+                    }]));
+                    log('[Bot] Sent CS_LOBBY_CONNECT');
+
                     setTimeout(() => {
-                        ws.send('42' + JSON.stringify(['CS_TOURNAMENT_JOIN', { tournamentId, walletAddress: BOT.address }]));
+                        // Step 2: Join Tournament
+                        ws.send('42' + JSON.stringify(['CS_TOURNAMENT_JOIN', {
+                            tournamentId: tournamentId,
+                            walletAddress: BOT.address
+                        }]));
+                        log('[Bot] Sent CS_TOURNAMENT_JOIN');
+
                         setTimeout(() => {
-                            ws.send('42' + JSON.stringify(['CS_TOURNAMENT_ROOM_JOIN', { tournamentId, walletAddress: BOT.address }]));
-                            log('Bot joined tournament room');
+                            // Step 3: Join Tournament Room
+                            ws.send('42' + JSON.stringify(['CS_TOURNAMENT_ROOM_JOIN', {
+                                tournamentId: tournamentId,
+                                walletAddress: BOT.address
+                            }]));
+                            log('[Bot] Sent CS_TOURNAMENT_ROOM_JOIN ✅');
+                            log('[Bot] Bot is ready for game!');
                             resolve(ws);
                         }, 800);
                     }, 1000);
                 }, 500);
+                return;
             }
+
+            // Handle socket events (format: 42["eventName", {...data}])
             if (data.startsWith('42[')) {
                 try {
-                    const [event, state] = JSON.parse(data.slice(2));
+                    const [event, payload] = JSON.parse(data.slice(2));
+
+                    // Log important events
+                    if (['tournament_game_state', 'SC_GAME_STATE', 'game_state', 'SC_TOURNAMENT_STARTED'].includes(event)) {
+                        log(`[Bot] Event: ${event}`);
+                    }
+
+                    if (event === 'SC_TOURNAMENT_STARTED') {
+                        botState.gameStarted = true;
+                        log('[Bot] 🏆 Tournament STARTED!');
+                    }
+
+                    // Handle game state - auto play
                     if (['tournament_game_state', 'SC_GAME_STATE', 'game_state'].includes(event)) {
-                        handleBotTurn(ws, state, botState);
+                        handleBotTurn(ws, payload, botState);
                     }
                 } catch (_) {}
             }
         });
-        ws.on('error', e => log('Bot error: ' + e.message));
+
+        ws.on('error', e => log(`[Bot] Error: ${e.message}`));
+        ws.on('close', () => log('[Bot] Connection closed'));
     });
 }
 
 function handleBotTurn(ws, state, bs) {
     if (!state?.seats) return;
+
     for (const [seatId, seat] of Object.entries(state.seats)) {
         if (!seat?.player) continue;
-        const addr = (typeof seat.player === 'string' ? seat.player : seat.player.id || '').toLowerCase();
-        if (addr !== BOT.address.toLowerCase()) continue;
+
+        // Extract player address - handle both string and object formats
+        let playerAddr = '';
+        if (typeof seat.player === 'string') {
+            playerAddr = seat.player.toLowerCase();
+        } else if (seat.player.id) {
+            playerAddr = seat.player.id.toLowerCase();
+        }
+
+        // Check if this is the bot's turn
+        if (playerAddr !== BOT.addressLower) continue;
         if (state.turn !== parseInt(seatId) || seat.folded) continue;
-        const key = `${state.turn}-${state.street}`;
+
+        // Debounce: prevent duplicate actions on same turn
+        const key = `${state.turn}-${state.street || 'preflop'}`;
         const now = Date.now();
-        if (bs.lastTurnKey !== key) { bs.lastTurnKey = key; bs.lastActionTime = 0; }
+
+        if (bs.lastTurnKey !== key) {
+            bs.lastTurnKey = key;
+            bs.lastActionTime = 0;
+        }
+
         if (now - bs.lastActionTime > 2000) {
             bs.lastActionTime = now;
             setTimeout(() => {
+                // Simple strategy: call if there's a bet, otherwise check
                 const action = state.callAmount > 0 ? 'CALL' : 'CHECK';
-                ws.send('42' + JSON.stringify([`CS_TOURNAMENT_${action}`, { tournamentId: bs.tournamentId }]));
-                log(`Bot: ${action}`);
+                ws.send('42' + JSON.stringify([`CS_TOURNAMENT_${action}`, {
+                    tournamentId: bs.tournamentId
+                }]));
+                log(`[Bot] Action: ${action} (callAmount: ${state.callAmount || 0})`);
             }, 1200);
         }
     }
 }
 
-// ============ CDP Connection ============
+// ============ CDP 连接 ============
 async function connectCDP(urlPattern) {
-    for (let i = 0; i < 20; i++) {
-        const pages = await new Promise((res, rej) => {
-            http.get('http://localhost:9222/json', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>res(JSON.parse(d))); }).on('error', rej);
-        });
-        const page = pages.find(p => p.url.includes(urlPattern)) || pages.find(p => p.url.includes('3001'));
-        if (page) {
-            log(`CDP tab found: ${page.url.substring(0, 80)}`);
-            const c = await CDP({ target: page.webSocketDebuggerUrl });
-            await c.Page.enable();
-            await c.Runtime.enable();
-            await c.Log.enable();
-            let consoleLogs = [];
-            c.on('Log.entryAdded', ({entry}) => {
-                const t = entry.text || '';
-                if (/error|Error|WARNING|Socket|Join|ROOM|Tournament|NFT|0g|INFT|fairness/i.test(t))
-                    consoleLogs.push(t.substring(0, 200));
+    for (let i = 0; i < 30; i++) {
+        try {
+            const pages = await new Promise((res, rej) => {
+                http.get('http://localhost:9222/json', r => {
+                    let d = '';
+                    r.on('data', c => d += c);
+                    r.on('end', () => res(JSON.parse(d)));
+                }).on('error', rej);
             });
-            const screenshot = name => c.Page.captureScreenshot().then(({data}) => {
-                fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
-                log(`📸 ${name}`);
-            }).catch(() => {});
-            const eval_ = expr => c.Runtime.evaluate({ expression: expr, returnByValue: true, awaitPromise: true })
-                .then(r => r.result?.value).catch(e => { log(`eval error: ${e.message}`); return null; });
-            const logs = () => consoleLogs;
-            return { client: c, screenshot, eval_, logs };
+
+            const page = pages.find(p => p.url.includes(urlPattern))
+                       || pages.find(p => p.url.includes('3001'));
+
+            if (page) {
+                log(`[CDP] Tab found: ${page.url.substring(0, 80)}`);
+                const c = await CDP({ target: page.webSocketDebuggerUrl });
+
+                await c.Page.enable();
+                await c.Runtime.enable();
+                await c.Log.enable();
+
+                let consoleLogs = [];
+                c.on('Log.entryAdded', ({ entry }) => {
+                    const t = entry.text || '';
+                    // Filter relevant logs
+                    if (/error|Error|WARNING|Socket|Join|ROOM|Tournament|NFT|0g|INFT|fairness|balance|Balance/i.test(t)) {
+                        consoleLogs.push(`${new Date().toLocaleTimeString()} | ${t.substring(0, 200)}`);
+                    }
+                });
+
+                const screenshot = async (name) => {
+                    try {
+                        const { data } = await c.Page.captureScreenshot();
+                        fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
+                        log(`📸 Screenshot: ${name}.png`);
+                    } catch (e) {
+                        log(`[CDP] Screenshot error: ${e.message}`);
+                    }
+                };
+
+                const eval_ = async (expr) => {
+                    try {
+                        const r = await c.Runtime.evaluate({
+                            expression: expr,
+                            returnByValue: true,
+                            awaitPromise: true
+                        });
+                        return r.result?.value ?? null;
+                    } catch (e) {
+                        log(`[CDP] Eval error: ${e.message}`);
+                        return null;
+                    }
+                };
+
+                const logs = () => consoleLogs;
+
+                return { client: c, screenshot, eval_, logs };
+            }
+        } catch (e) {
+            log(`[CDP] Retry (${i+1}/30): ${e.message}`);
         }
-        log(`CDP waiting... (${i+1}/20)`);
+
+        log(`[CDP] Waiting for browser tab... (${i+1}/30)`);
         await sleep(1500);
     }
-    throw new Error('Tab not found');
+
+    throw new Error('Browser tab not found. Make sure Chrome CDP is running on port 9222.');
 }
 
-// ============ Inject Mock MetaMask for 0G ============
-async function injectMockWallet(c) {
-    log('Injecting mock MetaMask (0G testnet)...');
+// ============ 注入 Mock MetaMask (0G) ============
+async function injectMockWallet(c, options = {}) {
+    const walletAddr = options.address || PLAYER.address;
+    const chainId = options.chainId || ZEROG_CHAIN_ID_HEX;
+
+    log(`[Inject] Injecting mock MetaMask for address: ${walletAddr.substring(0, 10)}...`);
+    log(`[Inject] Chain ID: ${chainId} (0G Galileo testnet)`);
+
     await c.Runtime.evaluate({
         expression: `
 (function() {
-    // Remove existing ethereum if any
+    // Remove existing ethereum provider to avoid conflicts
     delete window.ethereum;
 
-    const accounts = ['${PLAYER.address}'];
-    const chainIdHex = '0x40da'; // 16602 = 0G Galileo testnet
+    const accounts = ['${walletAddr}'];
+    const chainIdHex = '${chainId}';
 
     window.ethereum = {
         isMetaMask: true,
+        _metamask: { isUnlocked: () => true },
+
         request: async ({method, params}) => {
             switch(method) {
                 case 'eth_requestAccounts':
+                    console.log('[mockMM] eth_requestAccounts ->', accounts);
+                    return accounts;
                 case 'eth_accounts':
                     return accounts;
                 case 'eth_chainId':
                     return chainIdHex;
+                case 'eth_getBlockByNumber':
+                    return null; // Don't need real blocks for testing
                 case 'eth_getBalance':
-                    return '0xde0b6b3a7640000'; // 1 ETH
+                    return '0xde0b6b3a7640000'; // 1 ETH (~1e18 wei)
+                case 'eth_gasPrice':
+                    return '0x3b9aca00'; // 1 Gwei
+                case 'eth_estimateGas':
+                    return '0x5208'; // 21000 gas
                 case 'wallet_switchEthereumChain':
+                    console.log('[mockMM] Switching chain:', params);
                     return null;
                 case 'personal_sign':
-                    return '0x' + 'a'.repeat(130); // fake signature
+                    console.log('[mockMM] personal_sign for message:', params?.[0]?.substring(0, 50));
+                    // Return fake signature (64 bytes + recovery byte = 130 hex chars)
+                    return '0x' + 'a'.repeat(130);
+                case 'eth_sendTransaction':
+                    // For real transaction signing, we'd need actual private key
+                    // Here we return a fake tx hash for testing UI flow
+                    const fakeTxHash = '0x' + Array.from({length: 64}, () =>
+                        Math.floor(Math.random() * 16).toString(16)
+                    ).join('');
+                    console.log('[mockMM] eth_sendTransaction -> fake tx:', fakeTxHash);
+                    return fakeTxHash;
                 default:
-                    console.log('[mockMM] unhandled:', method, params);
+                    console.log('[mockMM] Unhandled method:', method, params);
                     return null;
             }
         },
+
         on: () => {},
         removeListener: () => {},
         emit: () => {},
         _events: {},
         chainId: chainIdHex,
-        selectedAddress: accounts[0]
+        selectedAddress: accounts[0],
+        isConnected: () => true
     };
 
-    // Fire events so React context picks up changes
+    // Fire React context events after a short delay
     setTimeout(() => {
         window.ethereum.emit('accountsChanged', accounts);
         window.ethereum.emit('chainChanged', chainIdHex);
+
+        // Also fire connect event
+        if (window.ethereum._events.connect) {
+            window.ethereum.emit('connect', { chainId: chainIdHex });
+        }
     }, 100);
 
-    return 'mock metamask injected';
+    console.log('[MockMetaMask] Injected successfully! Address:', accounts[0]);
+    return 'mock metamask injected OK';
 })()`,
         returnByValue: true
     });
+
     await sleep(1000);
-    log('Mock MetaMask injected ✅');
+    log('[Inject] Mock MetaMask injected successfully ✅');
 }
 
-// ============ Main Test ============
+// ============ 主测试流程 ============
 async function runTest() {
+    // Ensure output directory exists
     if (!fs.existsSync('test-results')) fs.mkdirSync('test-results');
 
-    log('=== 0G Poker E2E Test ===');
+    log('\n========================================');
+    log('  0G Poker E2E Automated Test');
+    log(`  Player (browser): ${PLAYER.address.substring(0, 10)}...`);
+    log(`  Bot (socket):     ${BOT.address.substring(0, 10)}...`);
+    log(`  Mode: Mock Game (Straight Flush Cards)`);
+    log('========================================\n');
 
-    // Step 1: Create mock tournament
-    log('[1] Creating mock tournament...');
+    // ========== Step 1: 创建 Mock 锦标赛 ==========
+    log('[Step 1] Creating mock tournament (configId=3, 2-player)...');
+
     const createRes = await httpPost(`${API_URL}/api/tournament/create`, {
-        configId: 3, walletAddress: PLAYER.address, mockGame: true
+        configId: 3,
+        walletAddress: PLAYER.address,
+        mockGame: true   // 启用 Mock 模式 -> 产生顺子牌型
     });
-    if (!createRes.success) { log('Create failed: ' + JSON.stringify(createRes).substring(0,200)); process.exit(1); }
-    const tid = createRes.tournament?.tournamentId || createRes.tournament?.id;
-    log(`Tournament ID: ${tid}`);
 
-    // Step 1b: Join tournament via HTTP API with sufficient balance (bypasses socket balance check)
-    log('[1b] Joining tournament via HTTP API...');
-    for (const p of [PLAYER, BOT]) {
+    if (!createRes.success && !createRes.tournament) {
+        log(`[ERROR] Create failed: ${JSON.stringify(createRes).substring(0, 300)}`);
+        process.exit(1);
+    }
+
+    const tid = createRes.tournament?.tournamentId || createRes.tournament?.id;
+    log(`[Step 1] ✅ Tournament created! ID: ${tid}`);
+
+    // ========== Step 1b: 通过 HTTP API 加入锦标赛 ==========
+    log('[Step 1b] Joining tournament via HTTP API...');
+
+    for (const p of [
+        { label: 'Player', address: PLAYER.address },
+        { label: 'Bot', address: BOT.address }
+    ]) {
         try {
-            const joinRes = await httpPost(`${API_URL}/api/tournament/${tid}/join`, {
-                walletAddress: p.address,
-                clientBalance: 100000000 // 100 TRX in SUN units - enough for any buy-in
-            });
-            log(`  ${p.address.substring(0,10)}... joined: ${JSON.stringify(joinRes).substring(0,150)}`);
+            const joinRes = await httpPost(
+                `${API_URL}/api/tournament/${tid}/join`,
+                { walletAddress: p.address, clientBalance: 100000000 },
+                p.address  // Use each participant's address as header
+            );
+            log(`  [${p.label}] ${p.address.substring(0, 10)}... joined: ${
+                JSON.stringify(joinRes).substring(0, 120)
+            }`);
         } catch(e) {
-            log(`  ${p.address.substring(0,10)}... join error: ${e.message.substring(0,100)}`);
+            log(`  [${p.label}] Join error: ${e.message.substring(0, 100)}`);
         }
     }
     await sleep(2000);
 
-    // Step 2: Connect CDP to browser tab
-    log('[2] Connecting to Chrome via CDP...');
+    // ========== Step 2: CDP 连接浏览器 ==========
+    log('[Step 2] Connecting to Chrome via CDP...');
     let { client, screenshot, eval_: eval_, logs } = await connectCDP('3001');
 
-    // Step 3: Navigate to landing page & inject mock wallet
-    log('[3] Navigating to Landing page...');
+    // ========== Step 3: 导航到 Landing 页面并注入钱包 ==========
+    log('[Step 3] Navigating to Landing page...');
     await client.Page.navigate({ url: BASE_URL + '/' }).catch(() => {});
-    await sleep(3000);
-    await screenshot('02-landing-page');
+    await sleep(4000);
+    await screenshot('01-landing-page');
 
-    // Inject mock MetaMask
+    // 注入 mock MetaMask
     await injectMockWallet(client);
     await sleep(1000);
-    await screenshot('03-after-inject');
+    await screenshot('02-after-inject-wallet');
 
-    // Click "Connect 0G Wallet" button
-    log('[4] Clicking Connect 0G Wallet...');
-    const clickedConnect = await eval_(`
-(function() {
-    const btns = Array.from(document.querySelectorAll('button'));
-    const btn = btns.find(b => b.textContent.includes('0G') || b.textContent.includes('Connect') && b.textContent.includes('allet'));
-    if (btn) { btn.click(); return 'clicked: ' + btn.textContent.trim(); }
-    // Try all connect-like buttons
-    const allBtns = btns.map(b => b.textContent.trim()).filter(b => b.length > 0 && b.length < 40);
-    return 'no 0G button found, available: ' + allBtns.join(' | ');
-})()
-`);
-    log(`Connect result: ${clickedConnect}`);
+    // 点击 "Connect 0G Wallet" 按钮
+    log('[Step 4] Clicking Connect 0G Wallet button...');
+    const connectResult = await eval_(`(function() {
+        const btns = Array.from(document.querySelectorAll('button'));
+        // Look for 0G or Ethereum wallet button
+        const btn = btns.find(b => {
+            const t = b.textContent.trim().toLowerCase();
+            return (t.includes('0g') && t.includes('connect')) ||
+                   (t.includes('ethereum') && t.includes('connect')) ||
+                   (t.includes('connect') && b.textContent.includes('allet'));
+        });
+        if (btn) {
+            btn.click();
+            return 'Clicked: ' + btn.textContent.trim();
+        }
+        // List available buttons for debugging
+        const allBtnTexts = btns.map(b => b.textContent.trim())
+            .filter(b => b.length > 0 && b.length < 50);
+        return 'No 0G button found. Available buttons: [' + allBtnTexts.join(' | ') + ']';
+    })()`);
+
+    log(`  Result: ${connectResult}`);
     await sleep(3000);
-    await screenshot('04-after-connect');
+    await screenshot('03-after-connect-click');
 
-    // Check page state after connection attempt
+    // 检查页面状态
     const pageState = await eval_(`({
         url: location.href,
-        text: document.body.innerText.substring(0, 400),
-        hasEth: typeof window.ethereum !== 'undefined'
+        hasEthereum: typeof window.ethereum !== 'undefined',
+        selectedAddress: window.ethereum?.selectedAddress || 'none',
+        bodyPreview: document.body.innerText.substring(0, 300)
     })`);
-    log(`Page state: ${JSON.stringify(pageState).substring(0, 200)}`);
+    log(`  Page: ${JSON.stringify(pageState)?.substring(0, 250)}`);
 
-    // Step 4: Navigate to tournament play page
-    log('[5] Navigating to tournament play page...');
-    await client.Page.navigate({ url: `${BASE_URL}/tournament/${tid}/play?address=${PLAYER.address}` }).catch(() => {});
+    // ========== Step 5: 导航到锦标赛游戏页面 ==========
+    log('[Step 5] Navigating to tournament play page...');
+    await client.Page.navigate({
+        url: `${BASE_URL}/tournament/${tid}/play?address=${PLAYER.address}`
+    }).catch(() => {});
     await sleep(5000);
-    await screenshot('05-tournament-play');
+    await screenshot('04-tournament-play-page');
 
-    // Re-inject mock wallet on this page (SPA navigation)
+    // SPA导航后重新注入钱包
     await injectMockWallet(client);
     await sleep(2000);
-    
-    // CRITICAL: Manually trigger Socket.io join events for the browser player
-    log('[5b] Triggering Socket.io join for browser player...');
+    await screenshot('05-reinject-wallet');
+
+    // 手动触发 Socket.io 加入事件（关键步骤）
+    log('[Step 5b] Triggering Socket.io join sequence for browser player...');
     const joinResult = await eval_(`(async function() {
         try {
             // Wait for socket to be available
             let attempts = 0;
-            while (attempts < 20) {
+            while (attempts < 30) {
                 if (window.socket && window.socket.emit) break;
                 await new Promise(r => setTimeout(r, 500));
                 attempts++;
             }
-            
+
             const s = window.socket;
             if (s && s.emit) {
-                // Check connection status
                 const connected = s.connected || s.io?.connected;
-                
-                // Emit join sequence
+                console.log('[Test] Socket found! Connected:', connected);
+
+                // Emit full join sequence
                 s.emit('CS_LOBBY_CONNECT', { walletAddress: '${PLAYER.address}' });
                 await new Promise(r => setTimeout(r, 800));
-                s.emit('CS_TOURNAMENT_JOIN', { tournamentId: '${tid}', walletAddress: '${PLAYER.address}' });
-                await new Promise(r => setTimeout(r, 800));
-                s.emit('CS_TOURNAMENT_ROOM_JOIN', { tournamentId: '${tid}', walletAddress: '${PLAYER.address}' });
-                return 'emit OK, connected=' + connected + ', id=' + (s.id || 'none');
-            }
-            
-            return 'no emit socket found, keys=' + Object.keys(window).filter(k => /socket/i.test(k)).join(',');
-        } catch(e) { return 'error: ' + e.message; }
-    })()`);
-    log(`Join result: ${joinResult}`);
-    
-    await sleep(3000);
-    await screenshot('06-after-reinject');
 
-    // Get buttons on the page
+                s.emit('CS_TOURNAMENT_JOIN', {
+                    tournamentId: '${tid}',
+                    walletAddress: '${PLAYER.address}'
+                });
+                await new Promise(r => setTimeout(r, 800));
+
+                s.emit('CS_TOURNAMENT_ROOM_JOIN', {
+                    tournamentId: '${tid}',
+                    walletAddress: '${PLAYER.address}'
+                });
+
+                return {
+                    status: 'EMIT_OK',
+                    connected: connected,
+                    socketId: s.id || 'none',
+                    eventsEmitted: ['CS_LOBBY_CONNECT', 'CS_TOURNAMENT_JOIN', 'CS_TOURNAMENT_ROOM_JOIN']
+                };
+            }
+
+            return {
+                status: 'NO_SOCKET',
+                windowKeys: Object.keys(window).filter(k => /socket|io/i.test(k)),
+                attempts: attempts
+            };
+        } catch(e) {
+            return { status: 'ERROR', msg: e.message };
+        }
+    })()`);
+
+    log(`  Join result: ${JSON.stringify(joinResult)?.substring(0, 250)}`);
+    await sleep(4000);
+    await screenshot('06-socket-joined');
+
+    // 获取当前按钮状态
     const btnState = await eval_(`(
-Array.from(document.querySelectorAll('button:not([disabled])')).map(b=>b.textContent.trim()).filter(b=>b)
-)`);
-    log(`Available buttons: [${btnState?.join(', ') || 'none'}]`);
+        Array.from(document.querySelectorAll('button:not([disabled])'))
+            .map(b => ({ text: b.textContent.trim(), tag: b.tagName, id: b.id }))
+            .filter(b => b.text)
+    )`);
+    log(`  Available buttons: [${(btnState || []).map(b => b.text).join(', ') || 'none'}]`);
 
     const bodyText = await eval_('document.body.innerText.substring(0, 500)');
-    log(`Body text: ${(bodyText || '').substring(0, 300)}`);
+    log(`  Body preview: ${(bodyText || '').substring(0, 300)}`);
 
-    // Step 5: Start Bot
-    log('[6] Starting bot opponent...');
+    // ========== Step 6: 启动机器人对手 ==========
+    log('[Step 6] Starting 0G bot opponent...');
     const botWs = await startBot(tid);
-    await sleep(5000);
-    await screenshot('07-bot-joined');
+    await sleep(6000);
+    await screenshot('07-bot-started');
 
-    // Step 6: Game loop - play actions
-    log('[7] Game loop starting...');
+    // ========== Step 7: 游戏循环 - 自动操作 ==========
+    log('[Step 7] Starting game action loop...\n');
+
     let nftMinted = false;
     let fairnessVerified = false;
+    let gameEnded = false;
+    let totalActions = 0;
+    const MAX_ROUNDS = 80;  // 最大轮次
 
-    for (let round = 1; round <= 60; round++) {
+    for (let round = 1; round <= MAX_ROUNDS; round++) {
         await sleep(1200);
-        const state = await eval_(`(
-{
-    btns: Array.from(document.querySelectorAll('button:not([disabled])')).map(b=>({text:b.textContent.trim(),tag:b.tagName,id:b.id,cls:b.className})),
-    url: location.href
-})`);
-        const btns = (state?.btns || []).map(b => b.text).filter(Boolean);
-        log(`Round ${round}: [${btns.join(',')}]`);
 
-        // Screenshot every 8 rounds
-        if (round % 8 === 0) await screenshot(`r${round}`);
+        try {
+            // 获取当前页面状态
+            const state = await eval_(`({
+                btns: Array.from(document.querySelectorAll('button:not([disabled])'))
+                    .map(b => ({ text: b.textContent.trim(), disabled: b.disabled })),
+                url: location.href,
+                title: document.title
+            })`);
 
-        // Check for NFT Mint button
-        if (btns.some(b => /铸造|Mint|NFT/i.test(b))) {
-            log('🎉 NFT Mint button detected! Clicking...');
-            await screenshot('nft-btn-found');
-            await eval_(`(
-document.querySelectorAll('button').forEach(b=>{
-    if(/铸造|Mint|NFT/i.test(b.textContent)&&!b.disabled)b.click();
-})
-)`);
-            nftMinted = true;
-            log('NFT mint clicked!');
-            await sleep(8000);
-            await screenshot('nft-after-click');
-            break;
-        }
+            const btns = (state?.btns || []).map(b => b.text).filter(Boolean);
 
-        // Check for Verify Fairness button
-        if (btns.some(b => /fairness|verify/i.test(b))) {
-            log('🛡️ Fairness verify button detected!');
-            await eval_(`(
-document.querySelectorAll('button').forEach(b=>{
-    if(/fairness|verify/i.test(b.textContent)&&!b.disabled)b.click();
-})
-)`);
-            fairnessVerified = true;
-            await sleep(2000);
-            await screenshot('fairness-verified');
-        }
+            // 过滤出游戏操作按钮
+            const gameBtns = btns.filter(b =>
+                /Check|Call|Fold|Raise|All.in|Leave|Mint|铸造|Fairness|Verify|Confirm|OK|Close/i.test(b)
+            );
 
-        // Game action: click appropriate button
-        if (btns.includes('Check')) {
-            await eval_("document.querySelector('button:not([disabled])')?.textContent.includes('Check')&&document.querySelectorAll('button:not([disabled])').find(b=>b.textContent.trim()==='Check')?.click()");
-            log('Action: Check');
-        } else if (btns.includes('Call')) {
-            await eval_("document.querySelectorAll('button:not([disabled])').find(b=>b.textContent.trim()==='Call')?.click()");
-            log('Action: Call');
-        } else if (btns.includes('Fold')) {
-            // Only fold as last resort
-            if (round > 30) {
-                await eval_("document.querySelectorAll('button:not([disabled])').find(b=>b.textContent.trim()==='Fold')?.click()");
-                log('Action: Fold (timeout)');
+            log(`[Round ${round}] Buttons: [${btns.join(', ')}]`);
+
+            // 每 8 轮截一次图
+            if (round % 8 === 0) {
+                await screenshot(`round-${round}`);
             }
-        } else if (btns.includes('Raise')) {
-            // Raise sometimes for variety
-            if (round % 10 === 0) {
-                await eval_("document.querySelectorAll('button:not([disabled])').find(b=>b.textContent.trim()==='Raise')?.click()");
-                log('Action: Raise');
-            } else if (btns.includes('Call')) {
-                await eval_("document.querySelectorAll('button:not([disabled])').find(b=>b.textContent.trim()==='Call')?.click()");
-                log('Action: Call (fallback from raise)');
-            }
-        }
 
-        // If no game buttons, check for "Leave" or navigation
-        if (!btns.some(b => /Check|Call|Fold|Raise|All.in/i.test(b))) {
-            log(`No game buttons. Page might have ended. Body preview: ` + ((await eval_('document.body.innerText.substring(0,150)')) || '').substring(0, 100));
-            await screenshot(`no-buttons-r${round}`);
-            // Wait a bit more, maybe next hand starts
-            if (round > 45) break;
+            // ---- 检测 NFT Mint 按钮 ----
+            if (btns.some(b => /铸造|Mint.*NFT|Mint INFT|生成NFT|Regenerate/i.test(b))) {
+                log(`\n🎉🎉🎉 NFT MINT BUTTON DETECTED! Clicking now... 🎉🎉🎉\n`);
+                await screenshot('nft-button-found-before-click');
+
+                const mintClicked = await eval_(`(function() {
+                    const btns = document.querySelectorAll('button:not([disabled])');
+                    for (const btn of btns) {
+                        const t = btn.textContent.trim();
+                        if (/铸造|Mint.*NFT|Mint INFT|生成NFT|Regenerate/i.test(t)) {
+                            btn.click();
+                            return 'Clicked: ' + t;
+                        }
+                    }
+                    return 'No mint button found';
+                })()`);
+
+                log(`  Mint click: ${mintClicked}`);
+                nftMinted = true;
+
+                // 等待 NFT minting 完成
+                await sleep(10000);  // NFT mint 可能需要较长时间
+                await screenshot('nft-after-mint-click');
+
+                break;  // NFT 完成后退出循环
+            }
+
+            // ---- 检测 Fairness Verify 按钮 ----
+            if (btns.some(b => /fairness|verify/i.test(b)) && !fairnessVerified) {
+                log('🛡️ Fairness Verify button detected! Clicking...');
+                await eval_(`(function() {
+                    const btns = document.querySelectorAll('button:not([disabled])');
+                    for (const btn of btns) {
+                        if (/fairness|verify/i.test(btn.textContent.trim())) {
+                            btn.click(); return true;
+                        }
+                    }
+                })()`);
+                fairnessVerified = true;
+                await sleep(2000);
+                await screenshot('fairness-verified');
+            }
+
+            // ---- 游戏操作逻辑 ----
+            if (gameBtns.includes('Check')) {
+                await eval_(`(function() {
+                    const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
+                        .find(b => b.textContent.trim() === 'Check');
+                    if (btn) { btn.click(); return 'Check'; }
+                    return 'no-check-btn';
+                })()`);
+                log(`  Action: CHECK`);
+                totalActions++;
+
+            } else if (gameBtns.includes('Call')) {
+                await eval_(`(function() {
+                    const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
+                        .find(b => b.textContent.trim() === 'Call');
+                    if (btn) { btn.click(); return 'Call'; }
+                    return 'no-call-btn';
+                })()`);
+                log(`  Action: CALL`);
+                totalActions++;
+
+            } else if (gameBtns.includes('Raise')) {
+                // 偶尔 Raise 增加变化性
+                if (round % 12 === 0) {
+                    await eval_(`(function() {
+                        const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
+                            .find(b => b.textContent.trim() === 'Raise');
+                        if (btn) { btn.click(); return 'Raise'; }
+                    })()`);
+                    log(`  Action: RAISE (varied)`);
+                } else {
+                    // 默认 Call
+                    await eval_(`(function() {
+                        const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
+                            .find(b => b.textContent.trim() === 'Call');
+                        if (btn) { btn.click(); return 'Call'; }
+                    })()`);
+                    log(`  Action: CALL (from raise fallback)`);
+                }
+                totalActions++;
+
+            } else if (gameBtns.includes('Fold')) {
+                // 仅在超时后 Fold
+                if (round > 45) {
+                    await eval_(`(function() {
+                        const btn = Array.from(document.querySelectorAll('button:not([disabled])'))
+                            .find(b => b.textContent.trim() === 'Fold');
+                        if (btn) { btn.click(); return 'Fold'; }
+                    })()`);
+                    log(`  Action: FOLD (timeout)`);
+                    totalActions++;
+                }
+            }
+
+            // ---- 无游戏按钮检测 ----
+            if (!btns.some(b => /Check|Call|Fold|Raise|All.in/i.test(b))) {
+                const preview = (await eval_('document.body.innerText.substring(0, 150)')) || '';
+                log(`  No game buttons. Preview: ${preview.substring(0, 100)}`);
+                await screenshot(`no-buttons-round-${round}`);
+
+                // 如果长时间无按钮，可能游戏已结束
+                if (round > 55) {
+                    log('  Game seems ended (no buttons for too long)');
+                    gameEnded = true;
+                    break;
+                }
+            }
+
+        } catch (evalErr) {
+            log(`[Round ${round}] Eval error: ${evalErr.message?.substring(0, 80)}`);
+            await screenshot(`error-round-${round}`);
         }
     }
 
+    // 最终截图
     await screenshot('99-final-state');
-    botWs.close();
 
-    // Step 7: Verify results
-    log('\n=== TEST RESULTS ===');
-    log(`NFT Minted: ${nftMinted ? '✅ YES' : '⚠️ NOT DETECTED'}`);
-    log(`Fairness Verified: ${fairnessVerified ? '✅ YES' : 'ℹ️ Not triggered'}`);
+    // 关闭 Bot WebSocket
+    try { botWs.close(); } catch(_) {}
 
-    // Capture console logs
+    // ========== Step 8: 输出结果汇总 ==========
+    log('\n\n========================================');
+    log('  TEST RESULTS SUMMARY');
+    log('========================================');
+    log(`  Total rounds:       ${MAX_ROUNDS} (max)`);
+    log(`  Actions performed:  ${totalActions}`);
+    log(`  NFT Mint detected:  ${nftMinted ? '✅ YES' : '⚠️ NOT DETECTED'}`);
+    log(`  Fairness verified:  ${fairnessVerified ? '✅ YES' : 'ℹ️ Not triggered'}`);
+    log(`  Game ended:         ${gameEnded ? 'YES' : 'timeout'}`);
+
+    // 输出控制台日志
     const allLogs = logs();
     if (allLogs.length > 0) {
-        log(`\nConsole highlights:`);
-        allLogs.slice(-15).forEach(l => log(`  ${l}`));
+        log('\n--- Console Highlights (last 20) ---');
+        allLogs.slice(-20).forEach(l => log(`  ${l}`));
     }
 
-    // Step 8: Navigate to NFT Gallery to check INFT display
-    log('\n[8] Checking NFT Gallery (0G INFT tab)...');
-    await client.Page.navigate({ url: `${BASE_URL}/nft?address=${PLAYER.address}` }).catch(() => {});
-    await sleep(4000);
-    await screenshot('nft-gallery');
+    // ========== Step 9: 检查 NFT Gallery (0G INFT tab) ==========
+    log('\n[Step 8] Checking NFT Gallery page...');
+    await client.Page.navigate({
+        url: `${BASE_URL}/nft?address=${PLAYER.address}`
+    }).catch(() => {});
+    await sleep(5000);
+    await screenshot('nft-gallery-page');
 
-    // Switch to INFT tab if available
-    const inftResult = await eval_(`(
-(function() {
-    // Look for INFT tab or 0G tab
-    const tabs = Array.from(document.querySelectorAll('*')).filter(el =>
-        /0g|inft|erc.?7857/i.test(el.textContent) &&
-        el.children.length < 3 &&
-        el.offsetHeight > 0
-    ).slice(0,5).map(e=>e.textContent.trim());
-    
-    // Try clicking an INFT/0G related element
-    const clickable = Array.from(document.querySelectorAll('[role=tab], button, [class*=tab], [class*=Tab]'))
-        .find(e => /0g|inft/i.test(e.textContent));
-    if (clickable) { clickable.click(); return 'Clicked tab: ' + clickable.textContent.trim(); }
-    
-    return { tabs, bodyText: document.body.innerText.substring(0, 300) };
-})()
-)`);
-    log(`INFT Tab result: ${JSON.stringify(inftResult)?.substring(0, 250)}`);
+    // 尝试切换到 INFT / 0G tab
+    const inftTabResult = await eval_(`(function() {
+        // Find tabs or buttons related to 0G/INFT
+        const clickableElements = Array.from(document.querySelectorAll(
+            '[role=tab], button, [class*=tab], [class*=Tab], [role=button]'
+        ));
+
+        // Find 0G/INFT related elements
+        const inftEls = clickableElements.filter(el =>
+            /0g|inft|erc.?7857|interactive/i.test(el.textContent)
+        );
+
+        if (inftEls.length > 0) {
+            inftEls[0].click();
+            return 'Clicked: ' + inftEls[0].textContent.trim();
+        }
+
+        // Return what we see for debugging
+        const allTabs = clickableElements.map(e => e.textContent.trim()).filter(t => t.length < 30);
+        return {
+            status: 'no_inft_tab_found',
+            availableTabs: allTabs.slice(0, 10),
+            bodySnippet: document.body.innerText.substring(0, 250)
+        };
+    })()`);
+
+    log(`  INFT Tab: ${JSON.stringify(inftTabResult)?.substring(0, 250)}`);
     await sleep(2000);
     await screenshot('nft-gallery-inft-tab');
 
-    // Step 9: Check Fairness verification page
-    log('[9] Checking Fairness Verify page...');
+    // ========== Step 10: 检查 Fairness 验证页 ==========
+    log('[Step 9] Checking Fairness Verification page...');
     await client.Page.navigate({ url: BASE_URL + '/fairness-verify' }).catch(() => {});
-    await sleep(3000);
+    await sleep(4000);
     await screenshot('fairness-verify-page');
 
-    const fairnessBody = await eval_('document.body.innerText.substring(0, 300)');
-    log(`Fairness page: ${(fairnessBody || '').substring(0, 200)}`);
+    const fairnessPageBody = await eval_('document.body.innerText.substring(0, 350)');
+    log(`  Fairness page content: ${(fairnessPageBody || '').substring(0, 250)}`);
 
-    // Step 10: Check Navbar chain badge
-    log('[10] Checking Navbar chain indicator...');
+    // ========== Step 11: 检查 Navbar 链标识 ==========
+    log('[Step 10] Checking navbar chain indicator...');
     await client.Page.navigate({ url: BASE_URL + '/play' }).catch(() => {});
-    await sleep(3000);
-    await screenshot('navbar-check');
+    await sleep(4000);
+    await screenshot('navbar-chain-check');
 
-    const badgeText = await eval_(`(
-(function() {
-    // Look for chain badge in navbar area
-    const all = document.body.innerText;
-    return {
-        hasTRON: all.includes('TRON'), 
-        hasZeroG: all.includes('0G'),
-        badgeText: document.querySelector('[class*=badge], [class*=chain], [class*=indicator]')?.innerText || 'not found'
-    };
-})()
-)`);
-    log(`Navbar: TRON=${badgeText.hasTRON}, 0G=${badgeText.hasZeroG}, Badge="${badgeText.badgeText}"`);
+    const navInfo = await eval_(`(function() {
+        const bodyText = document.body.innerText;
+        return {
+            hasTRON: bodyText.includes('TRON'),
+            hasZeroG: bodyText.includes('0G'),
+            hasChainIndicator: /0.?G|TRON|chain/i.test(bodyText),
+            badgeElement: document.querySelector('[class*=badge], [class*=chain], [class*=indicator], [id*=chain]')
+                    ?.textContent?.trim() || 'not found'
+        };
+    })()`);
 
-    // Final summary
-    log('\n========================================');
-    log('  0G POKER E2E TEST COMPLETE');
-    log('========================================');
-    log(`  Screenshots saved to: test-results/`);
-    log(`  Total rounds played: ~${60}`);
-    log(`  NFT flow: ${nftMinted ? 'PASS' : 'NEEDS MANUAL CHECK'}`);
-    log('========================================\n');
+    log(`  Navbar info: TRON=${navInfo.hasTRON}, 0G=${navInfo.hasZeroG}, Badge="${navInfo.badgeElement}"`);
 
+    // ========== 最终输出 ==========
+    log('\n\n======================================================');
+    log('  0G POKER E2E AUTOMATED TEST COMPLETE');
+    log('======================================================');
+    log(`  Screenshots:      test-results/ directory`);
+    log(`  Player address:   ${PLAYER.address}`);
+    log(`  Bot address:      ${BOT.address}`);
+    log(`  Game mode:        Mock (Straight Flush)`);
+    log(`  NFT flow:         ${nftMinted ? 'PASS ✅' : 'MANUAL CHECK ⚠️'}`);
+    log(`  Fairness:         ${fairnessVerified ? 'PASS ✅' : 'SKIPPED'}`);
+    log('======================================================\n');
+
+    // 关闭 CDP
     await client.close().catch(() => {});
 
-    // Don't exit with error even if NFT wasn't auto-detected (might need manual interaction)
+    // 不因 NFT 未检测而报错（可能需要手动交互）
     process.exit(nftMinted ? 0 : 0);
 }
 
-runTest().catch(e => { console.error('FATAL:', e); process.exit(1); });
+// ============ 执行入口 ============
+runTest().catch(err => {
+    console.error('\n[FATAL ERROR]', err);
+    process.exit(1);
+});

@@ -356,6 +356,39 @@ export async function getCustodyBalance(address) {
 }
 
 /**
+ * Leave table session - call leaveTableSession on PokerGame0G contract
+ * Returns stack to custody balance
+ * @param {number} stackWei - Stack amount in wei (from game)
+ * @returns {Promise<{tx: string}>} Transaction result
+ */
+export async function leaveTableSession(stackWei) {
+    if (!hasEvmWallet()) throw new Error('No wallet');
+
+    // Ensure we're on the correct 0G chain
+    try { await ensureCorrectChain('testnet'); } catch (e) {
+        throw new Error(`Failed to switch to 0G network: ${e.message}`);
+    }
+
+    const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+    const ABI = ['function leaveTableSession(uint256 finalStack)'];
+    const iface = new ethers.utils.Interface(ABI);
+    const data = iface.encodeFunctionData('leaveTableSession', [stackWei.toString()]);
+
+    console.log(`[zeroG] Leaving table session, stack: ${stackWei} wei`);
+
+    const txHash = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+            from: (await window.ethereum.request({ method: 'eth_accounts' }))[0],
+            to: POKERGAME_0G_ADDRESS,
+            data
+        }]
+    });
+
+    return { tx: txHash };
+}
+
+/**
  * Normalize a balance value that might be in wei (raw uint256) or decimal.
  * If value > 1e12, treat as wei and convert to decimal by dividing 1e18.
  * @param {string|number} val
@@ -365,8 +398,11 @@ export function normalizeBalance(val) {
     if (!val) return '0';
     const num = typeof val === 'string' ? parseFloat(val) : val;
     if (!isFinite(num)) return '0';
-    // If value > 1 trillion, it's likely raw wei — convert
-    if (num > 1e12) {
+    // Detect raw unit values that need conversion to decimal 0G:
+    //   > 10000  → likely raw SUN/wei (game uses SUN internally, 1 TRX = 1e6 SUN)
+    //   > 1e12  → definitely raw wei (contract returns 18-decimal places)
+    //   > 1     but < reasonable 0G balance (< 10) → keep as decimal
+    if (num > 10000 && !(num > 0 && num < 10)) {
         return (num / 1e18).toString();
     }
     return num.toString();

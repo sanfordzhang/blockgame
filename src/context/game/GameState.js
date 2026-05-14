@@ -35,6 +35,7 @@ import socketContext from '../websocket/socketContext'
 import GameContext from './gameContext'
 import globalContext from '../global/globalContext'
 import { leaveTableSession as contractLeaveTableSession } from '../../utils/tronInteract'
+import { leaveTableSession as zeroGLeaveTableSession, normalizeBalance } from '../../utils/zeroGInteract'
 
 // i18n: detect language at module load time
 const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
@@ -141,10 +142,11 @@ const GameState = ({ children }) => {
           return
         }
         // Update local chips amount when balance is synced
+        // Normalize: if value looks like raw wei (>1e12), convert to decimal
         if (data.available !== undefined) {
-          setChipsAmount(data.available)
+          setChipsAmount(normalizeBalance(data.available))
         } else if (data.balance !== undefined) {
-          setChipsAmount(data.balance)
+          setChipsAmount(normalizeBalance(data.balance))
         }
       })
 
@@ -201,7 +203,18 @@ const GameState = ({ children }) => {
       socket.on('SC_REQUEST_PLAYER_LEAVE', async ({ tableId, stack }) => {
         console.log('[GameState] SC_REQUEST_PLAYER_LEAVE:', { tableId, stack })
         try {
-          const result = await contractLeaveTableSession(tableId, stack)
+          // Detect chain type from wallet address
+          const isZeroGPlayer = walletAddressRef.current?.startsWith('0x');
+          let result;
+          if (isZeroGPlayer) {
+            // 0G path: call PokerGame0G.leaveTableSession
+            console.log('[GameState] Using 0G leaveTableSession');
+            result = await zeroGLeaveTableSession(stack);
+          } else {
+            // TRON path: call TRON contract leaveTableSession
+            console.log('[GameState] Using TRON leaveTableSession');
+            result = await contractLeaveTableSession(tableId, stack)
+          }
           console.log('[GameState] Player-signed leaveTableSession success:', result)
           socket.emit(CS_CONTRACT_LEAVE_SUCCESS, { tableId, stack, txId: result.tx })
         } catch (error) {

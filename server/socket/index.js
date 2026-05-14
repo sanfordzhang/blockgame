@@ -543,32 +543,120 @@ const init = (socket, io) => {
 
     if (config.BLOCKCHAIN_ENABLED) {
       try {
-        // Check if player has authorized this server as delegate
-        const serverAddress = tronService.getSignerAddress();
-        const isAuthorized = await contractService.isAuthorizedDelegate(player.id, serverAddress);
-        
-        console.log('[Socket] Leave delegate check:', { player: player.id, server: serverAddress, isAuthorized });
-        
+        // Detect player chain type by address format
+        const isZeroGPlayer = player.id.startsWith('0x');
+        let isAuthorized = false;
+        let serverAddress = null;
+
         const stack = seat?.stack || 0;
+
+        if (isZeroGPlayer) {
+          // 0G/EVM path: check 0G contract authorization
+          const zgService = getZeroGService();
+          console.log('[Socket] Leave - 0G service status:', {
+            exists: !!zgService,
+            initialized: zgService?.initialized,
+            hasWallet: !!zgService?.wallet
+          });
+
+          if (!zgService || !zgService.initialized) {
+            socket.emit(SC_DELEGATE_ERROR, {
+              message: '0G 服务未初始化',
+              needAuthorization: true,
+              operation: 'leaveTable'
+            });
+            // Still allow leave in degraded mode
+            table.removePlayer(socket.id);
+            socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+            socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+            return;
+          }
+
+          const zgContractService = new ZeroGContractService();
+          zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
+
+          serverAddress = zgService.getSignerAddress();
+          if (!serverAddress) {
+            console.warn('[Socket] Leave - No 0G signer address, allowing leave');
+            // Allow leave even without signer
+            table.removePlayer(socket.id);
+            socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+            socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+            return;
+          }
+
+          isAuthorized = await zgContractService.isAuthorizedDelegate(player.id, serverAddress);
+          console.log('[Socket] Leave - 0G Delegate check:', { player: player.id, server: serverAddress, isAuthorized });
+        } else {
+          // TRON path: existing logic
+          serverAddress = tronService.getSignerAddress();
+          isAuthorized = await contractService.isAuthorizedDelegate(player.id, serverAddress);
+        }
+        
+        console.log('[Socket] Leave delegate check:', { player: player.id, server: serverAddress, isAuthorized, isZeroGPlayer });
         
         if (isAuthorized) {
-          // Use server proxy leave (leaveTableFor)
-          console.log('[Socket] Calling leaveTableFor via server...');
-          const result = await contractService.leaveTableFor(player.id, tableId, stack);
-          console.log('[Socket] leaveTableFor txId:', result.tx);
+          const stack = seat?.stack || 0;
 
-          // Optimistically update local cache: locked=0, balance += stack
-          gameFlowIntegration.updatePlayerBalanceCache(player.id, stack, -stack);
+          if (isZeroGPlayer) {
+            // ===== 0G Leave Path =====
+            console.log('[Socket] Calling 0G leaveTableSession via server...');
+            try {
+              const zgService = getZeroGService();
+              const zgContractSvc = new ZeroGContractService();
+              zgContractSvc.init(zgService, config.ZEROG_NETWORK || 'testnet');
 
-          // Notify player with optimistic balance (EventListener will sync real value later)
-          const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(player.id);
-          socket.emit(SC_BALANCE_SYNCED, {
-            walletAddress: player.id,
-            balance: cachedBalance?.balance || player.bankroll,
-            locked: 0,
-            available: cachedBalance?.balance || player.bankroll,
-            reason: 'leave_table'
-          });
+              // Server calls leaveTableSession on behalf of player
+              const result = await zgContractSvc.leaveTableSession(player.id, BigInt(stack));
+              console.log('[Socket] 0G leaveTableSession txHash:', result?.hash || result);
+
+              // Query actual custody balance after leave
+              let syncBalance;
+              try {
+                const custodyRaw = await zgContractSvc.getCustodyBalance(player.id);
+                syncBalance = Number(BigInt(custodyRaw || '0')) / 1e18;
+                console.log(`[Socket] 0G custody after leave: ${syncBalance} 0G`);
+              } catch (e2) {
+                console.warn('[Socket] Failed to fetch post-leave 0G balance:', e2.message);
+                syncBalance = 0;
+              }
+
+              socket.emit(SC_BALANCE_SYNCED, {
+                walletAddress: player.id,
+                balance: syncBalance,
+                locked: 0,
+                available: syncBalance,
+                reason: 'leave_table_zerog'
+              });
+            } catch (zgError) {
+              console.error('[Socket] 0G leaveTableSession failed:', zgError.message);
+              // Allow local leave even if chain call fails
+              socket.emit(SC_BALANCE_SYNCED, {
+                walletAddress: player.id,
+                balance: 0,
+                locked: 0,
+                available: 0,
+                reason: 'leave_table_zerog_fallback'
+              });
+            }
+          } else {
+            // ====== TRON Leave Path (existing logic) ======
+            console.log('[Socket] Calling leaveTableFor via server...');
+            const result = await contractService.leaveTableFor(player.id, tableId, stack);
+            console.log('[Socket] leaveTableFor txId:', result.tx);
+
+            // Optimistically update local cache: locked=0, balance += stack
+            gameFlowIntegration.updatePlayerBalanceCache(player.id, stack, -stack);
+
+            const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(player.id);
+            socket.emit(SC_BALANCE_SYNCED, {
+              walletAddress: player.id,
+              balance: cachedBalance?.balance || player.bankroll,
+              locked: 0,
+              available: cachedBalance?.balance || player.bankroll,
+              reason: 'leave_table'
+            });
+          }
 
           table.removePlayer(socket.id);
           socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
@@ -1520,9 +1608,27 @@ const init = (socket, io) => {
           });
 
           // Notify client about balance update (for display purposes)
-          const balanceCache = gameFlowIntegration.getPlayerBalanceCache(winner.address);
-          const actualBalance = balanceCache?.balance || player.bankroll;
-          const actualLocked = balanceCache?.lockedAmount || 0;
+          // For 0G players, query actual custody balance from PokerGame0G contract
+          const isZeroGWinner = winner.address.startsWith('0x');
+          let actualBalance = balanceCache?.balance || player.bankroll;
+          let actualLocked = balanceCache?.lockedAmount || 0;
+
+          if (isZeroGWinner) {
+            try {
+              const zgService = getZeroGService();
+              if (zgService && zgService.initialized) {
+                const zgContractSvc = new ZeroGContractService();
+                zgContractSvc.init(zgService, config.ZEROG_NETWORK || 'testnet');
+                const custodyRaw = await zgContractSvc.getCustodyBalance(winner.address);
+                // Convert wei to decimal
+                actualBalance = Number(BigInt(custodyRaw || '0')) / 1e18;
+                console.log(`[Socket] Winner ${winner.name} 0G custody balance: ${actualBalance} 0G`);
+              }
+            } catch (e) {
+              console.warn('[Socket] Failed to fetch 0G winner balance:', e.message);
+            }
+          }
+
           io.to(socketId).emit(SC_BALANCE_SYNCED, {
             walletAddress: winner.address,
             balance: actualBalance,

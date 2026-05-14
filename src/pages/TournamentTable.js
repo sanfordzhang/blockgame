@@ -6,6 +6,8 @@ import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
 import { getPlayerBalance } from '../utils/tronInteract';
+import { getCustodyBalance } from '../utils/zeroGInteract';
+import { ethers } from 'ethers';
 import { TournamentGameProvider, TournamentGameContext } from '../context/game/TournamentGameContext';
 import PokerTable from '../components/game/PokerTable';
 // AI components hidden in tournaments for fairness
@@ -92,19 +94,33 @@ const TournamentTableGame = ({ tournamentId }) => {
   const prevTurnRef = useRef(null);
   const prevHandRef = useRef(null);
 
+  // Detect if player is using 0G (EVM address with 0x prefix)
+  const isZeroGPlayer = walletAddress?.startsWith('0x');
+
   // Fetch GameBalance from contract
   const fetchGameBalance = useCallback(async () => {
     if (!walletAddress) return;
     try {
-      const balance = await getPlayerBalance(walletAddress);
-      const total = (balance.balance || 0) + (balance.locked || 0);
+      let total;
+
+      if (isZeroGPlayer) {
+        // 0G EVM: get custody balance from PokerGame0G contract
+        const custBal = await getCustodyBalance(walletAddress);
+        total = parseFloat(custBal) * 1e18; // Convert to internal units for display
+        console.log('[TournamentTable] 0G custody balance:', custBal, '0G');
+      } else {
+        // TRON: get balance from TRON contract
+        const balance = await getPlayerBalance(walletAddress);
+        total = (balance.balance || 0) + (balance.locked || 0);
+      }
+
       setGameBalance(total);
       return total;
     } catch (e) {
       console.error('[TournamentTable] Failed to fetch balance:', e);
       return null;
     }
-  }, [walletAddress]);
+  }, [walletAddress, isZeroGPlayer]);
 
   // Fetch CHIP balance from API
   const fetchChipBalance = useCallback(async () => {
@@ -331,6 +347,106 @@ const TournamentTableGame = ({ tournamentId }) => {
               
               const contractAddress = onchainContractAddress || process.env.REACT_APP_NFT_CONTRACT_ONCHAIN || window.__NFT_CONTRACT_ONCHAIN;
 
+              // Detect 0G player by wallet address prefix
+              const isZeroGMinter = walletAddress?.startsWith('0x');
+
+              // === 0G NFT Mint Path (MetaMask/Ethers) ===
+              if (isZeroGMinter) {
+                console.log('[NFT] Using 0G INFT mint path via MetaMask');
+                try {
+                  if (!window.ethereum) {
+                    throw new Error('No Ethereum wallet (MetaMask) found');
+                  }
+
+                  // Updated INFT contract address (with tokenURI override for MetaMask display)
+                  const POKERHAND_INFT_ADDRESS = '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+                  const abi = [
+                    'function mint(address to, string handType, string storageRootHash, string metadataURI) returns (uint256)'
+                  ];
+
+                  // Map typeId to hand type name
+                  const HAND_TYPE_NAMES = ['Royal Flush', 'Straight Flush', 'Four of a Kind', 'Full House', 'Flush', 'Straight'];
+                  const handTypeName = HAND_TYPE_NAMES[signature.achievementTypeId] || (achievement.name || nftAchievement.handType || 'Poker Hand');
+
+                  // Generate inline metadata URI with embedded SVG image so MetaMask can render it
+                  const svgImage = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient></defs><rect width="300" height="400" rx="16" fill="url(#g)"/><text x="150" y="180" text-anchor="middle" font-size="28" fill="white" font-weight="bold">${handTypeName}</text><text x="150" y="230" text-anchor="middle" font-size="14" fill="#ddd">0G Poker Hand</text><text x="150" y="260" text-anchor="middle" font-size="12" fill="#bbb">ERC-7857 Interactive NFT</text><text x="150" y="350" text-anchor="middle" font-size="11" fill="#aaa">Token #${data.tokenId || '?'}</text></svg>`;
+                  const svgBase64 = btoa(unescape(encodeURIComponent(svgImage)));
+                  const metadataObj = {
+                    name: `${handTypeName} INFT`,
+                    description: `Achievement NFT for ${handTypeName} in 0G Poker Tournament`,
+                    image: `data:image/svg+xml;base64,${svgBase64}`,
+                    attributes: [
+                      { trait_type: "Hand Type", value: handTypeName },
+                      { trait_type: "Standard", value: "ERC-7857" },
+                      { trait_type: "Game", value: "0G Poker" }
+                    ]
+                  };
+                  const metadataBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(metadataObj))));
+                  const metadataURI = `data:application/json;base64,${metadataBase64}`;
+
+                  const iface = new ethers.utils.Interface(abi);
+                  const mintData = iface.encodeFunctionData('mint', [
+                    walletAddress,
+                    handTypeName,
+                    '0x0000000000000000000000000000000000000000000000000000000000000000',
+                    metadataURI
+                  ]);
+
+                  const txHash = await window.ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                      from: walletAddress,
+                      to: POKERHAND_INFT_ADDRESS,
+                      data: mintData
+                    }]
+                  });
+
+                  console.log('[NFT] 0G INFT mint tx:', txHash);
+
+                  // Update database with txHash
+                  try {
+                    await fetch(`${API_BASE}/api/nft/confirm-mint`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        walletAddress: walletAddress,
+                        gameId: signature.gameId,
+                        txHash: txHash,
+                        tokenId: data.tokenId
+                      })
+                    });
+                  } catch (dbErr) {
+                    console.error('[NFT] Failed to update database:', dbErr);
+                  }
+
+                  Swal.fire({
+                    title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
+                    html: `
+                      <div style="text-align:center">
+                        <p>${_lang === 'zh'
+                          ? `您的 ${achievement.name || nftAchievement.handType} INFT 已上链铸造！`
+                          : `Your ${achievement.name || nftAchievement.handType} INFT has been minted!`}</p>
+                        <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${txHash?.substring(0, 18)}...</p>
+                      </div>`,
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
+                    cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
+                  }).then((result) => {
+                    if (result.isConfirmed) { setIsLeaving(true); navigate('/nft'); }
+                  });
+                } catch (zeroGErr) {
+                  console.error('[NFT] 0G mint error:', zeroGErr);
+                  Swal.fire({
+                    title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+                    text: zeroGErr.message || (_lang === 'zh' ? '0G 铸造错误' : '0G mint error'),
+                    icon: 'error'
+                  });
+                }
+                return;
+              }
+
+              // === TRON NFT Mint Path (TronWeb) ===
               if (!contractAddress || !window.tronWeb) {
                 console.warn('[NFT] No on-chain contract or tronWeb, simulating success');
                 Swal.fire({
@@ -638,15 +754,20 @@ const TournamentTableGame = ({ tournamentId }) => {
             paddingBottom: '0.75rem', 
             marginBottom: '0.75rem' 
           }}>
-            <Text color="#aaa" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>TRX (GameBalance)</Text>
-            
+            <Text color="#aaa" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+              {isZeroGPlayer ? '0G' : 'TRX'} (GameBalance)
+            </Text>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: '#888', fontSize: '0.9rem' }}>游戏前:</span>
               <span style={{ color: '#fff', fontSize: '1rem' }}>
-                {(balanceBefore / 1e6).toFixed(2)} TRX
+                {isZeroGPlayer
+                  ? (balanceBefore / 1e18).toFixed(4) + ' 0G'
+                  : (balanceBefore / 1e6).toFixed(2) + ' TRX'
+                }
               </span>
             </div>
-            
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
               <span style={{ color: '#888', fontSize: '0.9rem' }}>输赢:</span>
               <span style={{
@@ -654,7 +775,10 @@ const TournamentTableGame = ({ tournamentId }) => {
                 fontWeight: 'bold',
                 fontSize: '1.1rem'
               }}>
-                {gameBalance > balanceBefore ? '+' : ''}{((gameBalance - balanceBefore) / 1e6).toFixed(2)} TRX
+                {gameBalance > balanceBefore ? '+' : ''}{isZeroGPlayer
+                  ? ((gameBalance - balanceBefore) / 1e18).toFixed(4)
+                  : ((gameBalance - balanceBefore) / 1e6).toFixed(2)
+                } {isZeroGPlayer ? '0G' : 'TRX'}
               </span>
             </div>
             
@@ -837,14 +961,17 @@ const TournamentTableGame = ({ tournamentId }) => {
               scale="0.65"
               style={{ zIndex: '50' }}
             >
-              <div style={{ 
-                background: 'rgba(0,0,0,0.7)', 
-                padding: '0.5rem 1rem', 
+              <div style={{
+                background: 'rgba(0,0,0,0.7)',
+                padding: '0.5rem 1rem',
                 borderRadius: '8px',
                 color: '#fff',
                 fontSize: '0.85rem'
               }}>
-                💰 GameBalance: {(gameBalance / 1e6).toFixed(2)} TRX
+                💰 GameBalance: {isZeroGPlayer
+                  ? (gameBalance / 1e18).toFixed(4) + ' 0G'
+                  : (gameBalance / 1e6).toFixed(2) + ' TRX'
+                }
               </div>
             </PositionedUISlot>
           </>

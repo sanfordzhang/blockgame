@@ -47,7 +47,7 @@ const MarketingHeadline = styled(Heading)`
 `;
 
 const Landing = () => {
-  const { setWalletAddress, setChipsAmount, setWalletType } = useContext(globalContext);
+  const { setWalletAddress, setChipsAmount, setWalletType, chipsAmount } = useContext(globalContext);
   const { socket } = useContext(socketContext);
   const { t } = useContext(locaContext);
   const navigate = useNavigate();
@@ -252,6 +252,31 @@ const Landing = () => {
     };
     checkRegistration();
   }, [walletAddress, localWalletType]);
+
+  // Sync contractBalance from GlobalState.chipsAmount when returning from game
+  // GameState.js updates chipsAmount via SC_BALANCE_SYNCED during gameplay
+  // This ensures Landing always shows the latest balance after games end
+  useEffect(() => {
+    if (chipsAmount !== null && chipsAmount !== undefined) {
+      const normalized = parseFloat(normalizeBalance(chipsAmount));
+      console.log('[Landing] Syncing contractBalance from chipsAmount:', { chipsAmount, normalized, current: contractBalance });
+      setContractBalance(normalized);
+    }
+  }, [chipsAmount]);
+
+  // On mount and when wallet changes, ALWAYS re-fetch 0G custody balance from contract
+  // This ensures the most accurate balance is shown (not relying solely on socket sync)
+  useEffect(() => {
+    if (walletAddress && localWalletType === 'zerog' && isRegistered) {
+      getCustodyBalance(walletAddress).then(custodyBal => {
+        const normalized = parseFloat(normalizeBalance(custodyBal));
+        if (normalized > 0) {
+          console.log('[Landing] Fresh 0G custody balance:', normalized);
+          setContractBalance(normalized);
+        }
+      }).catch(() => {});
+    }
+  }, [walletAddress, localWalletType, isRegistered]);
 
   // Update default deposit amount based on chain type
   useEffect(() => {

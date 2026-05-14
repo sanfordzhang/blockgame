@@ -398,6 +398,18 @@ contract PokerHandINFT is ERC721, AccessControl, IERC7857 {
         return (info.name, info.rarityLevel, info.monthlyLimit, info.isClonable);
     }
 
+    /**
+     * @notice Returns the URI for a token's metadata (ERC721 standard)
+     * @dev Overrides base tokenURI to return on-chain stored metadataURI,
+     *      enabling MetaMask / marketplaces to display images and attributes.
+     * @param tokenId The ID of the token to query
+     * @return The full metadata URI string (data: or HTTP(S) URL)
+     */
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        return _pokerData[tokenId].metadataURI;
+    }
+
     // ============ Internal Helpers ============
 
     function _getTypeIdByName(string memory name) internal view returns (uint256) {
