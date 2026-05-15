@@ -135,18 +135,109 @@ class ZeroGContractService {
 
     // ============ PokerGame0G Methods ============
 
+    _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    _receiptHash(receiptOrTx) {
+        return receiptOrTx?.hash || receiptOrTx?.transactionHash || receiptOrTx?.tx || null;
+    }
+
+    _isTransientReceiptError(error) {
+        const details = [
+            error?.code,
+            error?.message,
+            error?.shortMessage,
+            error?.error?.message,
+            error?.info?.error?.message
+        ].filter(Boolean).join(' ');
+
+        return /no matching receipts found|transaction receipt.*not found|receipt.*not found|timeout|ETIMEDOUT|ECONNRESET|503/i.test(details);
+    }
+
+    _syntheticReceipt(tx, reason) {
+        return {
+            hash: tx?.hash || null,
+            transactionHash: tx?.hash || null,
+            status: 1,
+            confirmedByState: true,
+            reason
+        };
+    }
+
+    async _waitForTransaction(tx, {
+        label = '0G transaction',
+        attempts = 8,
+        delayMs = 2500,
+        confirmState = null
+    } = {}) {
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                const receipt = await tx.wait();
+                return receipt;
+            } catch (error) {
+                lastError = error;
+                if (!this._isTransientReceiptError(error)) {
+                    throw error;
+                }
+
+                const hash = this._receiptHash(tx);
+                console.warn(`[ZeroGContractService] ${label} receipt lookup failed on attempt ${attempt}/${attempts}, tx=${hash || 'unknown'}: ${error.message}`);
+
+                if (hash && this.zeroGService?.provider?.getTransactionReceipt) {
+                    try {
+                        const receipt = await this.zeroGService.provider.getTransactionReceipt(hash);
+                        if (receipt) return receipt;
+                    } catch (receiptError) {
+                        if (!this._isTransientReceiptError(receiptError)) {
+                            throw receiptError;
+                        }
+                    }
+                }
+
+                if (confirmState) {
+                    try {
+                        if (await confirmState()) {
+                            return this._syntheticReceipt(tx, `${label} confirmed by chain state`);
+                        }
+                    } catch (stateError) {
+                        console.warn(`[ZeroGContractService] ${label} state confirmation failed: ${stateError.message}`);
+                    }
+                }
+
+                if (attempt < attempts) {
+                    await this._sleep(delayMs);
+                }
+            }
+        }
+
+        if (confirmState) {
+            try {
+                if (await confirmState()) {
+                    return this._syntheticReceipt(tx, `${label} confirmed by chain state after retries`);
+                }
+            } catch (stateError) {
+                console.warn(`[ZeroGContractService] ${label} final state confirmation failed: ${stateError.message}`);
+            }
+        }
+
+        throw lastError;
+    }
+
     async deposit(playerAddress, valueEth) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
         const tx = await this.pokerGameContract.deposit({
             value: ethers.parseEther(valueEth.toString())
         });
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'deposit' });
     }
 
     async withdraw(amountEth) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
         const tx = await this.pokerGameContract.withdraw(ethers.parseEther(amountEth.toString()));
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'withdraw' });
     }
 
     async settle(gameResult) {
@@ -164,7 +255,7 @@ class ZeroGContractService {
             stateHash || ethers.id(0)
         );
 
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'settle' });
     }
 
     async joinTableFor(playerAddress, tableId, buyInWei) {
@@ -178,7 +269,13 @@ class ZeroGContractService {
             BigInt(tableId),
             BigInt(buyInWei)
         );
-        return await tx.wait();
+        return await this._waitForTransaction(tx, {
+            label: 'joinTableFor',
+            confirmState: async () => {
+                const session = await this.getTableSession(tableId, playerAddress);
+                return session.active && BigInt(session.buyIn || '0') === BigInt(buyInWei);
+            }
+        });
     }
 
     async leaveTableFor(playerAddress, tableId, finalStackWei) {
@@ -192,7 +289,13 @@ class ZeroGContractService {
             BigInt(tableId),
             BigInt(finalStackWei)
         );
-        return await tx.wait();
+        return await this._waitForTransaction(tx, {
+            label: 'leaveTableFor',
+            confirmState: async () => {
+                const session = await this.getTableSession(tableId, playerAddress);
+                return !session.active;
+            }
+        });
     }
 
     async settleTournament(tournamentId, players, payoutsWei, rakeWei, stateHash) {
@@ -208,7 +311,7 @@ class ZeroGContractService {
             BigInt(rakeWei),
             stateHash || ethers.ZeroHash
         );
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'settleTournament' });
     }
 
     /**
@@ -222,14 +325,14 @@ class ZeroGContractService {
             playerAddress,
             BigInt(finalStack)  // already in wei
         );
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'leaveTableSession' });
     }
 
     async authorizePlayer(playerAddress) {
         if (!this.pokerGameContract) throw new Error('PokerGame not connected');
         const serverAddr = this.zeroGService.getSignerAddress();
         const tx = await this.pokerGameContract.authorizeDelegate(serverAddr);
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'authorizeDelegate' });
     }
 
     /**
@@ -306,14 +409,14 @@ class ZeroGContractService {
     async mintINFT(to, handType, storageRootHash, metadataURI) {
         if (!this.inftContract) throw new Error('INFT contract not connected');
         const tx = await this.inftContract.mint(to, handType, storageRootHash, metadataURI);
-        const receipt = await tx.wait();
+        const receipt = await this._waitForTransaction(tx, { label: 'mintINFT' });
         return receipt;
     }
 
     async mintWithCards(to, typeId, cards, storageRootHash, metadataURI) {
         if (!this.inftContract) throw new Error('INFT contract not connected');
         const tx = await this.inftContract.mintWithCards(to, typeId, cards, storageRootHash, metadataURI);
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'mintWithCards' });
     }
 
     async queryNFTData(tokenId) {
@@ -324,19 +427,19 @@ class ZeroGContractService {
     async encryptedTransfer(tokenId, to, encryptedMetadata) {
         if (!this.inftContract) throw new Error('INFT contract not connected');
         const tx = await this.inftContract.encryptedTransfer(to, encryptedMetadata);
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'encryptedTransfer' });
     }
 
     async cloneINFT(tokenId, newOwner) {
         if (!this.inftContract) throw new Error('INFT contract not connected');
         const tx = await this.inftContract.clone(newOwner);
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'cloneINFT' });
     }
 
     async bindAgent(tokenId, agentAddress) {
         if (!this.inftContract) throw new Error('INFT contract not connected');
         const tx = await this.inftContract.bindAgent(agentAddress);
-        return await tx.wait();
+        return await this._waitForTransaction(tx, { label: 'bindAgent' });
     }
 
     // ============ Status ============

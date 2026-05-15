@@ -152,9 +152,14 @@ const GameState = ({ children }) => {
             data.walletAddress, '!=', walletAddressRef.current)
           return
         }
-        // Update local chips amount when balance is synced
-        // Normalize: if value looks like raw wei (>1e12), convert to decimal
-        if (data.available !== undefined) {
+        // 0G normal games split funds into spendable custody + table-locked funds.
+        // The landing page Game Balance must reflect both while a table session is active.
+        const isZeroGWallet = walletAddressRef.current?.startsWith('0x')
+        if (isZeroGWallet) {
+          const balance = parseFloat(normalizeBalance(data.balance || data.available || 0)) || 0
+          const locked = parseFloat(normalizeBalance(data.locked || 0)) || 0
+          setChipsAmount(balance + locked)
+        } else if (data.available !== undefined) {
           setChipsAmount(normalizeBalance(data.available))
         } else if (data.balance !== undefined) {
           setChipsAmount(normalizeBalance(data.balance))
@@ -303,12 +308,13 @@ const GameState = ({ children }) => {
         navigate('/')
       })
       // Timeout fallback in case server never responds
+      const leaveTimeoutMs = walletAddressRef.current?.startsWith('0x') ? 90000 : 10000
       leaveTimeoutRef.current = setTimeout(() => {
         isLeavingRef.current = false
         setIsLeaving(false)
         leaveTimeoutRef.current = null
         navigate('/')
-      }, 10000)
+      }, leaveTimeoutMs)
       try {
         socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, { tableId })
       } catch (error) {

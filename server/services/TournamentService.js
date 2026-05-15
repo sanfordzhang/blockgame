@@ -1638,13 +1638,13 @@ module.exports = {
         }
         return tournamentServiceInstance.claimPrize(tournamentId, walletAddress);
     },
-    // Set Socket.IO instance (for test mode)
+    // Set Socket.IO instance before the singleton service is initialized.
     setSocketIO: (io) => {
         if (tournamentServiceInstance) {
             tournamentServiceInstance.setSocketIO(io);
         } else {
             testModeSocketIO = io;
-            console.log('[TournamentService] Test mode: Socket.IO instance set');
+            console.log('[TournamentService] Socket.IO instance cached; tournament service will attach it on initialization');
         }
     },
     // Get active tables (for test mode)

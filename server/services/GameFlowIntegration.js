@@ -580,9 +580,15 @@ class GameFlowIntegration {
             if (pendingCache && pendingCache.pendingSync && (Date.now() - pendingCache.lastSync) < 30000) {
                 console.log(`[GameFlowIntegration] Using optimistic cache (pendingSync): balance=${pendingCache.balance/1e6} TRX, locked=${pendingCache.lockedAmount/1e6} TRX`);
                 // After joinTableFor, funds are locked in contract - use locked amount for validation
-                const availableBalance = pendingCache.lockedAmount || pendingCache.balance;
-                if (availableBalance >= requiredAmount) {
-                    console.log(`[GameFlowIntegration] ✅ VALIDATION PASSED (cache): ${availableBalance/1e6} TRX >= ${requiredAmount/1e6} TRX`);
+                const pendingJoinWei = this.toBigIntBalance(pendingCache.pendingJoinBuyInWei || 0);
+                const lockedWei = this.toBigIntBalance(pendingCache.rawLockedWei ?? pendingCache.lockedAmount ?? 0);
+                const balanceWei = this.toBigIntBalance(pendingCache.rawBalanceWei ?? pendingCache.balance ?? 0);
+                const requiredWei = BigInt(Math.max(0, Math.trunc(Number(requiredAmount || 0)))) * 1000000000n;
+                const hasPendingZeroGJoin = pendingJoinWei > 0n && lockedWei >= pendingJoinWei && pendingJoinWei >= requiredWei;
+                const availableBalance = hasPendingZeroGJoin ? Number(pendingJoinWei) : (pendingCache.lockedAmount || pendingCache.balance);
+
+                if (hasPendingZeroGJoin || availableBalance >= requiredAmount) {
+                    console.log(`[GameFlowIntegration] ✅ VALIDATION PASSED (cache): pendingJoin=${hasPendingZeroGJoin}, balanceWei=${balanceWei}, lockedWei=${lockedWei}, requiredWei=${requiredWei}`);
                     console.log(`[GameFlowIntegration] ========== BALANCE VALIDATION END ==========`);
                     return { valid: true, available: availableBalance, required: requiredAmount, balance: pendingCache.balance, locked: pendingCache.lockedAmount, source: 'cache' };
                 }
@@ -623,7 +629,17 @@ class GameFlowIntegration {
                 // Rule c: Don't subtract locked locally, wait for contract sync
                 // Player can use their full balance for sit-down if not at table
                 // If at table, check if balance (not locked) is enough for rebuy
-                if (!isPlayerAtTable && locked > 0) {
+                const pendingCacheForContract = this.getPlayerBalanceCache(playerAddress);
+                const pendingJoinWei = this.toBigIntBalance(pendingCacheForContract?.pendingJoinBuyInWei || 0);
+                const lockedWei = this.toBigIntBalance(pendingCacheForContract?.rawLockedWei ?? locked ?? 0);
+                const requiredWei = BigInt(Math.max(0, Math.trunc(Number(requiredAmount || 0)))) * 1000000000n;
+                const hasPendingZeroGJoin = pendingCacheForContract?.pendingSync &&
+                    (Date.now() - pendingCacheForContract.lastSync) < 30000 &&
+                    pendingJoinWei > 0n &&
+                    lockedWei >= pendingJoinWei &&
+                    pendingJoinWei >= requiredWei;
+
+                if (!isPlayerAtTable && locked > 0 && !hasPendingZeroGJoin) {
                     console.log(`[GameFlowIntegration] ⚠️  ISSUE DETECTED: Player not at table but contract has locked=${locked} (${locked/1000000} TRX)`);
                     console.log(`[GameFlowIntegration] This suggests deposit went into lockedAmount instead of balance`);
                     console.log(`[GameFlowIntegration] Resetting locked to 0 for validation`);
@@ -632,13 +648,15 @@ class GameFlowIntegration {
                 
                 // Rule a: availableBalance = balance (bankroll = balance)
                 // For sit-down validation: player needs to have enough balance
-                const availableBalance = balance;  // Rule a: bankroll = balance
+                const availableBalance = hasPendingZeroGJoin ? Number(pendingJoinWei) : balance;  // Rule a: bankroll = balance
 
                 console.log(`[GameFlowIntegration] Calculated: balance=${balance} (${balance/1000000} TRX), locked=${locked} (${locked/1000000} TRX), available=${availableBalance} (${availableBalance/1000000} TRX)`);
 
                 // Update cache with fresh data
                 this.setPlayerBalanceCache(playerAddress, balance, locked, {
-                    pendingSync: false
+                    ...(pendingCacheForContract || {}),
+                    pendingSync: hasPendingZeroGJoin,
+                    pendingJoinBuyInWei: hasPendingZeroGJoin ? pendingJoinWei.toString() : undefined
                 });
 
                 if (availableBalance >= requiredAmount) {

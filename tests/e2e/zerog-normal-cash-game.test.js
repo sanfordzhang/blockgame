@@ -33,6 +33,47 @@ function makeContract(wallet) {
     );
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isTransientReceiptError(error) {
+    const details = [
+        error?.code,
+        error?.message,
+        error?.shortMessage,
+        error?.error?.message,
+        error?.info?.error?.message
+    ].filter(Boolean).join(' ');
+
+    return /no matching receipts found|transaction receipt.*not found|receipt.*not found|timeout|ETIMEDOUT|ECONNRESET|503/i.test(details);
+}
+
+async function waitForTx(tx, label = 'tx') {
+    let lastError;
+    for (let attempt = 1; attempt <= 8; attempt++) {
+        try {
+            return await tx.wait();
+        } catch (error) {
+            lastError = error;
+            if (!isTransientReceiptError(error)) throw error;
+
+            const hash = tx?.hash;
+            if (hash && tx?.provider?.getTransactionReceipt) {
+                try {
+                    const receipt = await tx.provider.getTransactionReceipt(hash);
+                    if (receipt) return receipt;
+                } catch (receiptError) {
+                    if (!isTransientReceiptError(receiptError)) throw receiptError;
+                }
+            }
+
+            if (attempt < 8) await sleep(2500);
+        }
+    }
+    throw new Error(`${label} receipt was not available after retries: ${lastError?.message || lastError}`);
+}
+
 function deriveSecondWalletPrivateKey() {
     return ethers.keccak256(ethers.toUtf8Bytes(`${requireEnv('ZEROG_PRIVATE_KEY')}:normal-cash-e2e-player-2`));
 }
@@ -175,20 +216,20 @@ async function ensureNativeBalance(provider, funder, wallet) {
         to: wallet.address,
         value: GAS_TOP_UP - balance
     });
-    await tx.wait();
+    await waitForTx(tx, 'native top-up');
 }
 
 async function cleanupTableSession(contract, playerAddress) {
     const [buyIn, active] = await contract.getTableSession(TABLE_ID, playerAddress);
     if (active) {
         const tx = await contract.leaveTableFor(playerAddress, TABLE_ID, buyIn);
-        await tx.wait();
+        await waitForTx(tx, 'cleanup leaveTableFor');
     }
 
     const locked = await contract.getLockedBalance(playerAddress);
     if (locked > 0n) {
         const tx = await contract.forceUnlockPlayer(playerAddress);
-        await tx.wait();
+        await waitForTx(tx, 'cleanup forceUnlockPlayer');
     }
 }
 
@@ -197,7 +238,7 @@ async function ensureDelegate(contract, playerAddress, delegateAddress) {
     if (current) return;
 
     const tx = await contract.authorizeDelegate(delegateAddress);
-    await tx.wait();
+    await waitForTx(tx, 'authorizeDelegate');
 }
 
 async function ensureCustodyFor(operatorContract, playerAddress, minCustody) {
@@ -207,7 +248,7 @@ async function ensureCustodyFor(operatorContract, playerAddress, minCustody) {
     const tx = await operatorContract.executeDepositFor(playerAddress, minCustody - custody, {
         value: minCustody - custody
     });
-    await tx.wait();
+    await waitForTx(tx, 'executeDepositFor');
 }
 
 async function prepareWallet(provider, funder, wallet) {
@@ -343,25 +384,23 @@ describe('0G normal cash-game live E2E', function () {
 
             const p1Seat = lastTable && getSeatByAddress(lastTable, serverWallet.address);
             const p2Seat = lastTable && getSeatByAddress(lastTable, player2Wallet.address);
+            if (p1Seat && socket1.connected) {
+                try {
+                    await leaveTable(socket1);
+                } catch (error) {
+                    console.warn('p1 server-side leave failed during cleanup:', error.message);
+                }
+            }
+            if (p2Seat && socket2.connected) {
+                try {
+                    await leaveTable(socket2);
+                } catch (error) {
+                    console.warn('p2 server-side leave failed during cleanup:', error.message);
+                }
+            }
+
             socket1.disconnect();
             socket2.disconnect();
-
-            if (p1Seat) {
-                const tx = await operatorContract.leaveTableFor(
-                    serverWallet.address,
-                    TABLE_ID,
-                    BigInt(Math.max(0, Math.trunc(p1Seat.stack))) * WEI_PER_SUN
-                );
-                await tx.wait();
-            }
-            if (p2Seat) {
-                const tx = await operatorContract.leaveTableFor(
-                    player2Wallet.address,
-                    TABLE_ID,
-                    BigInt(Math.max(0, Math.trunc(p2Seat.stack))) * WEI_PER_SUN
-                );
-                await tx.wait();
-            }
 
             await cleanupTableSession(operatorContract, serverWallet.address);
             await cleanupTableSession(operatorContract, player2Wallet.address);

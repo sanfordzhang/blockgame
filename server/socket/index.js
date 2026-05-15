@@ -105,6 +105,8 @@ const tables = {
 const players = {};
 global.players = players; // Expose for EventListener to find player sockets
 const delegateCache = {}; // { [walletAddress]: { isAuthorized, serverAddress, ts } }
+const lobbySessionVersions = {}; // { [normalizedWalletAddress]: number }
+const cashDisconnectCleanupInProgress = new Set();
 const ZERO_G_WEI_PER_SUN = 1000000000n;
 
 function isZeroGAddress(address) {
@@ -119,8 +121,90 @@ function sunToZeroGWei(amountSun) {
   return BigInt(Math.max(0, Math.trunc(Number(amountSun || 0)))) * ZERO_G_WEI_PER_SUN;
 }
 
+function zeroGWeiToSun(amountWei) {
+  return Number(BigInt(amountWei || 0) / ZERO_G_WEI_PER_SUN);
+}
+
+function addRawBalances(balanceRaw, lockedRaw) {
+  return (BigInt(balanceRaw || '0') + BigInt(lockedRaw || '0')).toString();
+}
+
+function shouldSettleWithSessionBuyIn(table, seat, sessionBuyInWei, stackWei) {
+  if (!seat || stackWei <= 0n) return true;
+
+  const noLocalHandStarted =
+    table.handOver === true &&
+    (table.board || []).length === 0 &&
+    Number(table.pot || 0) === 0 &&
+    Number(table.mainPot || 0) === 0 &&
+    (table.winMessages || []).length === 0 &&
+    (seat.hand || []).length === 0 &&
+    Number(seat.bet || 0) === 0 &&
+    !seat.lastAction;
+
+  if (noLocalHandStarted && stackWei !== sessionBuyInWei) return true;
+
+  const maxPossibleStackWei = sessionBuyInWei * BigInt(table.maxPlayers || 1);
+  if (sessionBuyInWei > 0n && stackWei > maxPossibleStackWei) {
+    console.warn('[Socket] 0G leave stack exceeds table cap; using session buy-in', {
+      stackWei: stackWei.toString(),
+      sessionBuyInWei: sessionBuyInWei.toString(),
+      maxPossibleStackWei: maxPossibleStackWei.toString()
+    });
+    return true;
+  }
+
+  return false;
+}
+
 function receiptHash(receipt) {
   return receipt?.hash || receipt?.transactionHash || receipt?.tx || receipt;
+}
+
+async function settleZeroGTableSessionForPlayer({ zgContractService, table, tableId, player, seat, source }) {
+  const session = await zgContractService.getTableSession(tableId, player.id);
+  if (!session.active) {
+    return { settled: false, reason: 'no_active_session' };
+  }
+
+  const sessionBuyInWei = BigInt(session.buyIn || '0');
+  let stackWei = seat ? sunToZeroGWei(seat.stack || 0) : sessionBuyInWei;
+  if (!seat || shouldSettleWithSessionBuyIn(table, seat, sessionBuyInWei, stackWei)) {
+    console.warn('[Socket] 0G leave using session buy-in for cleanup:', {
+      player: player.id,
+      tableId,
+      source,
+      localStackSun: seat?.stack || 0,
+      localStackWei: stackWei.toString(),
+      sessionBuyInWei: sessionBuyInWei.toString()
+    });
+    stackWei = sessionBuyInWei;
+  }
+
+  const result = await zgContractService.leaveTableFor(player.id, tableId, stackWei);
+  const [custodyRaw, lockedRaw] = await Promise.all([
+    zgContractService.getCustodyBalance(player.id),
+    zgContractService.getLockedBalance(player.id)
+  ]);
+  const syncBalanceRaw = BigInt(custodyRaw || '0').toString();
+  const syncLockedRaw = BigInt(lockedRaw || '0').toString();
+
+  gameFlowIntegration.setPlayerBalanceCache(player.id, Number(BigInt(syncBalanceRaw)), Number(BigInt(syncLockedRaw)), {
+    rawBalanceWei: syncBalanceRaw,
+    rawLockedWei: syncLockedRaw,
+    chain: '0G',
+    source,
+    settlementTx: receiptHash(result)
+  });
+  player.bankroll = Number(BigInt(syncBalanceRaw));
+
+  return {
+    settled: true,
+    result,
+    balance: syncBalanceRaw,
+    locked: syncLockedRaw,
+    stackWei: stackWei.toString()
+  };
 }
 
 function findSeatByPlayerId(table, playerId) {
@@ -160,6 +244,83 @@ function getCurrentTables() {
 }
 
 const init = (socket, io) => {
+  const cleanupCashGameDisconnect = async (reason = 'disconnect') => {
+    if (cashDisconnectCleanupInProgress.has(socket.id)) return;
+    cashDisconnectCleanupInProgress.add(socket.id);
+
+    try {
+      const player = players[socket.id];
+      if (!player) return;
+
+      console.log('[Socket] Cash-game socket disconnect cleanup:', {
+        socketId: socket.id,
+        player: player.id,
+        reason
+      });
+
+      try {
+        const aiService = require('../services/ai/AIService');
+        if (aiService.isAIEnabled(player.id)) {
+          console.log(`[Socket] Auto-disabling AI on disconnect: ${player.id}`);
+          aiService.disableAI(player.id);
+        }
+      } catch (e) { /* ignore */ }
+
+      for (const table of Object.values(tables)) {
+        const seat = Object.values(table.seats).find(
+          (s) => s && s.player && s.player.socketId === socket.id
+        );
+        const inTablePlayers = table.players.some((p) => p && p.socketId === socket.id);
+
+        if (!seat && !inTablePlayers) continue;
+
+        if (config.BLOCKCHAIN_ENABLED && isZeroGAddress(player.id)) {
+          try {
+            const zgService = getZeroGService();
+            if (zgService && zgService.initialized) {
+              const zgContractService = new ZeroGContractService();
+              zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
+              const settlement = await settleZeroGTableSessionForPlayer({
+                zgContractService,
+                table,
+                tableId: table.id,
+                player,
+                seat,
+                source: 'cash-game-disconnect-0g'
+              });
+              if (settlement.settled) {
+                console.log('[Socket] 0G disconnect cleanup settled table session:', {
+                  player: player.id,
+                  tableId: table.id,
+                  txHash: receiptHash(settlement.result),
+                  balance: settlement.balance,
+                  locked: settlement.locked
+                });
+              }
+            }
+          } catch (error) {
+            console.error('[Socket] 0G disconnect cleanup failed:', error.message);
+          }
+        } else if (seat) {
+          updatePlayerBankroll(player, seat.stack);
+        }
+
+        table.removePlayer(socket.id);
+        broadcastToTable(table, `${player.name} disconnected.`);
+        if (table.activePlayers().length === 1) {
+          clearForOnePlayer(table);
+        }
+      }
+
+      gameFlowIntegration.removeNotificationCallback(socket.id);
+      delete players[socket.id];
+
+      io.emit(SC_TABLES_UPDATED, getCurrentTables());
+      io.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
+    } finally {
+      cashDisconnectCleanupInProgress.delete(socket.id);
+    }
+  };
   
   // Set up notification callback for blockchain events
   gameFlowIntegration.setNotificationCallback(socket.id, (event, data) => {
@@ -200,6 +361,9 @@ const init = (socket, io) => {
     const sid = socket.id;
 
     const normalizedWalletAddress = normalizeAddress(walletAddress);
+    const lobbyVersion = (lobbySessionVersions[normalizedWalletAddress] || 0) + 1;
+    lobbySessionVersions[normalizedWalletAddress] = lobbyVersion;
+
     const found = Object.values(players).find((player) => {
         return normalizeAddress(player.id) === normalizedWalletAddress;
       });
@@ -262,14 +426,29 @@ const init = (socket, io) => {
             );
 
             if (blockchainBalance) {
+              if (lobbySessionVersions[normalizedWalletAddress] !== lobbyVersion || !players[sid]) {
+                console.log('[Socket] Skipping stale balance sync:', {
+                  walletAddress,
+                  sid,
+                  lobbyVersion,
+                  latestVersion: lobbySessionVersions[normalizedWalletAddress],
+                  playerExists: !!players[sid]
+                });
+                return;
+              }
+
               const availableBalance = blockchainBalance.balance;
               players[sid].bankroll = availableBalance;
+              const isZeroGBalance = isZeroGAddress(walletAddress);
+              const balanceValue = isZeroGBalance ? (blockchainBalance.rawBalanceWei || blockchainBalance.balance) : blockchainBalance.balance;
+              const lockedValue = isZeroGBalance ? (blockchainBalance.rawLockedWei || blockchainBalance.lockedAmount) : blockchainBalance.lockedAmount;
 
               socket.emit(SC_BALANCE_SYNCED, {
                 walletAddress,
-                balance: blockchainBalance.balance,
-                locked: blockchainBalance.lockedAmount,
-                available: availableBalance
+                balance: balanceValue,
+                locked: lockedValue,
+                available: balanceValue,
+                total: isZeroGBalance ? addRawBalances(balanceValue, lockedValue) : undefined
               });
             }
           } catch (error) {
@@ -279,6 +458,17 @@ const init = (socket, io) => {
         }
       } else {
         console.warn('⚠️ [BLOCKCHAIN DISABLED] syncOnPlayerConnect - Blockchain is disabled, using default balance. Check BLOCKCHAIN_ENABLED in .env.local');
+      }
+
+      if (lobbySessionVersions[normalizedWalletAddress] !== lobbyVersion || !players[sid]) {
+        console.log('[Socket] Skipping stale lobby response:', {
+          walletAddress,
+          sid,
+          lobbyVersion,
+          latestVersion: lobbySessionVersions[normalizedWalletAddress],
+          playerExists: !!players[sid]
+        });
+        return;
       }
 
       socket.emit(SC_RECEIVE_LOBBY_INFO, {
@@ -440,6 +630,37 @@ const init = (socket, io) => {
           result = await contractService.joinTableFor(player.id, tableId, cappedBuyIn);
         }
         console.log('[Socket] joinTableFor result:', result);
+
+        if (isZeroGPlayer && !socket.connected) {
+          console.warn('[Socket] joinTableFor completed after socket disconnected; settling session without seating player:', {
+            player: player.id,
+            tableId,
+            restoredExistingSession
+          });
+          try {
+            const settlement = await settleZeroGTableSessionForPlayer({
+              zgContractService,
+              table,
+              tableId,
+              player,
+              seat: null,
+              source: 'cash-game-join-after-disconnect-0g'
+            });
+            console.log('[Socket] 0G join-after-disconnect cleanup result:', {
+              player: player.id,
+              tableId,
+              settled: settlement.settled,
+              txHash: receiptHash(settlement.result),
+              balance: settlement.balance,
+              locked: settlement.locked
+            });
+          } catch (cleanupError) {
+            console.error('[Socket] Failed to cleanup 0G join after disconnect:', cleanupError.message);
+          }
+          delete players[socket.id];
+          gameFlowIntegration.removeNotificationCallback(socket.id);
+          return;
+        }
         
         // Add player to table after successful blockchain operation
         if (!table.players.some(p => normalizeAddress(p?.id) === normalizeAddress(player.id))) {
@@ -463,22 +684,29 @@ const init = (socket, io) => {
 
         // Update balance cache BEFORE sitDown so validation passes
         if (isZeroGPlayer) {
-          const cached = gameFlowIntegration.getPlayerBalanceCache(player.id);
-          const baseBalanceWei = cached?.rawBalanceWei || cached?.balance || 0;
+          const [custodyRawBeforeSit, lockedRawBeforeSit] = await Promise.all([
+            zgContractService.getCustodyBalance(player.id),
+            zgContractService.getLockedBalance(player.id)
+          ]);
+          const custodyBeforeSit = BigInt(custodyRawBeforeSit || '0');
+          const lockedBeforeSit = BigInt(lockedRawBeforeSit || '0');
+
           if (restoredExistingSession) {
-            gameFlowIntegration.setPlayerBalanceCache(player.id, Number(BigInt(baseBalanceWei || 0)), Number(chainBuyIn), {
-              ...cached,
-              rawBalanceWei: BigInt(baseBalanceWei || 0).toString(),
-              rawLockedWei: chainBuyIn.toString(),
+            gameFlowIntegration.setPlayerBalanceCache(player.id, Number(custodyBeforeSit), Number(lockedBeforeSit), {
+              rawBalanceWei: custodyBeforeSit.toString(),
+              rawLockedWei: lockedBeforeSit.toString(),
               chain: '0G',
+              pendingJoinBuyInWei: chainBuyIn.toString(),
               pendingSync: true,
               source: 'cash-game-restore-0g'
             });
           } else {
-            gameFlowIntegration.applyLocalZeroGBalance(player.id, -chainBuyIn, baseBalanceWei, {
-              rawLockedWei: chainBuyIn.toString(),
-              lockedAmount: Number(chainBuyIn),
+            gameFlowIntegration.setPlayerBalanceCache(player.id, Number(custodyBeforeSit), Number(lockedBeforeSit), {
+              rawBalanceWei: custodyBeforeSit.toString(),
+              rawLockedWei: lockedBeforeSit.toString(),
               chain: '0G',
+              pendingJoinBuyInWei: chainBuyIn.toString(),
+              pendingSync: true,
               source: 'cash-game-join-0g'
             });
           }
@@ -518,6 +746,7 @@ const init = (socket, io) => {
           balance: isZeroGPlayer ? freshBalance.rawBalanceWei : freshBalance.balance,
           locked: isZeroGPlayer ? freshBalance.rawLockedWei : freshBalance.lockedAmount,
           available: isZeroGPlayer ? freshBalance.rawBalanceWei : freshBalance.balance,
+          total: isZeroGPlayer ? addRawBalances(freshBalance.rawBalanceWei, freshBalance.rawLockedWei) : undefined,
           reason: 'join_table',
           txHash: receiptHash(result)
         });
@@ -645,9 +874,47 @@ const init = (socket, io) => {
       return;
     }
 
-    const seat = Object.values(table.seats).find(
+    const isZeroGPlayer = isZeroGAddress(player.id);
+    let zeroGActiveSession = null;
+    let seat = Object.values(table.seats).find(
       (seat) => seat && seat.player.socketId === socket.id,
     );
+
+    if (!seat) {
+      const seatByWallet = findSeatByPlayerId(table, player.id);
+      if (seatByWallet) {
+        seat = seatByWallet;
+      }
+    }
+
+    if (!seat && config.BLOCKCHAIN_ENABLED && isZeroGPlayer) {
+      try {
+        const zgService = getZeroGService();
+        if (zgService && zgService.initialized) {
+          const zgContractService = new ZeroGContractService();
+          zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
+          const session = await zgContractService.getTableSession(tableId, player.id);
+          if (session.active) {
+            zeroGActiveSession = session;
+            seat = {
+              id: null,
+              player,
+              stack: zeroGWeiToSun(session.buyIn),
+              hand: [],
+              bet: 0,
+              lastAction: null
+            };
+            console.log('[Socket] Restoring missing local seat for active 0G leave:', {
+              player: player.id,
+              tableId,
+              buyInWei: session.buyIn
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('[Socket] Failed to inspect 0G session for missing local seat:', error.message);
+      }
+    }
 
     if (!seat) {
       table.removePlayer(socket.id);
@@ -659,7 +926,6 @@ const init = (socket, io) => {
     if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Detect player chain type by address format
-        const isZeroGPlayer = isZeroGAddress(player.id);
         let isAuthorized = false;
         let serverAddress = null;
         let zgContractService = null;
@@ -718,7 +984,28 @@ const init = (socket, io) => {
             // ===== 0G Leave Path =====
             console.log('[Socket] Calling 0G leaveTableSession via server...');
             try {
-              const stackWei = sunToZeroGWei(stack);
+              const session = zeroGActiveSession || await zgContractService.getTableSession(tableId, player.id);
+              if (!session.active) {
+                console.warn('[Socket] 0G leave requested but no active chain session:', { player: player.id, tableId });
+                table.removePlayer(socket.id);
+                socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+                socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+                return;
+              }
+
+              const sessionBuyInWei = BigInt(session.buyIn || '0');
+              let stackWei = sunToZeroGWei(stack);
+              if (shouldSettleWithSessionBuyIn(table, seat, sessionBuyInWei, stackWei)) {
+                console.warn('[Socket] 0G leave using session buy-in instead of local stack:', {
+                  player: player.id,
+                  tableId,
+                  localStackSun: stack,
+                  localStackWei: stackWei.toString(),
+                  sessionBuyInWei: sessionBuyInWei.toString()
+                });
+                stackWei = sessionBuyInWei;
+              }
+
               const result = await zgContractService.leaveTableFor(player.id, tableId, stackWei);
               console.log('[Socket] 0G leaveTableSession txHash:', result?.hash || result);
 
@@ -751,6 +1038,7 @@ const init = (socket, io) => {
                 balance: syncBalanceRaw,
                 locked: syncLockedRaw,
                 available: syncBalanceRaw,
+                total: addRawBalances(syncBalanceRaw, syncLockedRaw),
                 reason: 'leave_table_zerog',
                 txHash: receiptHash(result)
               });
@@ -762,6 +1050,7 @@ const init = (socket, io) => {
                 balance: cached?.rawBalanceWei || cached?.balance || 0,
                 locked: cached?.rawLockedWei || cached?.lockedAmount || 0,
                 available: cached?.rawBalanceWei || cached?.balance || 0,
+                total: addRawBalances(cached?.rawBalanceWei || cached?.balance || 0, cached?.rawLockedWei || cached?.lockedAmount || 0),
                 reason: 'leave_table_zerog_fallback'
               });
             }
@@ -1474,31 +1763,15 @@ const init = (socket, io) => {
   });
 
   socket.on(CS_DISCONNECT, () => {
-    const seat = findSeatBySocketId(socket.id);
-    if (seat) {
-      updatePlayerBankroll(seat.player, seat.stack);
-    }
+    cleanupCashGameDisconnect(CS_DISCONNECT).catch((error) => {
+      console.error('[Socket] CS_DISCONNECT cleanup error:', error);
+    });
+  });
 
-    // Clean up AI autopilot state for disconnected player
-    try {
-      const player = players[socket.id];
-      if (player && player.id) {
-        const aiService = require('../services/ai/AIService');
-        if (aiService.isAIEnabled(player.id)) {
-          console.log(`[Socket] Auto-disabling AI on disconnect: ${player.id}`);
-          aiService.disableAI(player.id);
-        }
-      }
-    } catch (e) { /* ignore */ }
-
-    // Clean up notification callback
-    gameFlowIntegration.removeNotificationCallback(socket.id);
-
-    delete players[socket.id];
-    removeFromTables(socket.id);
-
-    socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
-    socket.broadcast.emit(SC_PLAYERS_UPDATED, getCurrentPlayers());
+  socket.on('disconnect', (reason) => {
+    cleanupCashGameDisconnect(reason).catch((error) => {
+      console.error('[Socket] disconnect cleanup error:', error);
+    });
   });
 
   async function updatePlayerBankroll(player, amount) {
@@ -1722,14 +1995,12 @@ const init = (socket, io) => {
         
         if (playerEntry) {
           const [socketId, player] = playerEntry;
-          // Rule d: Don't update player.bankroll during game (only stack changes)
-          // The winner's stack is already updated in Table.determineWinner
-          // We just need to update the cache balance for tracking purposes
           console.log(`[Socket] Winner ${player.name} won ${winner.amount}. Stack already updated in game logic.`);
-
-          // Update cache: balance increases (winner gets amount), locked stays same
-          // This is for tracking purposes - actual locked is settled on leaveTable
-          gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
+          const isZeroGWinner = isZeroGAddress(winner.address);
+          if (!isZeroGWinner) {
+            // TRON cache tracks SUN. 0G cache tracks wei and must only sync on join/leave.
+            gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
+          }
 
           // Collect stack info for session settlement
           const stackBefore = stackBeforeHand.get(winner.address) || 0;
@@ -1750,7 +2021,6 @@ const init = (socket, io) => {
 
           // Notify client about balance update (for display purposes)
           // For 0G players, query actual custody balance from PokerGame0G contract
-          const isZeroGWinner = isZeroGAddress(winner.address);
           const balanceCache = gameFlowIntegration.getPlayerBalanceCache(winner.address);
           let actualBalance = balanceCache?.rawBalanceWei || balanceCache?.balance || player.bankroll;
           let actualLocked = balanceCache?.rawLockedWei || balanceCache?.lockedAmount || 0;
@@ -1779,13 +2049,15 @@ const init = (socket, io) => {
             balance: actualBalance,
             locked: actualLocked,
             available: actualBalance,
+            total: isZeroGWinner ? addRawBalances(actualBalance, actualLocked) : undefined,
             reason: 'game_won',
             amount: winner.amount
           });
         } else {
           console.warn(`[Socket] Winner player not found for address: ${winner.address}`);
-          // Player might have disconnected, but we should still track the win
-          gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
+          if (!isZeroGAddress(winner.address)) {
+            gameFlowIntegration.updatePlayerBalanceCache(winner.address, winner.amount, 0);
+          }
         }
       }
 
@@ -1921,8 +2193,13 @@ module.exports = {
         tables,
         players,
         delegateCache,
+        lobbySessionVersions,
+        cashDisconnectCleanupInProgress,
         isZeroGAddress,
-        sunToZeroGWei
+        sunToZeroGWei,
+        zeroGWeiToSun,
+        shouldSettleWithSessionBuyIn,
+        addRawBalances
     },
     // Get player bankroll from active socket session (populated by Lobby CS_FETCH_LOBBY_INFO)
     getPlayerBankroll: (walletAddress) => {

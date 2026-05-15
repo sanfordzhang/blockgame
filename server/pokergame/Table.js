@@ -102,6 +102,7 @@ class Table {
   }
 
   standPlayer(socketId) {
+    const wasHandInProgress = !this.handOver;
     for (let i of Object.keys(this.seats)) {
       if (this.seats[i] && this.seats[i].player.socketId === socketId) {
         this.seats[i] = null;
@@ -110,7 +111,7 @@ class Table {
 
     const satPlayers = Object.values(this.seats).filter((seat) => seat != null);
 
-    if (satPlayers.length === 1) {
+    if (wasHandInProgress && satPlayers.length === 1) {
       this.endWithoutShowdown();
     }
 
@@ -260,6 +261,10 @@ class Table {
     }
   }
   endWithoutShowdown() {
+    if (this.handOver) {
+      console.log('[Table] endWithoutShowdown ignored: hand already over');
+      return;
+    }
     console.log('[Table] endWithoutShowdown called');
     const winner = this.unfoldedPlayers()[0];
     console.log('[Table] Winner:', winner ? winner.player.name : 'none', 'Pot:', this.pot);

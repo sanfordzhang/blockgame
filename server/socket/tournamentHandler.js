@@ -56,7 +56,8 @@ const socketWalletMap = new Map(); // socketId -> walletAddress (新增：存储
  * @param {Server} io - Socket.io server
  */
 function initTournamentHandlers(socket, io) {
-    // Set Socket.IO instance on TournamentService (for test mode)
+    // Set Socket.IO instance on TournamentService. If the singleton has not
+    // initialized yet, TournamentService caches it for later use.
     TournamentService.setSocketIO(io);
     // ============ Tournament Events ============
     

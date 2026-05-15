@@ -124,7 +124,7 @@ router.get('/infts/:address', (req, res) => {
 
 /**
  * @route GET /api/0g/balance/:walletAddress
- * @desc Get player's custody balance from PokerGame0G contract
+ * @desc Get player's custody and locked game balance from PokerGame0G contract
  */
 router.get('/balance/:walletAddress', async (req, res) => {
     try {
@@ -140,16 +140,28 @@ router.get('/balance/:walletAddress', async (req, res) => {
         const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(walletAddress);
         const shouldUseFreshChainBalance = walletAddress.startsWith('0x');
         if (!shouldUseFreshChainBalance && cachedBalance?.rawBalanceWei !== undefined) {
-            const balanceDecimal = formatWeiAs0G(cachedBalance.rawBalanceWei);
+            const rawBalance = BigInt(cachedBalance.rawBalanceWei || '0');
+            const rawLocked = BigInt(cachedBalance.rawLockedWei || cachedBalance.lockedAmount || '0');
+            const rawTotal = rawBalance + rawLocked;
+            const balanceDecimal = formatWeiAs0G(rawBalance);
+            const lockedDecimal = formatWeiAs0G(rawLocked);
+            const totalDecimal = formatWeiAs0G(rawTotal);
             console.log('[0G API] Balance query from local cache:', {
                 player: walletAddress,
-                raw: cachedBalance.rawBalanceWei,
+                raw: rawBalance.toString(),
+                locked: rawLocked.toString(),
+                total: rawTotal.toString(),
                 decimal: balanceDecimal
             });
             return res.json({
                 success: true,
                 balance: balanceDecimal,
-                rawBalance: cachedBalance.rawBalanceWei,
+                available: balanceDecimal,
+                locked: lockedDecimal,
+                total: totalDecimal,
+                rawBalance: rawBalance.toString(),
+                rawLockedBalance: rawLocked.toString(),
+                rawTotalBalance: rawTotal.toString(),
                 source: cachedBalance.source || 'local-cache'
             });
         }
@@ -162,19 +174,44 @@ router.get('/balance/:walletAddress', async (req, res) => {
         const zgContractService = new ZeroGContractService();
         zgContractService.init(zgService, process.env.ZEROG_NETWORK || 'testnet');
 
-        const rawBalance = await zgContractService.getCustodyBalance(walletAddress);
+        const [rawBalance, rawLocked] = await Promise.all([
+            zgContractService.getCustodyBalance(walletAddress),
+            zgContractService.getLockedBalance(walletAddress)
+        ]);
         // Convert from wei (smallest unit) to decimal 0G tokens
-        const rawNum = BigInt(rawBalance || '0');
-        const balanceDecimal = formatWeiAs0G(rawNum);
-        console.log('[0G API] Balance query:', { player: walletAddress, raw: rawBalance, decimal: balanceDecimal });
-
-        gameFlowIntegration.setPlayerBalanceCache(walletAddress, Number(rawNum), 0, {
-            rawBalanceWei: rawNum.toString(),
-            chain: '0G',
-            source: 'chain'
+        const rawBalanceNum = BigInt(rawBalance || '0');
+        const rawLockedNum = BigInt(rawLocked || '0');
+        const rawTotalNum = rawBalanceNum + rawLockedNum;
+        const balanceDecimal = formatWeiAs0G(rawBalanceNum);
+        const lockedDecimal = formatWeiAs0G(rawLockedNum);
+        const totalDecimal = formatWeiAs0G(rawTotalNum);
+        console.log('[0G API] Balance query:', {
+            player: walletAddress,
+            raw: rawBalanceNum.toString(),
+            locked: rawLockedNum.toString(),
+            total: rawTotalNum.toString(),
+            decimal: balanceDecimal
         });
 
-        res.json({ success: true, balance: balanceDecimal.toString(), rawBalance: rawNum.toString(), source: 'chain' });
+        gameFlowIntegration.setPlayerBalanceCache(walletAddress, Number(rawBalanceNum), Number(rawLockedNum), {
+            rawBalanceWei: rawBalanceNum.toString(),
+            rawLockedWei: rawLockedNum.toString(),
+            chain: '0G',
+            source: 'chain',
+            pendingSync: false
+        });
+
+        res.json({
+            success: true,
+            balance: balanceDecimal.toString(),
+            available: balanceDecimal.toString(),
+            locked: lockedDecimal.toString(),
+            total: totalDecimal.toString(),
+            rawBalance: rawBalanceNum.toString(),
+            rawLockedBalance: rawLockedNum.toString(),
+            rawTotalBalance: rawTotalNum.toString(),
+            source: 'chain'
+        });
     } catch (error) {
         console.error('[0G API] Balance error:', error.message);
         res.status(500).json({ success: false, balance: '0', error: error.message });

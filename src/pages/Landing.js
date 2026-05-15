@@ -112,11 +112,13 @@ const Landing = () => {
   const applyZeroGGameBalance = useCallback((info, source = 'zerog') => {
     const available = parseFloat(normalizeBalance(info?.balance || info?.available || '0')) || 0;
     const locked = parseFloat(normalizeBalance(info?.locked || '0')) || 0;
-    setContractBalance(available);
+    const total = available + locked;
+    setContractBalanceRaw(available);
     setLockedBalance(locked);
-    console.log('[Landing] 0G game balance:', { source, available, locked, total: available + locked });
-    return { available, locked, total: available + locked };
-  }, [setContractBalance]);
+    setChipsAmount(total);
+    console.log('[Landing] 0G game balance:', { source, available, locked, total });
+    return { available, locked, total };
+  }, [setChipsAmount]);
 
   // Calculate balances
   // contractBalance = balance (available in contract)
