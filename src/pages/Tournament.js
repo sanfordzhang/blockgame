@@ -9,17 +9,11 @@ import locaContext from '../context/localization/locaContext';
 import modalContext from '../context/modal/modalContext';
 import { useTron } from '../context/tron/TronContext';
 import { useZeroG } from '../context/zero-g/ZeroGContext';
-import clientConfig from '../clientConfig';
 import { getPlayerBalance } from '../utils/tronInteract';
 import { getCustodyBalance } from '../utils/zeroGInteract';
+import { buildApiUrl } from '../utils/serverConfig';
 
-// Dynamic API base URL — works on both localhost and LAN
-const getApiUrl = (path) => {
-  const port = process.env.REACT_APP_SERVER_PORT || '7778';
-  const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-  const baseUrl = process.env.REACT_APP_SERVER_URI || `http://${host}:${port}/`;
-  return baseUrl.replace(/\/$/, '') + path;
-};
+const MOCK_GAME_ENABLED = process.env.REACT_APP_TOURNAMENT_MOCK_GAME_ENABLED === 'true';
 
 const TournamentCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -250,7 +244,7 @@ const Tournament = () => {
   const isZeroG = (currentAddress || '').startsWith('0x') ||
                    localStorage.getItem('wallet_type') === 'zerog';
   const currencySymbol = isZeroG ? '0G' : 'TRX';
-  const currencyDivisor = isZeroG ? 1e18 : 1e6;
+  const currencyDivisor = isZeroG ? 1e9 : 1e6;
 
   const [tournaments, setTournaments] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -259,9 +253,19 @@ const Tournament = () => {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [mockGame, setMockGame] = useState(() => {
-    // 从 localStorage 恢复 mock 状态
+    if (!MOCK_GAME_ENABLED) return false;
     return localStorage.getItem('mockGame') === 'true';
   });
+
+  useEffect(() => {
+    if (MOCK_GAME_ENABLED) return;
+    try {
+      localStorage.removeItem('mockGame');
+    } catch (err) {
+      // Ignore storage access failures.
+    }
+    setMockGame(false);
+  }, []);
 
   // 同步 TronContext 地址到 globalContext
   useEffect(() => {
@@ -347,7 +351,7 @@ const Tournament = () => {
       if (filter !== 'all') {
         params.append('status', filter);
       }
-      const response = await fetch(getApiUrl(`/api/tournament/list?${params}`));
+      const response = await fetch(buildApiUrl(`/api/tournament/list?${params}`));
       const data = await response.json();
       if (data.success) {
         setTournaments(data.tournaments || []);
@@ -363,7 +367,7 @@ const Tournament = () => {
 
   const fetchConfigs = async () => {
     try {
-      const response = await fetch(getApiUrl('/api/tournament/configs/list'));
+      const response = await fetch(buildApiUrl('/api/tournament/configs/list'));
       const data = await response.json();
       if (data.success && data.configs && data.configs.length > 0) {
         setConfigs(data.configs);
@@ -388,13 +392,13 @@ const Tournament = () => {
     setCreating(true);
     setError(null);
     try {
-      const response = await fetch(getApiUrl('/api/tournament/create'), {
+      const response = await fetch(buildApiUrl('/api/tournament/create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           configId, 
           walletAddress,
-          mockGame: mockGame  // 传递 mock 状态
+          mockGame: MOCK_GAME_ENABLED && mockGame
         })
       });
       const data = await response.json();
@@ -438,7 +442,7 @@ const Tournament = () => {
           console.warn('[Tournament] Failed to get client balance, will use server check:', e.message);
         }
         
-        const response = await fetch(getApiUrl(`/api/tournament/${tournamentId}/join`), {
+        const response = await fetch(buildApiUrl(`/api/tournament/${tournamentId}/join`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -493,7 +497,7 @@ const Tournament = () => {
     openModal(
       () => (
         <Container flexDirection="column" gap="1rem">
-          <Text>Buy-in: {(buyIn / (isZeroG ? 1e18 : 1e6)).toFixed(isZeroG ? 2 : 0)} {currencySymbol}</Text>
+          <Text>Buy-in: {(buyIn / currencyDivisor).toFixed(isZeroG ? 2 : 0)} {currencySymbol}</Text>
           <Text>Are you sure you want to join this tournament?</Text>
         </Container>
       ),
@@ -506,13 +510,13 @@ const Tournament = () => {
   const formatPrizePool = (tournament) => {
     const totalPot = tournament.buyIn * tournament.playerCount;
     const afterRake = totalPot * (1 - tournament.rakeRate / 10000);
-    return `${(afterRake / (isZeroG ? 1e18 : 1e6)).toFixed(isZeroG ? 2 : 0)} ${currencySymbol}`;
+    return `${(afterRake / currencyDivisor).toFixed(isZeroG ? 2 : 0)} ${currencySymbol}`;
   };
 
   // View tournament rankings (for completed tournaments)
   const handleViewRankings = async (tournament) => {
     try {
-      const response = await fetch(getApiUrl(`/api/tournament/${tournament.tournamentId}`));
+      const response = await fetch(buildApiUrl(`/api/tournament/${tournament.tournamentId}`));
       const data = await response.json();
 
       if (!data.success) {
@@ -553,7 +557,7 @@ const Tournament = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                       {playerInfo?.prizeAmount > 0 && (
                         <span style={{ color: '#ffd700' }}>
-                          {(playerInfo.prizeAmount / (isZeroG ? 1e18 : 1e6)).toLocaleString()} {currencySymbol}
+                          {(playerInfo.prizeAmount / currencyDivisor).toLocaleString()} {currencySymbol}
                         </span>
                       )}
                       {chipReward > 0 && (
@@ -569,7 +573,7 @@ const Tournament = () => {
             {rakeAmount > 0 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }}>
                 <Text size="0.8rem" color="textSecondary" textCentered>
-                  Rake: {(rakeAmount / (isZeroG ? 1e18 : 1e6)).toFixed(1)} {currencySymbol} (5%)
+                  Rake: {(rakeAmount / currencyDivisor).toFixed(isZeroG ? 4 : 1)} {currencySymbol} (5%)
                 </Text>
               </div>
             )}
@@ -599,7 +603,7 @@ const Tournament = () => {
       </InfoBanner>
       
       {/* Mock 游戏开关 - 仅测试网显示 */}
-      {process.env.REACT_APP_NETWORK === 'testnet' && (
+      {process.env.REACT_APP_NETWORK === 'testnet' && MOCK_GAME_ENABLED && (
       <MockSection data-testid="mock-game-section">
         <MockCheckbox>
           <input
@@ -632,7 +636,7 @@ const Tournament = () => {
               disabled={creating}
               data-testid={`create-tournament-btn-${config.id}`}
             >
-              {creating ? t('creating') : t('players')(config.playerCount) + ' (' + (config.buyIn / (isZeroG ? 1e18 : 1e6)).toFixed(isZeroG ? 2 : 0) + ' ' + currencySymbol + ')'}
+              {creating ? t('creating') : t('players')(config.playerCount) + ' (' + (config.buyIn / currencyDivisor).toFixed(isZeroG ? 2 : 0) + ' ' + currencySymbol + ')'}
             </CreateButton>
           ))}
         </CreateButtons>
@@ -685,7 +689,7 @@ const Tournament = () => {
               <Container flexDirection="row" justifyContent="space-between" marginTop="1rem">
                 <div>
                   <Text size="0.8rem" color="textSecondary">Buy-in</Text>
-                  <BuyInAmount>{(tournament.buyIn / (isZeroG ? 1e18 : 1e6)).toFixed(isZeroG ? 2 : 0)} {currencySymbol}</BuyInAmount>
+                  <BuyInAmount>{(tournament.buyIn / currencyDivisor).toFixed(isZeroG ? 2 : 0)} {currencySymbol}</BuyInAmount>
                 </div>
                 <div>
                   <Text size="0.8rem" color="textSecondary">Prize Pool</Text>

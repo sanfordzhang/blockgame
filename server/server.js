@@ -56,18 +56,24 @@ async function initializeBlockchainServices() {
         try {
             console.log('[Server] Initializing blockchain services...');
 
-            // Initialize TronService
-            await TronService.init(config.TRON_NETWORK);
+            const isZeroGOnly = config.BLOCKCHAIN_MODE === '0g';
 
-            // Initialize ContractService
-            ContractService.init(TronService, config.TRON_NETWORK);
+            if (!isZeroGOnly) {
+                // Initialize TronService
+                await TronService.init(config.TRON_NETWORK);
 
-            // Initialize GameSettlementService
-            const TransactionQueue = require('./blockchain/TransactionQueue');
-            GameSettlementService.init(ContractService, TronService, TransactionQueue);
+                // Initialize ContractService
+                ContractService.init(TronService, config.TRON_NETWORK);
+
+                // Initialize GameSettlementService
+                const TransactionQueue = require('./blockchain/TransactionQueue');
+                GameSettlementService.init(ContractService, TronService, TransactionQueue);
+            } else {
+                console.log('[Server] BLOCKCHAIN_MODE=0g, skipping TRON service initialization');
+            }
 
             // Initialize GameFlowIntegration
-            gameFlowIntegration.init(TronService);
+            gameFlowIntegration.init(isZeroGOnly ? null : TronService);
 
             // Initialize NFT Service
             if (process.env.NFT_CONTRACT_ADDRESS) {
@@ -107,10 +113,12 @@ async function initializeBlockchainServices() {
             }
 
             // Initialize and start EventListener
-            EventListener.init(TronService, ContractService);
-            EventListener.start();
+            if (!isZeroGOnly) {
+                EventListener.init(TronService, ContractService);
+                EventListener.start();
+            }
 
-            console.log('[Server] Blockchain services initialized successfully');
+            console.log('[Server] Blockchain service bootstrap completed');
 
             // ============ Initialize 0G (ZeroGravity) services (BEFORE blocking setTableOwner) ============
             if (config.ZEROG_ENABLED && (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both')) {
@@ -184,7 +192,7 @@ async function initializeBlockchainServices() {
             }
 
             // Set server as table owner for table 1 (blocking on-chain TX - moved AFTER 0G init)
-            try {
+            if (!isZeroGOnly) try {
                 const serverAddress = TronService.getSignerAddress();
                 console.log('[Server] Server address:', serverAddress);
 

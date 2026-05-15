@@ -3,16 +3,9 @@
  * Used by pages that need direct socket access
  */
 import { io } from 'socket.io-client';
-import config from './clientConfig';
+import { getSocketBaseUrl } from './utils/serverConfig';
 
-// Get server URL from config or environment
-// Note: clientConfig exports socketURI, not serverUrl
-const SERVER_URL = config?.socketURI || config?.serverUrl || process.env.REACT_APP_SERVER_URL || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:7778`;
-const SERVER_PORT = process.env.REACT_APP_SERVER_PORT || 7778;
-
-// Create socket instance
-// If SERVER_URL already includes port (from socketURI), use it directly
-const socketUrl = SERVER_URL.includes(':') ? SERVER_URL : `${SERVER_URL}:${SERVER_PORT}`;
+const socketUrl = getSocketBaseUrl();
 
 console.log('[Socket] Connecting to:', socketUrl);
 
@@ -21,9 +14,12 @@ let socket = null;
 function getSocket() {
   if (!socket) {
     socket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      upgrade: false,
       autoConnect: true
     });
   }

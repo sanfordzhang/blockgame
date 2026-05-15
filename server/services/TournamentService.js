@@ -834,6 +834,118 @@ let tournamentServiceInstance = null;
 let testModeSocketIO = null;
 let testModeActiveTables = new Map();
 
+const ZERO_G_WEI_PER_SUN = 1000000000n;
+const ZERO_G_WEI_PER_TOKEN = 1000000000000000000n;
+
+function isZeroGAddress(address) {
+    return typeof address === 'string' && address.startsWith('0x');
+}
+
+function sunToZeroGWei(amountSun) {
+    return BigInt(Math.max(0, Math.trunc(Number(amountSun || 0)))) * ZERO_G_WEI_PER_SUN;
+}
+
+function formatZeroGWei(wei) {
+    const value = BigInt(wei || 0);
+    const whole = value / ZERO_G_WEI_PER_TOKEN;
+    const fraction = value % ZERO_G_WEI_PER_TOKEN;
+    const fractionText = fraction.toString().padStart(18, '0').replace(/0+$/, '');
+    return fractionText ? `${whole}.${fractionText}` : whole.toString();
+}
+
+function maxZeroGWei(...values) {
+    return values.reduce((max, value) => {
+        const parsed = BigInt(value || 0);
+        return parsed > max ? parsed : max;
+    }, 0n);
+}
+
+function getTournamentChainTableId(tournamentId) {
+    const digits = String(tournamentId || '').replace(/\D/g, '');
+    return digits || Date.now().toString();
+}
+
+function buildTournamentGameState(tournamentId, table, walletAddress = null) {
+    if (!table) return null;
+
+    const normalizedWallet = walletAddress?.toLowerCase?.() || null;
+    const gameState = {
+        tournamentId,
+        isTournament: true,
+        pot: table.pot,
+        board: table.board,
+        street: table.board.length === 0 ? 'preflop' :
+                table.board.length === 3 ? 'flop' :
+                table.board.length === 4 ? 'turn' :
+                table.board.length === 5 ? 'river' : 'showdown',
+        turn: table.turn,
+        button: table.button,
+        smallBlind: table.smallBlind,
+        bigBlind: table.bigBlind,
+        initialChips: table.initialChips,
+        handOver: table.handOver,
+        winMessages: table.winMessages,
+        wentToShowdown: table.wentToShowdown,
+        callAmount: table.callAmount,
+        minBet: table.minBet,
+        blindLevel: table.currentBlindLevel,
+        handsPlayed: table.handsPlayed,
+        currentBlinds: {
+            small: table.minBet,
+            big: table.minBet * 2
+        },
+        remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
+        isTournamentActive: table.isTournamentActive,
+        eliminatedPlayers: table.eliminatedPlayers || [],
+        remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
+        seats: {}
+    };
+
+    for (let i = 1; i <= table.maxPlayers; i++) {
+        const seat = table.seats[i];
+        if (!seat || !seat.player) continue;
+
+        const seatAddress = seat.player.id?.toLowerCase?.();
+        const isOwnSeat = normalizedWallet && seatAddress === normalizedWallet;
+        gameState.seats[i] = {
+            player: {
+                id: seat.player.id,
+                name: seat.player.name,
+                socketId: seat.player.socketId
+            },
+            stack: seat.stack,
+            bet: seat.bet,
+            folded: seat.folded,
+            checked: seat.checked,
+            lastAction: seat.lastAction,
+            turn: seat.turn !== undefined ? seat.turn : (table.turn === i),
+            sittingOut: seat.sittingOut,
+            hand: isOwnSeat
+                ? (seat.hand || [])
+                : (!seat.folded && table.wentToShowdown ? (seat.hand || []) : null)
+        };
+    }
+
+    return gameState;
+}
+
+function getZeroGContractService() {
+    if (global.zeroGContractService) {
+        return global.zeroGContractService;
+    }
+
+    const { getZeroGService } = require('../blockchain/blockchainFactory');
+    const ZeroGContractService = require('../blockchain/ZeroGContractService');
+    const zgService = getZeroGService();
+    if (!zgService || !zgService.initialized) {
+        throw new Error('0G service not initialized');
+    }
+
+    const zgContractService = new ZeroGContractService();
+    zgContractService.init(zgService, process.env.ZEROG_NETWORK || 'testnet');
+    return zgContractService;
+}
+
 /**
  * Initialize TournamentService singleton
  */
@@ -877,6 +989,14 @@ module.exports = {
             return Tournament.findOne({ tournamentId });
         }
         return tournamentServiceInstance.getTournament(tournamentId);
+    },
+    getLiveGameState: async (tournamentId, walletAddress) => {
+        const table = tournamentServiceInstance
+            ? tournamentServiceInstance.activeTables.get(tournamentId)
+            : testModeActiveTables.get(tournamentId);
+
+        if (!table) return null;
+        return buildTournamentGameState(tournamentId, table, walletAddress);
     },
     getConfigs: async () => {
         // Default configs for test mode
@@ -931,13 +1051,38 @@ module.exports = {
         if (!tournamentServiceInstance) {
             const TournamentModel = require('../models/Tournament');
             const normalizedAddress = walletAddress.toLowerCase();
+            const isZeroGPlayer = isZeroGAddress(walletAddress);
+            let pendingZeroGBuyInWei = null;
+            let pendingZeroGBaseBalanceWei = null;
+
+            const existingTournament = await TournamentModel.findOne({ tournamentId });
+            if (!existingTournament) {
+                throw new Error('Tournament not found');
+            }
+
+            const alreadyJoined = existingTournament.players?.some(
+                p => p.address?.toLowerCase() === normalizedAddress
+            );
+            if (alreadyJoined) {
+                if (socketId) {
+                    await TournamentModel.updateOne(
+                        { tournamentId, 'players.address': normalizedAddress },
+                        { $set: { 'players.$.socketId': socketId } }
+                    );
+                }
+                console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... already joined tournament ${tournamentId}, skipping buy-in lock`);
+                return { success: true, tournament: existingTournament, alreadyJoined: true };
+            }
+
+            if (existingTournament.status !== 'WAITING') {
+                throw new Error('Tournament not accepting players');
+            }
 
             // Check player balance before joining (FAIRNESS requirement)
             // Priority: clientBalance (TronLink) -> socket session -> GFI cache
             try {
                 const contractService = require('../blockchain/ContractService');
                 if (contractService) {
-                    const existingTournament = await TournamentModel.findOne({ tournamentId });
                     const buyIn = existingTournament?.buyIn || 100000000; // 100 TRX default
 
                     let playerBalance = null;
@@ -974,31 +1119,53 @@ module.exports = {
                         throw new Error('Insufficient balance. Please visit the Play page first to sync your game balance.');
                     }
 
-                    if (playerBalance < buyIn) {
+	                    if (isZeroGPlayer) {
+	                        pendingZeroGBuyInWei = sunToZeroGWei(buyIn);
+	                        const gameFlowIntegration = require('./GameFlowIntegration');
+	                        const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(walletAddress);
+	                        let chainBalanceWei = 0n;
+	                        try {
+	                            const zgContractService = getZeroGContractService();
+	                            chainBalanceWei = gameFlowIntegration.toBigIntBalance(
+	                                await zgContractService.getCustodyBalance(walletAddress)
+	                            );
+	                            console.log(`[TournamentService] 0G fresh chain balance: ${walletAddress.substring(0, 10)}... = ${formatZeroGWei(chainBalanceWei)} 0G`);
+	                        } catch (chainBalanceErr) {
+	                            console.warn(`[TournamentService] 0G fresh chain balance unavailable for ${walletAddress.substring(0, 10)}...: ${chainBalanceErr.message}`);
+	                        }
+	                        const cachedBalanceWei = gameFlowIntegration.toBigIntBalance(cachedBalance?.rawBalanceWei);
+	                        const clientBalanceWei = gameFlowIntegration.toBigIntBalance(clientBalance);
+	                        const sessionBalanceWei = gameFlowIntegration.toBigIntBalance(playerBalance);
+	                        pendingZeroGBaseBalanceWei = maxZeroGWei(
+	                            chainBalanceWei,
+	                            cachedBalanceWei,
+	                            clientBalanceWei,
+	                            sessionBalanceWei
+                        );
+
+                        if (pendingZeroGBaseBalanceWei < pendingZeroGBuyInWei) {
+                            throw new Error(`Insufficient balance. You need ${formatZeroGWei(pendingZeroGBuyInWei)} 0G but only have ${formatZeroGWei(pendingZeroGBaseBalanceWei)} 0G.`);
+                        }
+                    } else if (playerBalance < buyIn) {
                         throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
                     }
 
-                    console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... has ${playerBalance / 1e6} TRX >= ${buyIn / 1e6} TRX`);
+                    console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... has ${
+                        isZeroGPlayer ? `${formatZeroGWei(pendingZeroGBaseBalanceWei)} 0G >= ${formatZeroGWei(pendingZeroGBuyInWei)} 0G` : `${playerBalance / 1e6} TRX >= ${buyIn / 1e6} TRX`
+                    }`);
 
                     // Lock buyIn on chain - MANDATORY for on-chain settlement
                     // For 0G/EVM addresses, use ZeroG contract; for TRON addresses, use TRON contract
-                    const isZeroGPlayer = walletAddress.startsWith('0x');
-                    const tableId = parseInt(tournamentId.replace(/-/g, '').substring(0, 10)) || Date.now();
+                    const tableId = getTournamentChainTableId(tournamentId);
                     try {
                         if (isZeroGPlayer) {
-                            // 0G player: deposit to PokerGame0G custody contract
-                            const { getZeroGService } = require('../blockchain/blockchainFactory');
-                            const zgService = getZeroGService();
-                            if (zgService && zgService.wallet) {
-                                console.log(`[TournamentService] 0G mode: Locking buy-in via PokerGame0G deposit...`);
-                                // For test mode, just verify balance exists — actual lock happens at settlement
-                                console.log(`[TournamentService] Test mode: 0G balance verified (buyIn: ${buyIn})`);
-                            } else {
-                                console.warn(`[TournamentService] 0G service unavailable, skipping chain lock`);
-                            }
+                            const zgContractService = getZeroGContractService();
+                            console.log(`[TournamentService] 0G mode: Locking buy-in on-chain via joinTableFor tableId=${tableId}, buyIn=${pendingZeroGBuyInWei}`);
+                            const receipt = await zgContractService.joinTableFor(walletAddress, tableId, pendingZeroGBuyInWei);
+                            console.log(`[TournamentService] Test mode: ✅ Locked ${formatZeroGWei(pendingZeroGBuyInWei)} 0G buyIn on 0G chain, tx=${receipt?.hash || receipt?.transactionHash || 'confirmed'}`);
                         } else {
                             // TRON player: call joinTableFor on BridgeGameV2
-                            await contractService.joinTableFor(walletAddress, tableId, buyIn);
+                            await contractService.joinTableFor(walletAddress, Number(String(tableId).substring(0, 10)), buyIn);
                             console.log(`[TournamentService] Test mode: ✅ Locked ${buyIn/1e6} TRX buyIn on chain`);
                         }
                     } catch (lockErr) {
@@ -1008,7 +1175,7 @@ module.exports = {
                     }
                 }
             } catch (e) {
-                if (e.message.startsWith('Insufficient balance') || e.message.includes('Unable to verify')) {
+                if (e.message.startsWith('Insufficient balance') || e.message.includes('Unable to verify') || e.message.includes('On-chain lock failed')) {
                     throw e;
                 }
                 console.error(`[TournamentService] Test mode: Failed to check balance:`, e.message);
@@ -1045,12 +1212,39 @@ module.exports = {
                     throw new Error('Tournament not accepting players');
                 }
                 // Check if player is already in the list
-                const alreadyJoined = existing.players.some(p => p.address === normalizedAddress);
+                const alreadyJoined = existing.players.some(p => p.address?.toLowerCase() === normalizedAddress);
                 if (alreadyJoined) {
-                    throw new Error('Already joined');
+                    return { success: true, tournament: existing, alreadyJoined: true };
                 }
                 // If we get here, it means concurrent request won, return success anyway
                 return { success: true, tournament: existing };
+            }
+
+            if (isZeroGPlayer && pendingZeroGBuyInWei !== null) {
+                const gameFlowIntegration = require('./GameFlowIntegration');
+                const updatedBalance = gameFlowIntegration.applyLocalZeroGBalance(
+                    walletAddress,
+                    -pendingZeroGBuyInWei,
+                    pendingZeroGBaseBalanceWei || 0n,
+                    {
+                        tournamentId,
+                        reason: 'tournament_buy_in',
+                        lastBuyInWei: pendingZeroGBuyInWei.toString()
+                    }
+                );
+
+                console.log(`[TournamentService] 0G local game balance debited: ${walletAddress.substring(0, 10)}... -${formatZeroGWei(pendingZeroGBuyInWei)} 0G, new=${formatZeroGWei(updatedBalance.rawBalanceWei)} 0G`);
+
+                if (testModeSocketIO && socketId) {
+                    testModeSocketIO.to(socketId).emit('SC_BALANCE_SYNCED', {
+                        walletAddress,
+                        balance: updatedBalance.rawBalanceWei,
+                        available: updatedBalance.rawBalanceWei,
+                        locked: 0,
+                        chain: '0G',
+                        reason: 'tournament_buy_in'
+                    });
+                }
             }
 
             // Update prize pool
@@ -1095,13 +1289,25 @@ module.exports = {
                 // Set callback for tournament end (sync wrapper for async handler)
                 table.onTournamentEnd = (data) => {
                     console.log(`[TournamentService] Test mode: >>> Tournament ${tournamentId} ended`, data);
-                    // Immediately mark as inactive and remove from active tables
-                    testModeActiveTables.delete(tournamentId);
-                    console.log(`[TournamentService] Test mode: >>> Removed from activeTables`);
+                    if (testModeSocketIO) {
+                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', {
+                            tournamentId,
+                            isTournament: true,
+                            isTournamentActive: false,
+                            handOver: true,
+                            board: [],
+                            seats: {},
+                            rankings: data.rankings,
+                            reason: data.reason || 'elimination'
+                        });
+                    }
                     // Handle DB save and broadcast asynchronously
                     // Use module.exports._handleTournamentEnd since 'this' may not be correct in this context
                     module.exports._handleTournamentEnd(tournamentId, data).catch(err => {
                         console.error(`[TournamentService] Test mode: _handleTournamentEnd error:`, err);
+                    }).finally(() => {
+                        testModeActiveTables.delete(tournamentId);
+                        console.log(`[TournamentService] Test mode: >>> Removed from activeTables`);
                     });
                 };
                 
@@ -1120,8 +1326,15 @@ module.exports = {
                         
                         // Broadcast full game state after a short delay to ensure hand is ready
                         setTimeout(() => {
-                            console.log(`[TournamentService] Test mode: Broadcasting game state after next hand start`);
-                            broadcastGameState(tournamentId, table);
+                            try {
+                                console.log(`[TournamentService] Test mode: Broadcasting game state after next hand start`);
+                                broadcastGameState(tournamentId, table);
+                            } catch (error) {
+                                console.error(
+                                    `[TournamentService] Test mode: next-hand broadcast failed for ${tournamentId}:`,
+                                    error?.stack || error?.message || error
+                                );
+                            }
                         }, 500);
                     }
                 };
@@ -1263,28 +1476,35 @@ module.exports = {
                 console.log(`[TournamentService] Test mode: Created game table with ${tournament.players.length} players, 30 min time limit`);
                 
                 // Start first hand after a short delay
-                setTimeout(async () => {
-                    console.log(`[TournamentService] Test mode: >>> Starting first hand...`);
-                    console.log(`[TournamentService] Test mode: Table mockGame=${table.mockGame}, handsPlayed=${table.handsPlayed}`);
-                    console.log(`[TournamentService] Test mode: Room sockets before startHand: ${testModeSocketIO ? (() => {
-                        const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
-                        return rs ? Array.from(rs).join(', ') : 'none';
-                    })() : 'no IO'}`);
-                    
-                    // Use startNextHand instead of startHand to ensure mock deck is applied
-                    table.startNextHand();
-                    console.log(`[TournamentService] Test mode: startNextHand done. table.turn=${table.turn}`);
-                    
-                    // Broadcast initial game state
-                    if (testModeSocketIO) {
-                        console.log(`[TournamentService] Test mode: Room sockets after startHand: ${(() => {
+                setTimeout(() => {
+                    try {
+                        console.log(`[TournamentService] Test mode: >>> Starting first hand...`);
+                        console.log(`[TournamentService] Test mode: Table mockGame=${table.mockGame}, handsPlayed=${table.handsPlayed}`);
+                        console.log(`[TournamentService] Test mode: Room sockets before startHand: ${testModeSocketIO ? (() => {
                             const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
                             return rs ? Array.from(rs).join(', ') : 'none';
-                        })()}`);
+                        })() : 'no IO'}`);
                         
-                        // Use broadcastGameState helper for personalized state
-                        broadcastGameState(tournamentId, table);
-                        console.log(`[TournamentService] Test mode: >>> Broadcasted initial game state via broadcastGameState`);
+                        // Use startNextHand instead of startHand to ensure mock deck is applied
+                        table.startNextHand();
+                        console.log(`[TournamentService] Test mode: startNextHand done. table.turn=${table.turn}`);
+                        
+                        // Broadcast initial game state
+                        if (testModeSocketIO) {
+                            console.log(`[TournamentService] Test mode: Room sockets after startHand: ${(() => {
+                                const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
+                                return rs ? Array.from(rs).join(', ') : 'none';
+                            })()}`);
+                            
+                            // Use broadcastGameState helper for personalized state
+                            broadcastGameState(tournamentId, table);
+                            console.log(`[TournamentService] Test mode: >>> Broadcasted initial game state via broadcastGameState`);
+                        }
+                    } catch (error) {
+                        console.error(
+                            `[TournamentService] Test mode: initial hand start failed for ${tournamentId}:`,
+                            error?.stack || error?.message || error
+                        );
                     }
                 }, 2000);
             }
@@ -1741,30 +1961,204 @@ module.exports = {
         ).join(', '));
         
         // Update tournament status in DB (use atomic update to avoid VersionError race condition)
-        const rankingData = data.rankings.map((address, index) => ({
-            address,
-            position: index + 1,
-            prize: prizes[index]?.prizeAmount || 0
-        }));
-        
-        try {
-            await TournamentModel.findOneAndUpdate(
-                { tournamentId },
-                {
-                    $set: {
-                        status: 'COMPLETED',
-                        rakeAmount: rakeAmountSun,
-                        rankings: rankingData,
-                        finishedAt: new Date(),
-                        endReason: data.reason || 'elimination',
-                        totalHands: data.totalHands
-                    }
-                },
+	        const rankingData = data.rankings.map((address, index) => ({
+	            address,
+	            position: index + 1,
+	            prize: prizes[index]?.prizeAmount || 0
+	        }));
+	        const rankByAddress = new Map(
+	            rankingData.map(rank => [rank.address.toLowerCase(), rank])
+	        );
+	        const playerResultFields = {};
+	        (tournament.players || []).forEach((player, index) => {
+	            const rank = rankByAddress.get(player.address.toLowerCase());
+	            if (!rank) return;
+	            playerResultFields[`players.${index}.finalPosition`] = rank.position;
+	            playerResultFields[`players.${index}.prizeAmount`] = rank.prize;
+	        });
+	        
+	        try {
+	            await TournamentModel.findOneAndUpdate(
+	                { tournamentId },
+	                {
+	                    $set: {
+	                        status: 'COMPLETED',
+	                        rakeAmount: rakeAmountSun,
+	                        rankings: rankingData,
+	                        finishedAt: new Date(),
+	                        endReason: data.reason || 'elimination',
+	                        totalHands: data.totalHands,
+	                        ...playerResultFields
+	                    }
+	                },
                 { new: true }
             );
             console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} saved to DB`);
         } catch (dbErr) {
             console.error(`[TournamentService] _handleTournamentEnd: DB save failed (will continue with settlement):`, dbErr.message);
+        }
+
+        const zeroGSettlements = [];
+        let chipRewards = [];
+
+        const emitTournamentEnded = (settlementPending) => {
+            if (!testModeSocketIO) return;
+
+            const endEventData = {
+                tournamentId,
+                rankings: data.rankings,
+                reason: data.reason || 'elimination',
+                totalHands: data.totalHands,
+                rakeAmount: rakeAmountSun,
+                rakeAmountTrx,
+                chipRewards,
+                prizes: prizes.map(p => ({ address: p.address, position: p.position, prizeAmount: p.prizeAmount })),
+                zeroGSettlements,
+                settlementPending
+            };
+
+            testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_ENDED', endEventData);
+
+            // Also send directly to all players in rankings (including players who left the room).
+            const table = testModeActiveTables.get(tournamentId);
+            const playerSocketMap = new Map();
+
+            if (table?.eliminatedPlayers) {
+                for (const eliminated of table.eliminatedPlayers) {
+                    if (eliminated.player?.address && eliminated.player?.socketId) {
+                        playerSocketMap.set(eliminated.player.address.toLowerCase(), eliminated.player.socketId);
+                    }
+                }
+            }
+
+            if (table?.seats) {
+                for (const seatId in table.seats) {
+                    const seat = table.seats[seatId];
+                    if (seat?.player?.address && seat?.player?.socketId) {
+                        playerSocketMap.set(seat.player.address.toLowerCase(), seat.player.socketId);
+                    }
+                }
+            }
+
+            if (tournament.players) {
+                for (const player of tournament.players) {
+                    if (player.address && player.socketId && !playerSocketMap.has(player.address.toLowerCase())) {
+                        playerSocketMap.set(player.address.toLowerCase(), player.socketId);
+                    }
+                }
+            }
+
+            for (const address of data.rankings) {
+                const socketId = playerSocketMap.get(address.toLowerCase());
+                if (!socketId) continue;
+                const socket = testModeSocketIO.sockets.sockets.get(socketId);
+                if (!socket) continue;
+                const isInRoom = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`)?.has(socketId);
+                if (!isInRoom) {
+                    socket.emit('SC_TOURNAMENT_ENDED', endEventData);
+                    console.log(`[TournamentService] Sent SC_TOURNAMENT_ENDED to player ${address?.substring(0, 10)}... (socket left room)`);
+                }
+            }
+
+            console.log(`[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to all players (settlementPending=${settlementPending})`);
+        };
+
+        // Clear the table immediately in the browser. Chain settlement and CHIP rewards can finish afterwards.
+        emitTournamentEnded(true);
+
+        const zeroGPlayers = (tournament.players || []).filter(player => isZeroGAddress(player.address));
+        if (zeroGPlayers.length > 0) {
+            try {
+                const crypto = require('crypto');
+                const gameFlowIntegration = require('./GameFlowIntegration');
+                const prizeByAddress = new Map(prizes.map(prize => [prize.address.toLowerCase(), prize]));
+                const tableId = getTournamentChainTableId(tournamentId);
+                const zeroGRakeAmountSun = Math.floor((tournament.buyIn || 100000000) * zeroGPlayers.length * (tournament.rakeRate || 500) / 10000);
+                const zeroGRakeWei = sunToZeroGWei(zeroGRakeAmountSun);
+                const settlementPlayers = zeroGPlayers.map(player => player.address);
+                const settlementPayoutsWei = zeroGPlayers.map(player => {
+                    const prize = prizeByAddress.get(player.address.toLowerCase());
+                    return sunToZeroGWei(prize?.prizeAmount || 0).toString();
+                });
+                const stateHash = '0x' + crypto
+                    .createHash('sha256')
+                    .update(JSON.stringify({
+                        tournamentId,
+                        rankings: data.rankings,
+                        payouts: settlementPayoutsWei,
+                        rake: zeroGRakeWei.toString(),
+                        totalHands: data.totalHands,
+                        endedAt: data.endedAt || new Date()
+                    }))
+                    .digest('hex');
+
+                const zgContractService = getZeroGContractService();
+                console.log(`[TournamentService] 0G on-chain tournament settlement: tableId=${tableId}, players=${settlementPlayers.length}, rake=${formatZeroGWei(zeroGRakeWei)} 0G`);
+                const receipt = await zgContractService.settleTournament(
+                    tableId,
+                    settlementPlayers,
+                    settlementPayoutsWei,
+                    zeroGRakeWei,
+                    stateHash
+                );
+                console.log(`[TournamentService] ✅ 0G tournament settled on-chain, tx=${receipt?.hash || receipt?.transactionHash || 'confirmed'}`);
+
+                for (const player of zeroGPlayers) {
+                    const prize = prizeByAddress.get(player.address.toLowerCase());
+                    const prizeAmountSun = prize?.prizeAmount || 0;
+                    const prizeWei = sunToZeroGWei(prizeAmountSun);
+                    const chainBalanceWei = await zgContractService.getCustodyBalance(player.address);
+                    const chainLockedWei = await zgContractService.getLockedBalance(player.address);
+                    const updatedBalance = gameFlowIntegration.setPlayerBalanceCache(
+                        player.address,
+                        Number(BigInt(chainBalanceWei || '0')),
+                        Number(BigInt(chainLockedWei || '0')),
+                        {
+                            tournamentId,
+                            reason: 'tournament_prize',
+                            position: prize?.position || data.rankings.indexOf(player.address) + 1 || null,
+                            lastPrizeWei: prizeWei.toString(),
+                            rawBalanceWei: chainBalanceWei,
+                            rawLockedWei: chainLockedWei,
+                            chain: '0G',
+                            source: 'tournament-onchain-0g',
+                            settlementTx: receipt?.hash || receipt?.transactionHash || null
+                        }
+                    );
+
+                    zeroGSettlements.push({
+                        address: player.address,
+                        position: prize?.position || null,
+                        prizeAmount: prizeAmountSun,
+                        prizeWei: prizeWei.toString(),
+                        balanceWei: updatedBalance.rawBalanceWei,
+                        lockedWei: updatedBalance.rawLockedWei,
+                        txHash: updatedBalance.settlementTx
+                    });
+
+                    console.log(`[TournamentService] 0G on-chain prize settled: ${player.address.substring(0, 10)}... prize=${formatZeroGWei(prizeWei)} 0G, balance=${formatZeroGWei(updatedBalance.rawBalanceWei)} 0G`);
+
+                    if (testModeSocketIO) {
+                        const syncPayload = {
+                            walletAddress: player.address,
+                            balance: updatedBalance.rawBalanceWei,
+                            available: updatedBalance.rawBalanceWei,
+                            locked: updatedBalance.rawLockedWei || '0',
+                            chain: '0G',
+                            reason: 'tournament_prize',
+                            tournamentId,
+                            prizeAmount: prizeAmountSun,
+                            txHash: updatedBalance.settlementTx
+                        };
+                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_BALANCE_SYNCED', syncPayload);
+                        if (player.socketId) {
+                            testModeSocketIO.to(player.socketId).emit('SC_BALANCE_SYNCED', syncPayload);
+                        }
+                    }
+                }
+            } catch (zeroGErr) {
+                console.error(`[TournamentService] 0G local settlement failed:`, zeroGErr.message);
+            }
         }
 
         // === SETTLE TRX VIA CONTRACT ===
@@ -1826,6 +2220,10 @@ module.exports = {
                 
                 // Settle each player
                 for (const [address, settlement] of playerSettlements) {
+                    if (isZeroGAddress(address)) {
+                        console.log(`[TournamentService] Skipping TRON contract settlement for 0G player ${address.substring(0, 10)}...`);
+                        continue;
+                    }
                     try {
                         const playerAddress = restoreAddress(address);
                         
@@ -1910,8 +2308,6 @@ module.exports = {
         // - 1st place: 100% of base CHIP reward
         // - 2nd place: 30% of base CHIP reward (even if they left/disconnected)
         // - 3rd+ places: 10% of base CHIP reward
-        const chipRewards = [];
-        
         // Helper to restore proper Base58 address from lowercase
         const restoreAddressForChip = (addr) => {
             if (!addr) return addr;
@@ -1958,76 +2354,7 @@ module.exports = {
             }
         }
         
-        // Broadcast tournament ended (activeTable already removed by sync callback)
-        // Send to all players (including eliminated ones who may have left the room)
-        if (testModeSocketIO) {
-            const endEventData = {
-                tournamentId,
-                rankings: data.rankings,
-                reason: data.reason || 'elimination',
-                totalHands: data.totalHands,
-                rakeAmount: rakeAmountTrx,
-                chipRewards,
-                prizes: prizes.map(p => ({ address: p.address, position: p.position, prizeAmount: p.prizeAmount }))
-            };
-            
-            // Broadcast to room (for remaining players)
-            testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_ENDED', endEventData);
-            
-            // Also send directly to all players in rankings (including eliminated ones who left the room)
-            // Get socket IDs from active table's eliminated players and seats
-            const table = testModeActiveTables.get(tournamentId);
-            const playerSocketMap = new Map(); // address -> socketId
-            
-            // Collect from eliminated players
-            if (table && table.eliminatedPlayers) {
-                for (const eliminated of table.eliminatedPlayers) {
-                    if (eliminated.player && eliminated.player.address && eliminated.player.socketId) {
-                        playerSocketMap.set(eliminated.player.address.toLowerCase(), eliminated.player.socketId);
-                    }
-                }
-            }
-            
-            // Collect from current seats (remaining players)
-            if (table && table.seats) {
-                for (const seatId in table.seats) {
-                    const seat = table.seats[seatId];
-                    if (seat && seat.player && seat.player.address && seat.player.socketId) {
-                        playerSocketMap.set(seat.player.address.toLowerCase(), seat.player.socketId);
-                    }
-                }
-            }
-            
-            // Also check tournament.players from DB (may have socketId from join)
-            if (tournament.players) {
-                for (const player of tournament.players) {
-                    if (player.address && player.socketId) {
-                        // Only add if not already in map (prefer table's socketId)
-                        if (!playerSocketMap.has(player.address.toLowerCase())) {
-                            playerSocketMap.set(player.address.toLowerCase(), player.socketId);
-                        }
-                    }
-                }
-            }
-            
-            // Send to all ranked players who are not in the room
-            for (const address of data.rankings) {
-                const socketId = playerSocketMap.get(address.toLowerCase());
-                if (socketId) {
-                    const socket = testModeSocketIO.sockets.sockets.get(socketId);
-                    if (socket) {
-                        // Check if socket is in the room (avoid double send)
-                        const isInRoom = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`)?.has(socketId);
-                        if (!isInRoom) {
-                            socket.emit('SC_TOURNAMENT_ENDED', endEventData);
-                            console.log(`[TournamentService] Sent SC_TOURNAMENT_ENDED to player ${address?.substring(0, 10)}... (socket left room)`);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`[TournamentService] _handleTournamentEnd: >>> Broadcasted SC_TOURNAMENT_ENDED to all players`);
-        }
+        emitTournamentEnded(false);
         
         console.log(`[TournamentService] _handleTournamentEnd: Tournament ${tournamentId} end handling complete`);
     }

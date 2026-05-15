@@ -21,9 +21,9 @@ const fs = require('fs');
 const API_URL = 'http://127.0.0.1:7778';
 const BASE_URL = 'http://127.0.0.1:3001';
 
-// 浏览器玩家 (使用服务器钱包地址，注入到浏览器中)
+// 浏览器玩家 (0G custody balance + delegate 已准备好)
 const PLAYER = {
-    address: '0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc'
+    address: '0x8808ff950b9bfddde445fd099262e80cee858eb5'
 };
 
 // 0G 机器人钱包
@@ -36,10 +36,15 @@ const BOT = {
 // 0G 链配置
 const ZEROG_CHAIN_ID_HEX = '0x40da';   // 16602 in hex (0G Galileo testnet)
 const ZEROG_CHAIN_ID_DEC = 16602;
-const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+const POKERGAME_0G_ADDRESS = '0xc4975D55aD2607B14616E97B9a8E5622778eF5aE';
+const BUY_IN_WEI = '100000000000000000'; // 0.1 0G, equals 100,000,000 SUN in test conversion
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = msg => console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+const withTimeout = (promise, ms, label) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))
+]);
 
 // ============ HTTP 工具 ============
 function httpPost(url, data, walletAddress) {
@@ -110,11 +115,12 @@ async function startBot(tournamentId) {
 
                     setTimeout(() => {
                         // Step 2: Join Tournament
-                        ws.send('42' + JSON.stringify(['CS_TOURNAMENT_JOIN', {
-                            tournamentId: tournamentId,
-                            walletAddress: BOT.address
-                        }]));
-                        log('[Bot] Sent CS_TOURNAMENT_JOIN');
+	                        ws.send('42' + JSON.stringify(['CS_TOURNAMENT_JOIN', {
+	                            tournamentId: tournamentId,
+	                            walletAddress: BOT.address,
+	                            clientBalance: BUY_IN_WEI
+	                        }]));
+	                        log('[Bot] Sent CS_TOURNAMENT_JOIN');
 
                         setTimeout(() => {
                             // Step 3: Join Tournament Room
@@ -204,6 +210,54 @@ function handleBotTurn(ws, state, bs) {
 async function connectCDP(urlPattern) {
     for (let i = 0; i < 30; i++) {
         try {
+            if (process.env.CDP_REUSE_TAB !== 'true') {
+                const freshPage = await withTimeout(
+                    CDP.New({ url: `${BASE_URL}/` }),
+                    10000,
+                    'CDP.New'
+                );
+                log(`[CDP] Fresh tab opened: ${(freshPage.url || BASE_URL).substring(0, 80)}`);
+                const c = await withTimeout(CDP({ target: freshPage.webSocketDebuggerUrl || freshPage.id }), 10000, 'CDP connect');
+
+                await withTimeout(c.Page.enable(), 5000, 'Page.enable').catch(e => log(`[CDP] ${e.message}`));
+                await withTimeout(c.Runtime.enable(), 5000, 'Runtime.enable').catch(e => log(`[CDP] ${e.message}`));
+                await withTimeout(c.Log.enable(), 5000, 'Log.enable').catch(e => log(`[CDP] ${e.message}`));
+
+                let consoleLogs = [];
+                c.on('Log.entryAdded', ({ entry }) => {
+                    const t = entry.text || '';
+                    if (/error|Error|WARNING|Socket|Join|ROOM|Tournament|NFT|0g|INFT|fairness|balance|Balance/i.test(t)) {
+                        consoleLogs.push(`${new Date().toLocaleTimeString()} | ${t.substring(0, 200)}`);
+                    }
+                });
+
+                const screenshot = async (name) => {
+                    try {
+                        const { data } = await withTimeout(c.Page.captureScreenshot(), 10000, `screenshot ${name}`);
+                        fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
+                        log(`📸 Screenshot: ${name}.png`);
+                    } catch (e) {
+                        log(`[CDP] Screenshot error: ${e.message}`);
+                    }
+                };
+
+                const eval_ = async (expr) => {
+                    try {
+                        const r = await withTimeout(c.Runtime.evaluate({
+                            expression: expr,
+                            returnByValue: true,
+                            awaitPromise: true
+                        }), 12000, 'Runtime.evaluate');
+                        return r.result?.value ?? null;
+                    } catch (e) {
+                        log(`[CDP] Eval error: ${e.message}`);
+                        return null;
+                    }
+                };
+
+                return { client: c, screenshot, eval_, logs: () => consoleLogs };
+            }
+
             const pages = await new Promise((res, rej) => {
                 http.get('http://localhost:9222/json', r => {
                     let d = '';
@@ -212,16 +266,22 @@ async function connectCDP(urlPattern) {
                 }).on('error', rej);
             });
 
-            const page = pages.find(p => p.url.includes(urlPattern))
-                       || pages.find(p => p.url.includes('3001'));
+            const appPages = pages.filter(p =>
+                p.type === 'page' &&
+                p.url.includes(urlPattern) &&
+                !p.url.includes('chrome-extension://')
+            );
+            const page = appPages.find(p => !p.url.includes('/fairness-verify'))
+                       || appPages[0]
+                       || pages.find(p => p.type === 'page' && p.url.includes('3001'));
 
             if (page) {
                 log(`[CDP] Tab found: ${page.url.substring(0, 80)}`);
-                const c = await CDP({ target: page.webSocketDebuggerUrl });
+                const c = await withTimeout(CDP({ target: page.webSocketDebuggerUrl }), 10000, 'CDP connect');
 
-                await c.Page.enable();
-                await c.Runtime.enable();
-                await c.Log.enable();
+                await withTimeout(c.Page.enable(), 5000, 'Page.enable').catch(e => log(`[CDP] ${e.message}`));
+                await withTimeout(c.Runtime.enable(), 5000, 'Runtime.enable').catch(e => log(`[CDP] ${e.message}`));
+                await withTimeout(c.Log.enable(), 5000, 'Log.enable').catch(e => log(`[CDP] ${e.message}`));
 
                 let consoleLogs = [];
                 c.on('Log.entryAdded', ({ entry }) => {
@@ -234,7 +294,7 @@ async function connectCDP(urlPattern) {
 
                 const screenshot = async (name) => {
                     try {
-                        const { data } = await c.Page.captureScreenshot();
+                        const { data } = await withTimeout(c.Page.captureScreenshot(), 10000, `screenshot ${name}`);
                         fs.writeFileSync(`test-results/${name}.png`, Buffer.from(data, 'base64'));
                         log(`📸 Screenshot: ${name}.png`);
                     } catch (e) {
@@ -244,11 +304,11 @@ async function connectCDP(urlPattern) {
 
                 const eval_ = async (expr) => {
                     try {
-                        const r = await c.Runtime.evaluate({
+                        const r = await withTimeout(c.Runtime.evaluate({
                             expression: expr,
                             returnByValue: true,
                             awaitPromise: true
-                        });
+                        }), 12000, 'Runtime.evaluate');
                         return r.result?.value ?? null;
                     } catch (e) {
                         log(`[CDP] Eval error: ${e.message}`);
@@ -372,44 +432,52 @@ async function runTest() {
     log(`  Mode: Mock Game (Straight Flush Cards)`);
     log('========================================\n');
 
-    // ========== Step 1: 创建 Mock 锦标赛 ==========
-    log('[Step 1] Creating mock tournament (configId=3, 2-player)...');
+    let tid = process.env.JOIN_TOURNAMENT_ID;
+    let skipBotStartup = false;
 
-    const createRes = await httpPost(`${API_URL}/api/tournament/create`, {
-        configId: 3,
-        walletAddress: PLAYER.address,
-        mockGame: true   // 启用 Mock 模式 -> 产生顺子牌型
-    });
+    if (tid) {
+        log(`[Step 1] Reusing existing tournament: ${tid}`);
+        skipBotStartup = process.env.SKIP_BOT === 'true';
+    } else {
+        // ========== Step 1: 创建 Mock 锦标赛 ==========
+        log('[Step 1] Creating mock tournament (configId=3, 2-player)...');
 
-    if (!createRes.success && !createRes.tournament) {
-        log(`[ERROR] Create failed: ${JSON.stringify(createRes).substring(0, 300)}`);
-        process.exit(1);
-    }
+        const createRes = await httpPost(`${API_URL}/api/tournament/create`, {
+            configId: 3,
+            walletAddress: PLAYER.address,
+            mockGame: true   // 启用 Mock 模式 -> 产生顺子牌型
+        });
 
-    const tid = createRes.tournament?.tournamentId || createRes.tournament?.id;
-    log(`[Step 1] ✅ Tournament created! ID: ${tid}`);
-
-    // ========== Step 1b: 通过 HTTP API 加入锦标赛 ==========
-    log('[Step 1b] Joining tournament via HTTP API...');
-
-    for (const p of [
-        { label: 'Player', address: PLAYER.address },
-        { label: 'Bot', address: BOT.address }
-    ]) {
-        try {
-            const joinRes = await httpPost(
-                `${API_URL}/api/tournament/${tid}/join`,
-                { walletAddress: p.address, clientBalance: 100000000 },
-                p.address  // Use each participant's address as header
-            );
-            log(`  [${p.label}] ${p.address.substring(0, 10)}... joined: ${
-                JSON.stringify(joinRes).substring(0, 120)
-            }`);
-        } catch(e) {
-            log(`  [${p.label}] Join error: ${e.message.substring(0, 100)}`);
+        if (!createRes.success && !createRes.tournament) {
+            log(`[ERROR] Create failed: ${JSON.stringify(createRes).substring(0, 300)}`);
+            process.exit(1);
         }
+
+        tid = createRes.tournament?.tournamentId || createRes.tournament?.id;
+        log(`[Step 1] ✅ Tournament created! ID: ${tid}`);
+
+        // ========== Step 1b: 通过 HTTP API 加入锦标赛 ==========
+        log('[Step 1b] Joining tournament via HTTP API...');
+
+        for (const p of [
+            { label: 'Player', address: PLAYER.address },
+            { label: 'Bot', address: BOT.address }
+        ]) {
+            try {
+                const joinRes = await httpPost(
+                    `${API_URL}/api/tournament/${tid}/join`,
+                    { walletAddress: p.address, clientBalance: BUY_IN_WEI },
+                    p.address  // Use each participant's address as header
+                );
+                log(`  [${p.label}] ${p.address.substring(0, 10)}... joined: ${
+                    JSON.stringify(joinRes).substring(0, 120)
+                }`);
+            } catch(e) {
+                log(`  [${p.label}] Join error: ${e.message.substring(0, 100)}`);
+            }
+        }
+        await sleep(2000);
     }
-    await sleep(2000);
 
     // ========== Step 2: CDP 连接浏览器 ==========
     log('[Step 2] Connecting to Chrome via CDP...');
@@ -417,7 +485,7 @@ async function runTest() {
 
     // ========== Step 3: 导航到 Landing 页面并注入钱包 ==========
     log('[Step 3] Navigating to Landing page...');
-    await client.Page.navigate({ url: BASE_URL + '/' }).catch(() => {});
+    await withTimeout(client.Page.navigate({ url: BASE_URL + '/' }), 10000, 'navigate landing').catch(e => log(`[CDP] ${e.message}`));
     await sleep(4000);
     await screenshot('01-landing-page');
 
@@ -462,9 +530,9 @@ async function runTest() {
 
     // ========== Step 5: 导航到锦标赛游戏页面 ==========
     log('[Step 5] Navigating to tournament play page...');
-    await client.Page.navigate({
+    await withTimeout(client.Page.navigate({
         url: `${BASE_URL}/tournament/${tid}/play?address=${PLAYER.address}`
-    }).catch(() => {});
+    }), 10000, 'navigate play').catch(e => log(`[CDP] ${e.message}`));
     await sleep(5000);
     await screenshot('04-tournament-play-page');
 
@@ -496,7 +564,8 @@ async function runTest() {
 
                 s.emit('CS_TOURNAMENT_JOIN', {
                     tournamentId: '${tid}',
-                    walletAddress: '${PLAYER.address}'
+                    walletAddress: '${PLAYER.address}',
+                    clientBalance: '${BUY_IN_WEI}'
                 });
                 await new Promise(r => setTimeout(r, 800));
 
@@ -540,7 +609,7 @@ async function runTest() {
 
     // ========== Step 6: 启动机器人对手 ==========
     log('[Step 6] Starting 0G bot opponent...');
-    const botWs = await startBot(tid);
+    const botWs = skipBotStartup ? null : await startBot(tid);
     await sleep(6000);
     await screenshot('07-bot-started');
 
@@ -565,7 +634,8 @@ async function runTest() {
                 title: document.title
             })`);
 
-            const btns = (state?.btns || []).map(b => b.text).filter(Boolean);
+	            const btns = (state?.btns || []).map(b => b.text).filter(Boolean);
+	            const pageText = await eval_('document.body.innerText.substring(0, 1200)');
 
             // 过滤出游戏操作按钮
             const gameBtns = btns.filter(b =>
@@ -580,9 +650,9 @@ async function runTest() {
             }
 
             // ---- 检测 NFT Mint 按钮 ----
-            if (btns.some(b => /铸造|Mint.*NFT|Mint INFT|生成NFT|Regenerate/i.test(b))) {
-                log(`\n🎉🎉🎉 NFT MINT BUTTON DETECTED! Clicking now... 🎉🎉🎉\n`);
-                await screenshot('nft-button-found-before-click');
+	            if (btns.some(b => /铸造|Mint.*NFT|Mint INFT|生成NFT|Regenerate/i.test(b))) {
+	                log(`\n🎉🎉🎉 NFT MINT BUTTON DETECTED! Clicking now... 🎉🎉🎉\n`);
+	                await screenshot('nft-button-found-before-click');
 
                 const mintClicked = await eval_(`(function() {
                     const btns = document.querySelectorAll('button:not([disabled])');
@@ -596,8 +666,9 @@ async function runTest() {
                     return 'No mint button found';
                 })()`);
 
-                log(`  Mint click: ${mintClicked}`);
-                nftMinted = true;
+	                log(`  Mint click: ${mintClicked}`);
+	                nftMinted = true;
+	                gameEnded = true;
 
                 // 等待 NFT minting 完成
                 await sleep(10000);  // NFT mint 可能需要较长时间
@@ -678,16 +749,22 @@ async function runTest() {
 
             // ---- 无游戏按钮检测 ----
             if (!btns.some(b => /Check|Call|Fold|Raise|All.in/i.test(b))) {
-                const preview = (await eval_('document.body.innerText.substring(0, 150)')) || '';
-                log(`  No game buttons. Preview: ${preview.substring(0, 100)}`);
-                await screenshot(`no-buttons-round-${round}`);
+	                const preview = pageText || '';
+	                log(`  No game buttons. Preview: ${preview.substring(0, 100)}`);
+	                await screenshot(`no-buttons-round-${round}`);
 
-                // 如果长时间无按钮，可能游戏已结束
-                if (round > 55) {
-                    log('  Game seems ended (no buttons for too long)');
-                    gameEnded = true;
-                    break;
-                }
+	                if (/Back to Tournaments|Tournament Ended|Champion|Winner|Mint.*NFT|铸造/i.test(preview)) {
+	                    log('  Tournament end state detected');
+	                    gameEnded = true;
+	                    break;
+	                }
+
+	                // 如果长时间无按钮，可能游戏已结束
+	                if (round > 55) {
+	                    log('  No game actions remained after extended polling');
+	                    gameEnded = true;
+	                    break;
+	                }
             }
 
         } catch (evalErr) {
@@ -700,7 +777,7 @@ async function runTest() {
     await screenshot('99-final-state');
 
     // 关闭 Bot WebSocket
-    try { botWs.close(); } catch(_) {}
+    try { botWs?.close(); } catch(_) {}
 
     // ========== Step 8: 输出结果汇总 ==========
     log('\n\n========================================');
@@ -721,9 +798,9 @@ async function runTest() {
 
     // ========== Step 9: 检查 NFT Gallery (0G INFT tab) ==========
     log('\n[Step 8] Checking NFT Gallery page...');
-    await client.Page.navigate({
-        url: `${BASE_URL}/nft?address=${PLAYER.address}`
-    }).catch(() => {});
+	    await withTimeout(client.Page.navigate({
+	        url: `${BASE_URL}/nft?address=${PLAYER.address}`
+	    }), 10000, 'navigate nft').catch(e => log(`[CDP] ${e.message}`));
     await sleep(5000);
     await screenshot('nft-gallery-page');
 
@@ -758,32 +835,43 @@ async function runTest() {
     await screenshot('nft-gallery-inft-tab');
 
     // ========== Step 10: 检查 Fairness 验证页 ==========
-    log('[Step 9] Checking Fairness Verification page...');
-    await client.Page.navigate({ url: BASE_URL + '/fairness-verify' }).catch(() => {});
-    await sleep(4000);
-    await screenshot('fairness-verify-page');
+	    log('[Step 9] Checking Fairness Verification page...');
+	    await withTimeout(client.Page.navigate({ url: BASE_URL + '/fairness-verify' }), 10000, 'navigate fairness').catch(e => log(`[CDP] ${e.message}`));
+	    await sleep(4000);
+	    await screenshot('fairness-verify-page');
 
-    const fairnessPageBody = await eval_('document.body.innerText.substring(0, 350)');
-    log(`  Fairness page content: ${(fairnessPageBody || '').substring(0, 250)}`);
+	    const fairnessPageBody = await eval_('document.body.innerText.substring(0, 350)')
+	        .catch(e => {
+	            log(`  Fairness page read skipped: ${e.message}`);
+	            return '';
+	        });
+	    log(`  Fairness page content: ${(fairnessPageBody || '').substring(0, 250)}`);
 
     // ========== Step 11: 检查 Navbar 链标识 ==========
     log('[Step 10] Checking navbar chain indicator...');
-    await client.Page.navigate({ url: BASE_URL + '/play' }).catch(() => {});
+    await withTimeout(client.Page.navigate({ url: BASE_URL + '/play' }), 10000, 'navigate play page').catch(e => log(`[CDP] ${e.message}`));
     await sleep(4000);
     await screenshot('navbar-chain-check');
 
-    const navInfo = await eval_(`(function() {
-        const bodyText = document.body.innerText;
-        return {
-            hasTRON: bodyText.includes('TRON'),
+	    const navInfo = await eval_(`(function() {
+	        const bodyText = document.body.innerText;
+	        return {
+	            hasTRON: bodyText.includes('TRON'),
             hasZeroG: bodyText.includes('0G'),
             hasChainIndicator: /0.?G|TRON|chain/i.test(bodyText),
             badgeElement: document.querySelector('[class*=badge], [class*=chain], [class*=indicator], [id*=chain]')
-                    ?.textContent?.trim() || 'not found'
-        };
-    })()`);
+	                    ?.textContent?.trim() || 'not found'
+	        };
+	    })()`).catch(e => {
+	        log(`  Navbar read skipped: ${e.message}`);
+	        return null;
+	    });
 
-    log(`  Navbar info: TRON=${navInfo.hasTRON}, 0G=${navInfo.hasZeroG}, Badge="${navInfo.badgeElement}"`);
+	    if (navInfo) {
+	        log(`  Navbar info: TRON=${navInfo.hasTRON}, 0G=${navInfo.hasZeroG}, Badge="${navInfo.badgeElement}"`);
+	    } else {
+	        log('  Navbar info: skipped');
+	    }
 
     // ========== 最终输出 ==========
     log('\n\n======================================================');

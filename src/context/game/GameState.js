@@ -51,6 +51,8 @@ const GameState = ({ children }) => {
   const [turn, setTurn] = useState(false)
   const [turnTimeOutHandle, setHandle] = useState(null)
   const [isLeaving, setIsLeaving] = useState(false)
+  const isLeavingRef = React.useRef(false)
+  const leaveTimeoutRef = React.useRef(null)
 
   // AI state
   const [aiState, setAIState] = useState({ enabled: false, difficulty: 'medium', handsPlayed: 0, maxHands: 100 })
@@ -102,7 +104,7 @@ const GameState = ({ children }) => {
       const handleUnload = () => {
         try {
           if (socket && socket.connected) {
-            leaveTable()
+            if (currentTableRef.current) leaveTable()
           }
         } catch (e) {
           console.error('[GameState] Error in unload handler:', e)
@@ -126,7 +128,16 @@ const GameState = ({ children }) => {
 
       socket.on(SC_TABLE_LEFT, ({ tables, tableId }) => {
         console.log(SC_TABLE_LEFT, { tables, tableId })
+        isLeavingRef.current = false
+        setIsLeaving(false)
+        if (leaveTimeoutRef.current) {
+          clearTimeout(leaveTimeoutRef.current)
+          leaveTimeoutRef.current = null
+        }
         setCurrentTable(null)
+        currentTableRef.current = null
+        setSeatId(null)
+        seatIdRef.current = null
         setMessages([])
       })
 
@@ -233,7 +244,7 @@ const GameState = ({ children }) => {
             if (socket.connected) {
               socket.emit(CS_AI_DISABLE)
             }
-            leaveTable()
+            if (currentTableRef.current) leaveTable()
           }
         } catch (e) {
           console.error('[GameState] Error in cleanup:', e)
@@ -258,6 +269,11 @@ const GameState = ({ children }) => {
   }
 
   const leaveTable = async () => {
+    if (isLeavingRef.current) {
+      console.log('[GameState] leaveTable ignored: already leaving')
+      return
+    }
+
     const tableId = currentTableRef?.current?.id
     const currentSeatId = seatIdRef.current
     const stack = currentTableRef?.current?.seats?.[currentSeatId]?.stack || 0
@@ -271,24 +287,33 @@ const GameState = ({ children }) => {
     }
 
     if (socket && socket.connected) {
+      isLeavingRef.current = true
       setIsLeaving(true)
       // Disable AI autopilot when leaving table
       try { socket.emit(CS_AI_DISABLE) } catch(e) {}
       // Wait for SC_TABLE_LEFT before navigating so socket stays alive during blockchain leave
       socket.once(SC_TABLE_LEFT, () => {
         console.log('[GameState] SC_TABLE_LEFT received, navigating home')
+        isLeavingRef.current = false
         setIsLeaving(false)
+        if (leaveTimeoutRef.current) {
+          clearTimeout(leaveTimeoutRef.current)
+          leaveTimeoutRef.current = null
+        }
         navigate('/')
       })
       // Timeout fallback in case server never responds
-      setTimeout(() => {
+      leaveTimeoutRef.current = setTimeout(() => {
+        isLeavingRef.current = false
         setIsLeaving(false)
+        leaveTimeoutRef.current = null
         navigate('/')
       }, 10000)
       try {
         socket.emit(CS_LEAVE_TABLE_BLOCKCHAIN, { tableId })
       } catch (error) {
         console.error('[GameState] leaveTable error:', error)
+        isLeavingRef.current = false
         setIsLeaving(false)
         navigate('/')
       }

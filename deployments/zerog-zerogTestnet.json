@@ -1,1 +1,20 @@
-{"network": "zerogTestnet", "chainId": 16602, "deployer": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc", "deployedAt": "2026-05-09T16:50:00Z", "contracts": {"PokerGame0G": {"address": "0xc6F5495D411405630dF5d5ad32225d7F51dC1645", "txHash": "0xc6f5495..."}, "PokerHandINFT": {"address": "0xC96368bbE503a13BCDBE0d38E06c167486d9ccC3", "txHash": "0x7ac3af9..."}}, "roles": {"ADMIN": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc", "OPERATOR": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc", "MINTER": "0xc6F5495D411405630dF5d5ad32225d7F51dC1645"}}
+{
+  "network": "zerogTestnet",
+  "chainId": 16602,
+  "deployer": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc",
+  "deployedAt": "2026-05-14T00:00:00.000Z",
+  "contracts": {
+    "PokerGame0G": {
+      "address": "0xc4975D55aD2607B14616E97B9a8E5622778eF5aE",
+      "txHash": "unknown"
+    },
+    "PokerHandINFT": {
+      "address": "0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5",
+      "txHash": "existing"
+    }
+  },
+  "roles": {
+    "ADMIN": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc",
+    "OPERATOR": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc"
+  }
+}

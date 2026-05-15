@@ -11,7 +11,7 @@ const path = require('path');
 require('dotenv').config({ path: process.env.ENV_FILE || '.env.0g' });
 
 // Read compiled artifact
-const artifactPath = path.join(__dirname, 'artifacts/contracts/0g/PokerGame0G.sol/PokerGame0G.json');
+const artifactPath = path.join(__dirname, '..', 'artifacts/contracts/0g/PokerGame0G.sol/PokerGame0G.json');
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
 
 async function main() {
@@ -60,14 +60,13 @@ async function main() {
 
     // Verify leaveTableSession exists
     console.log('\n[3] Verifying leaveTableSession method...');
-    const code = await contract.leaveTableSession.fragment?.name || 
-                  (contract.interface.getFunction('leaveTableSession') ? 'leaveTableSession' : null);
+    const code = contract.interface.getFunction('leaveTableSession(uint256,uint256)') ? 'leaveTableSession' : null;
     if (code) {
         console.log('✅ leaveTableSession method confirmed in ABI');
     }
 
     // Save deployment info
-    const deploymentsDir = path.join(__dirname, 'deployments');
+    const deploymentsDir = path.join(__dirname, '..', 'deployments');
     if (!fs.existsSync(deploymentsDir)) fs.mkdirSync(deploymentsDir, { recursive: true });
 
     const info = {
@@ -76,7 +75,7 @@ async function main() {
         deployedAt: new Date().toISOString(),
         contracts: {
             PokerGame0G: { address },
-            features: ['deposit', 'withdraw', 'settle', 'leaveTableSession', 'authorizeDelegate', 'executeDepositFor']
+            features: ['deposit', 'withdraw', 'joinTableFor', 'leaveTableFor', 'settleTournament', 'leaveTableSession', 'authorizeDelegate', 'executeDepositFor']
         }
     };
 

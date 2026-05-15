@@ -3,13 +3,14 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title PokerGame0G
  * @notice Main game contract for the 0G Poker game on ZeroGravity network
  * @dev Handles fund custody, deposits, withdrawals, and game settlement
  */
-contract PokerGame0G is AccessControl {
+contract PokerGame0G is AccessControl, ReentrancyGuard {
     // ============ Roles ============
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -28,13 +29,32 @@ contract PokerGame0G is AccessControl {
     event DelegateAuthorized(address indexed player, address indexed delegate);
     event DelegateRevoked(address indexed player);
     event OperatorChanged(address indexed oldOperator, address indexed newOperator);
+    event JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed operator);
+    event LeftTableFor(address indexed player, uint256 indexed tableId, uint256 finalStack, address indexed operator);
+    event RakeCollected(uint256 indexed tableId, address indexed player, uint256 rakeAmount);
     event PlayerLeftTable(address indexed player, uint256 finalStack);
+    event TournamentSettled(
+        uint256 indexed tournamentId,
+        address[] players,
+        uint256[] payouts,
+        uint256 rake,
+        bytes32 stateHash
+    );
+    event ForceUnlocked(address indexed player, uint256 amount);
+
+    struct TableSession {
+        uint256 buyIn;
+        bool active;
+    }
 
     // ============ State Variables ============
     mapping(address => uint256) public custodyBalance;
+    mapping(address => uint256) public lockedBalance;
     mapping(address => address) public delegates; // player => delegated operator
     mapping(uint256 => bytes32) public handStateHashes; // handId => stateHash
+    mapping(uint256 => mapping(address => TableSession)) public tableSessions; // tableId => player => session
     uint256 public totalCustody;
+    uint256 public rakeRate = 500; // 5% in basis points
     address public feeRecipient;
 
     // ============ Modifiers ============
@@ -89,7 +109,7 @@ contract PokerGame0G is AccessControl {
      * @notice Withdraw from custody balance
      * @param amount Amount to withdraw in wei
      */
-    function withdraw(uint256 amount) external {
+    function withdraw(uint256 amount) external nonReentrant {
         require(custodyBalance[msg.sender] >= amount, "Insufficient custody balance");
         require(amount > 0, "Amount must be > 0");
 
@@ -146,8 +166,51 @@ contract PokerGame0G is AccessControl {
     // ============ Table Session (Join/Leave) ============
 
     /**
+     * @notice Operator locks a player's buy-in for a table.
+     * @dev This deducts spendable custody immediately, so losers are debited on-chain.
+     */
+    function joinTableFor(address player, uint256 tableId, uint256 buyIn)
+        external
+        onlyOperator
+    {
+        require(player != address(0), "Invalid player address");
+        require(tableId != 0, "Invalid tableId");
+        require(buyIn > 0, "Invalid buy-in");
+        require(custodyBalance[player] >= buyIn, "Insufficient custody balance");
+        require(!tableSessions[tableId][player].active, "Already at table");
+
+        custodyBalance[player] -= buyIn;
+        lockedBalance[player] += buyIn;
+        tableSessions[tableId][player] = TableSession({
+            buyIn: buyIn,
+            active: true
+        });
+
+        emit JoinedTableFor(player, tableId, buyIn, msg.sender);
+    }
+
+    /**
+     * @notice Operator settles a single player's table session.
+     */
+    function leaveTableFor(address player, uint256 tableId, uint256 finalStack)
+        external
+        onlyOperator
+    {
+        _leaveTable(player, tableId, finalStack, msg.sender);
+    }
+
+    /**
+     * @notice Player-signed session leave fallback.
+     */
+    function leaveTableSession(uint256 tableId, uint256 finalStack)
+        external
+    {
+        _leaveTable(msg.sender, tableId, finalStack, msg.sender);
+    }
+
+    /**
      * @notice Player leaves table — return final stack to custody balance
-     * @dev Only callable by OPERATOR_ROLE. Mirrors TRON's leaveTableSession semantics.
+     * @dev Legacy operator helper kept for compatibility. Prefer leaveTableFor(tableId).
      * @param player Player address leaving the table
      * @param finalStack Player's remaining stack in SUN-equivalent wei units
      */
@@ -156,9 +219,84 @@ contract PokerGame0G is AccessControl {
         onlyOperator
     {
         require(player != address(0), "Invalid player address");
-        // Add stack back to custody balance (same as settle but for single player leave)
         custodyBalance[player] += finalStack;
         emit PlayerLeftTable(player, finalStack);
+    }
+
+    /**
+     * @notice Settle a full tournament from locked buy-ins.
+     * @dev payouts and rake must exactly consume all locked buy-ins for these players.
+     */
+    function settleTournament(
+        uint256 tournamentId,
+        address[] calldata players,
+        uint256[] calldata payouts,
+        uint256 rake,
+        bytes32 stateHash
+    ) external onlyOperator {
+        require(players.length == payouts.length, "Players/payouts length mismatch");
+        require(players.length > 0, "No players");
+
+        uint256 totalLockedForTournament;
+        uint256 totalPayouts;
+
+        for (uint256 i = 0; i < players.length; i++) {
+            address player = players[i];
+            require(player != address(0), "Invalid player");
+
+            TableSession storage session = tableSessions[tournamentId][player];
+            require(session.active, "Player not locked");
+
+            totalLockedForTournament += session.buyIn;
+            totalPayouts += payouts[i];
+
+            lockedBalance[player] -= session.buyIn;
+            custodyBalance[player] += payouts[i];
+
+            session.buyIn = 0;
+            session.active = false;
+        }
+
+        require(totalPayouts + rake == totalLockedForTournament, "Settlement must balance");
+
+        if (rake > 0) {
+            custodyBalance[feeRecipient] += rake;
+        }
+
+        handStateHashes[tournamentId] = stateHash;
+        emit TournamentSettled(tournamentId, players, payouts, rake, stateHash);
+    }
+
+    function _leaveTable(address player, uint256 tableId, uint256 finalStack, address operator)
+        internal
+    {
+        require(player != address(0), "Invalid player address");
+        require(tableId != 0, "Invalid tableId");
+
+        TableSession storage session = tableSessions[tableId][player];
+        require(session.active, "Not at table");
+
+        uint256 rake = 0;
+        uint256 netStack = finalStack;
+        if (finalStack > session.buyIn && rakeRate > 0) {
+            uint256 profit = finalStack - session.buyIn;
+            rake = (profit * rakeRate) / 10000;
+            netStack = finalStack - rake;
+        }
+
+        lockedBalance[player] -= session.buyIn;
+        custodyBalance[player] += netStack;
+
+        if (rake > 0) {
+            custodyBalance[feeRecipient] += rake;
+            emit RakeCollected(tableId, player, rake);
+        }
+
+        session.buyIn = 0;
+        session.active = false;
+
+        emit LeftTableFor(player, tableId, netStack, operator);
+        emit PlayerLeftTable(player, netStack);
     }
 
     // ============ Delegate Authorization ============
@@ -209,6 +347,38 @@ contract PokerGame0G is AccessControl {
      */
     function getCustodyBalance(address player) external view returns (uint256) {
         return custodyBalance[player];
+    }
+
+    function getLockedBalance(address player) external view returns (uint256) {
+        return lockedBalance[player];
+    }
+
+    function getPlayerInfo(address player)
+        external
+        view
+        returns (uint256 balance, uint256 lockedAmount, bool isRegistered)
+    {
+        return (custodyBalance[player], lockedBalance[player], custodyBalance[player] + lockedBalance[player] > 0);
+    }
+
+    function getTableSession(uint256 tableId, address player)
+        external
+        view
+        returns (uint256 buyIn, bool active)
+    {
+        TableSession storage session = tableSessions[tableId][player];
+        return (session.buyIn, session.active);
+    }
+
+    function forceUnlockPlayer(address player) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(player != address(0), "Invalid player");
+        uint256 amount = lockedBalance[player];
+        require(amount > 0, "No locked funds");
+
+        lockedBalance[player] = 0;
+        custodyBalance[player] += amount;
+
+        emit ForceUnlocked(player, amount);
     }
 
     /**

@@ -2,8 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import socket from '../../socket';
 import globalContext from '../global/globalContext';
 import { SC_NFT_ACHIEVEMENT_EARNED, SC_NFT_MINT_READY } from '../../pokergame/actions';
-
-const API_BASE = process.env.REACT_APP_SERVER_URI || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${process.env.REACT_APP_SERVER_PORT || '7778'}`;
+import { buildApiUrl } from '../../utils/serverConfig';
 
 export const TournamentGameContext = createContext();
 
@@ -111,6 +110,8 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
   const seatIdRef = useRef(seatId);
   const tournamentEndedRef = useRef(tournamentEnded);
   const isLeavingRef = useRef(false);
+  const pollTimerRef = useRef(null);
+  const gameStatePollTimerRef = useRef(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -129,6 +130,96 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
     isLeavingRef.current = isLeaving;
   }, [isLeaving]);
 
+  const applyLiveState = useCallback((state) => {
+    if (!state || tournamentEndedRef.current || state?.isTournamentActive === false) return;
+
+    const table = convertToTableFormat(state, tournamentId, walletAddress);
+    setCurrentTable(table);
+
+    let foundSeatId = null;
+    const normalizedWalletAddress = walletAddress?.toLowerCase();
+    if (state.seats) {
+      for (const [id, seat] of Object.entries(state.seats)) {
+        if (seat?.player?.id?.toLowerCase() === normalizedWalletAddress) {
+          foundSeatId = parseInt(id);
+          break;
+        }
+      }
+    }
+
+    if (foundSeatId !== null) {
+      setSeatId(foundSeatId);
+    }
+  }, [tournamentId, walletAddress]);
+
+  useEffect(() => {
+    const syncLiveGameState = async () => {
+      if (!tournamentId || !walletAddress || tournamentEndedRef.current) return;
+
+      try {
+        const response = await fetch(
+          buildApiUrl(`/api/tournament/${tournamentId}/state?walletAddress=${encodeURIComponent(walletAddress)}`)
+        );
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (data?.success && data?.state) {
+          applyLiveState(data.state);
+        }
+      } catch (err) {
+        console.warn('[TournamentGameContext] Live game state poll failed:', err.message);
+      }
+    };
+
+    const syncTournamentState = async () => {
+      if (!tournamentId || tournamentEndedRef.current) return;
+      try {
+        const response = await fetch(buildApiUrl(`/api/tournament/${tournamentId}`));
+        const data = await response.json();
+        const tournamentRecord = data?.tournament;
+        if (!tournamentRecord) return;
+
+        setTournament(tournamentRecord);
+
+        if (tournamentRecord.status === 'IN_PROGRESS') {
+          await syncLiveGameState();
+        }
+
+        if (tournamentRecord.status === 'COMPLETED' || tournamentRecord.status === 'CANCELLED') {
+          const rankings = (tournamentRecord.rankings || []).map((ranking, index) => {
+            if (ranking && typeof ranking === 'object') return ranking;
+            return {
+              address: ranking,
+              position: index + 1,
+              prizeAmount: 0
+            };
+          });
+
+          console.log('[TournamentGameContext] Poll detected terminal tournament state, clearing table');
+          tournamentEndedRef.current = true;
+          setTournamentEnded(true);
+          setFinalRankings(rankings);
+          setChipRewards(tournamentRecord.chipRewards || []);
+          setRakeAmount(tournamentRecord.rakeAmount || 0);
+          setCurrentTable(null);
+          setSeatId(null);
+        }
+      } catch (err) {
+        console.warn('[TournamentGameContext] Tournament poll failed:', err.message);
+      }
+    };
+
+    syncTournamentState();
+    pollTimerRef.current = setInterval(syncTournamentState, 5000);
+    gameStatePollTimerRef.current = setInterval(syncLiveGameState, 2000);
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+      if (gameStatePollTimerRef.current) clearInterval(gameStatePollTimerRef.current);
+      gameStatePollTimerRef.current = null;
+    };
+  }, [tournamentId, walletAddress, applyLiveState]);
+
   // Socket event handlers
   useEffect(() => {
     // 确保连接建立后再发送事件
@@ -137,16 +228,26 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
       
       // First, join the tournament via API (this adds player to the tournament)
       try {
-        const response = await fetch(`${API_BASE}/api/tournament/${tournamentId}/join`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-wallet-address': walletAddress
-          },
-          body: JSON.stringify({ walletAddress })
-        });
-        const data = await response.json();
-        console.log('[TournamentGameContext] Join API response:', data);
+        const tournamentResponse = await fetch(buildApiUrl(`/api/tournament/${tournamentId}`));
+        const tournamentData = await tournamentResponse.json();
+        const alreadyJoined = tournamentData?.tournament?.players?.some(
+          player => player.address?.toLowerCase() === walletAddress?.toLowerCase()
+        );
+
+        if (alreadyJoined || tournamentData?.tournament?.status === 'IN_PROGRESS') {
+          console.log('[TournamentGameContext] Player already joined or tournament in progress, skipping Join API');
+        } else {
+          const response = await fetch(buildApiUrl(`/api/tournament/${tournamentId}/join`), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-wallet-address': walletAddress
+            },
+            body: JSON.stringify({ walletAddress })
+          });
+          const data = await response.json();
+          console.log('[TournamentGameContext] Join API response:', data);
+        }
       } catch (err) {
         console.error('[TournamentGameContext] Join API error:', err);
       }
@@ -192,6 +293,13 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
 
     // Game state update - convert tournament state to table format
     socket.on('tournament_game_state', (state) => {
+      if (tournamentEndedRef.current || state?.isTournamentActive === false) {
+        console.log('[TournamentGameContext] Ignoring/clearing terminal tournament state');
+        setCurrentTable(null);
+        setSeatId(null);
+        return;
+      }
+
       console.log('[TournamentGameContext] Game state received:', {
         tournamentId: state.tournamentId,
         turn: state.turn,
@@ -235,6 +343,12 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
     // Tournament started
     socket.on('SC_TOURNAMENT_STARTED', (data) => {
       console.log('[TournamentGameContext] Tournament started:', data);
+      setTournamentEnded(false);
+      setFinalRankings([]);
+      setChipRewards([]);
+      setRakeAmount(0);
+      setCurrentTable(null);
+      setSeatId(null);
       setTournament(prev => prev ? { ...prev, status: 'IN_PROGRESS' } : { status: 'IN_PROGRESS' });
       addMessage('Tournament started!');
     });
@@ -247,16 +361,35 @@ export const TournamentGameProvider = ({ children, tournamentId }) => {
 
     // Tournament ended
     socket.on('SC_TOURNAMENT_ENDED', (data) => {
+      const alreadyEnded = tournamentEndedRef.current;
       console.log('[TournamentGameContext] ========== SC_TOURNAMENT_ENDED received ==========');
       console.log('[TournamentGameContext] Tournament ended:', data);
       console.log('[TournamentGameContext] Rankings:', data.rankings);
       console.log('[TournamentGameContext] CHIP Rewards:', data.chipRewards);
       console.log('[TournamentGameContext] Setting tournamentEnded to true');
 
+      const rankingsWithPrizes = (data.rankings || []).map((ranking, index) => {
+        if (ranking && typeof ranking === 'object') return ranking;
+        const address = ranking;
+        const prize = (data.prizes || []).find(p => p.address?.toLowerCase() === address?.toLowerCase());
+        return {
+          address,
+          position: index + 1,
+          prizeAmount: prize?.prizeAmount || 0
+        };
+      });
+
       setTournamentEnded(true);
-      setFinalRankings(data.rankings || []);
+      setFinalRankings(rankingsWithPrizes);
       setChipRewards(data.chipRewards || []);
       setRakeAmount(data.rakeAmount || 0);
+      setCurrentTable(null);
+      setSeatId(null);
+
+      if (alreadyEnded) {
+        return;
+      }
+
       const reason = data.reason === 'time_limit' ? 'Time limit reached!' : 'Tournament finished!';
       addMessage(reason);
 

@@ -1,15 +1,17 @@
 {
   "network": "zerogTestnet",
   "chainId": 16602,
-  "deployedAt": "2026-05-11T15:51:13.815Z",
+  "deployedAt": "2026-05-15T04:46:11.169Z",
   "contracts": {
     "PokerGame0G": {
-      "address": "0x5a4FF83317dFE0AE384EA955f6F9c3022375A9CA"
+      "address": "0xc4975D55aD2607B14616E97B9a8E5622778eF5aE"
     },
     "features": [
       "deposit",
       "withdraw",
-      "settle",
+      "joinTableFor",
+      "leaveTableFor",
+      "settleTournament",
       "leaveTableSession",
       "authorizeDelegate",
       "executeDepositFor"

@@ -72,6 +72,26 @@ router.get('/history/:walletAddress', async (req, res) => {
 });
 
 /**
+ * @route GET /api/tournament/:tournamentId/state
+ * @desc Get current live tournament table state for a player
+ */
+router.get('/:tournamentId/state', async (req, res) => {
+    try {
+        const { tournamentId } = req.params;
+        const walletAddress = req.query.walletAddress || req.headers['x-wallet-address'] || null;
+        const state = await TournamentService.getLiveGameState(tournamentId, walletAddress);
+
+        if (!state) {
+            return res.status(404).json({ success: false, error: 'Tournament live state not found' });
+        }
+
+        res.json({ success: true, state });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * @route GET /api/tournament/:tournamentId
  * @desc Get tournament details
  */
@@ -96,12 +116,22 @@ router.post('/create', optionalAuth, async (req, res) => {
     try {
         const { configId, walletAddress, mockGame } = req.body;
         const creatorAddress = req.user?.walletAddress || walletAddress || 'test-mode';
+        const mockGameEnabled = process.env.TOURNAMENT_MOCK_GAME_ENABLED === 'true';
+        const mockGameRequested = mockGame === true || mockGame === 'true';
+        const effectiveMockGame = mockGameEnabled && mockGameRequested;
+
+        if (mockGameRequested && !mockGameEnabled) {
+            console.warn('[Tournament API] Ignoring mockGame request because TOURNAMENT_MOCK_GAME_ENABLED is not true');
+        }
+
         const tournament = await TournamentService.createTournament({ 
             configId, 
             creatorAddress,
-            mockGame: mockGame || false
+            mockGame: effectiveMockGame
         });
-        console.log(`[Tournament API] Created tournament ${tournament.tournamentId}, mockGame=${mockGame}`);
+        console.log(
+            `[Tournament API] Created tournament ${tournament.tournamentId}, requestedMockGame=${mockGameRequested}, effectiveMockGame=${effectiveMockGame}`
+        );
         res.json({ success: true, tournament });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });

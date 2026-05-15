@@ -26,7 +26,8 @@ const BOT_CONFIG = {
     privateKey: '[REMOVED BOT KEY - SET BOT_PRIVATE_KEY ENV VAR]',
     // 小写地址用于匹配 seat.player
     addressLower: '0x1dad15c006c3e6db2e115bcd8b12a40ce87cd341',
-    serverUrl: 'http://127.0.0.1:7778'
+    serverUrl: process.env.BOT_SERVER_URL || 'http://127.0.0.1:7778',
+    clientBalance: process.env.BOT_CLIENT_BALANCE || '100000000000000000'
 };
 
 // ============ 游戏状态 ============
@@ -258,7 +259,8 @@ async function joinTournament(tournamentId) {
     // 发送 CS_TOURNAMENT_JOIN
     gameState.socket.emit('CS_TOURNAMENT_JOIN', {
         tournamentId: tournamentId,
-        walletAddress: BOT_CONFIG.address
+        walletAddress: BOT_CONFIG.address,
+        clientBalance: BOT_CONFIG.clientBalance
     });
     log('Sent CS_TOURNAMENT_JOIN');
 
@@ -302,7 +304,8 @@ async function createTournament() {
             await sleep(500);
             gameState.socket.emit('CS_TOURNAMENT_JOIN', {
                 tournamentId: tournamentId,
-                walletAddress: BOT_CONFIG.address
+                walletAddress: BOT_CONFIG.address,
+                clientBalance: BOT_CONFIG.clientBalance
             });
             log('Sent CS_TOURNAMENT_JOIN');
 

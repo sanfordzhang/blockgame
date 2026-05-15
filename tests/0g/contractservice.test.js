@@ -44,8 +44,9 @@ describe('ZeroGContractService', function () {
 
     it('should have all required methods defined', function () {
         const methods = [
-            'init', 'loadAbi', 'connectContracts', 'deposit', 'withdraw',
-            'settle', 'authorizePlayer', 'mintINFT', 'queryNFTData', 'getCustodyBalance'
+            'init', 'loadAbis', 'connectPokerGame', 'connectINFT', 'deposit', 'withdraw',
+            'settle', 'joinTableFor', 'leaveTableFor', 'authorizePlayer', 'mintINFT',
+            'queryNFTData', 'getCustodyBalance', 'getLockedBalance'
         ];
         
         for (const method of methods) {
@@ -55,6 +56,14 @@ describe('ZeroGContractService', function () {
 
     describe('deposit()', function () {
         it('should reject deposit with zero or negative amount', async function () {
+            const ZeroGContractService = require('../../server/blockchain/ZeroGContractService');
+            contractService = new ZeroGContractService();
+            contractService.pokerGameContract = {
+                deposit: async () => {
+                    throw new Error('Invalid amount');
+                }
+            };
+
             try {
                 await contractService.deposit('', -1);
                 assert.fail('Should have thrown');

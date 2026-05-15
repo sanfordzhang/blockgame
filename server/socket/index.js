@@ -105,6 +105,39 @@ const tables = {
 const players = {};
 global.players = players; // Expose for EventListener to find player sockets
 const delegateCache = {}; // { [walletAddress]: { isAuthorized, serverAddress, ts } }
+const ZERO_G_WEI_PER_SUN = 1000000000n;
+
+function isZeroGAddress(address) {
+  return typeof address === 'string' && address.startsWith('0x');
+}
+
+function normalizeAddress(address) {
+  return typeof address === 'string' ? address.toLowerCase() : address;
+}
+
+function sunToZeroGWei(amountSun) {
+  return BigInt(Math.max(0, Math.trunc(Number(amountSun || 0)))) * ZERO_G_WEI_PER_SUN;
+}
+
+function receiptHash(receipt) {
+  return receipt?.hash || receipt?.transactionHash || receipt?.tx || receipt;
+}
+
+function findSeatByPlayerId(table, playerId) {
+  const normalizedPlayerId = normalizeAddress(playerId);
+  return Object.values(table.seats).find(
+    (seat) => seat && seat.player && normalizeAddress(seat.player.id) === normalizedPlayerId
+  );
+}
+
+function findEmptySeatId(table) {
+  for (let i = 1; i <= table.maxPlayers; i++) {
+    if (!table.seats[i] || !table.seats[i].player) {
+      return i;
+    }
+  }
+  return null;
+}
 
 function getCurrentPlayers() {
   return Object.values(players).map((player) => ({
@@ -166,8 +199,9 @@ const init = (socket, io) => {
     // Always use server-side socket.id, never trust client-provided socketId
     const sid = socket.id;
 
+    const normalizedWalletAddress = normalizeAddress(walletAddress);
     const found = Object.values(players).find((player) => {
-        return player.id == walletAddress;
+        return normalizeAddress(player.id) === normalizedWalletAddress;
       });
 
       if (found && found.socketId !== sid) {
@@ -176,11 +210,10 @@ const init = (socket, io) => {
         
         // Remove old player from all table SEATS (not just players array)
         Object.values(tables).forEach((table) => {
-          // Remove from seats
+          // Log any old occupied seats; removePlayer() below clears both players[] and seats.
           for (const [seatId, seat] of Object.entries(table.seats)) {
             if (seat && seat.player && seat.player.socketId === found.socketId) {
               console.log(`[Socket] Removing old player from table ${table.id} seat ${seatId}`);
-              table.standUp(seatId);
             }
           }
           // Also remove from players array
@@ -327,9 +360,10 @@ const init = (socket, io) => {
     if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Detect player chain type by address format
-        const isZeroGPlayer = player.id.startsWith('0x');
+        const isZeroGPlayer = isZeroGAddress(player.id);
         let isAuthorized = false;
         let serverAddress = null;
+        let zgContractService = null;
 
         if (isZeroGPlayer) {
           // 0G/EVM path: check 0G contract authorization
@@ -348,7 +382,7 @@ const init = (socket, io) => {
             return;
           }
 
-          const zgContractService = new ZeroGContractService();
+          zgContractService = new ZeroGContractService();
           zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
 
           serverAddress = zgService.getSignerAddress();
@@ -384,42 +418,108 @@ const init = (socket, io) => {
         
         // Use server proxy join (joinTableFor)
         console.log('[Socket] Calling joinTableFor via server...');
-        const result = await contractService.joinTableFor(player.id, tableId, cappedBuyIn);
+        let result;
+        let chainBuyIn = cappedBuyIn;
+        let restoredExistingSession = false;
+        if (isZeroGPlayer) {
+          chainBuyIn = sunToZeroGWei(cappedBuyIn);
+          const existingSession = await zgContractService.getTableSession(tableId, player.id);
+          if (existingSession.active) {
+            restoredExistingSession = true;
+            chainBuyIn = BigInt(existingSession.buyIn || chainBuyIn);
+            console.log('[Socket] Restoring active 0G table session:', {
+              player: player.id,
+              tableId,
+              buyInWei: chainBuyIn.toString()
+            });
+            result = { hash: null, restored: true };
+          } else {
+            result = await zgContractService.joinTableFor(player.id, tableId, chainBuyIn);
+          }
+        } else {
+          result = await contractService.joinTableFor(player.id, tableId, cappedBuyIn);
+        }
         console.log('[Socket] joinTableFor result:', result);
         
         // Add player to table after successful blockchain operation
-        table.addPlayer(player);
-        socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId: result.tx });
+        if (!table.players.some(p => normalizeAddress(p?.id) === normalizeAddress(player.id))) {
+          table.addPlayer(player);
+        }
+        socket.emit(SC_TABLE_JOINED, { tables: getCurrentTables(), tableId, txId: receiptHash(result), restored: restoredExistingSession });
         socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
         
         // Find an empty seat (seats are 1-indexed)
-        let emptySeatId = 1;
-        for (let i = 1; i <= table.maxPlayers; i++) {
-          if (!table.seats[i] || !table.seats[i].player) {
-            emptySeatId = i;
-            break;
-          }
+        const existingSeat = findSeatByPlayerId(table, player.id);
+        let emptySeatId = existingSeat?.id || findEmptySeatId(table);
+        if (!emptySeatId) {
+          socket.emit(SC_BLOCKCHAIN_ERROR, {
+            operation: 'joinTable',
+            message: 'No empty seats available'
+          });
+          return;
         }
         
         console.log('[Socket] Sitting down at seat:', emptySeatId);
 
         // Update balance cache BEFORE sitDown so validation passes
-        gameFlowIntegration.updatePlayerBalanceCache(player.id, -cappedBuyIn, cappedBuyIn);
+        if (isZeroGPlayer) {
+          const cached = gameFlowIntegration.getPlayerBalanceCache(player.id);
+          const baseBalanceWei = cached?.rawBalanceWei || cached?.balance || 0;
+          if (restoredExistingSession) {
+            gameFlowIntegration.setPlayerBalanceCache(player.id, Number(BigInt(baseBalanceWei || 0)), Number(chainBuyIn), {
+              ...cached,
+              rawBalanceWei: BigInt(baseBalanceWei || 0).toString(),
+              rawLockedWei: chainBuyIn.toString(),
+              chain: '0G',
+              pendingSync: true,
+              source: 'cash-game-restore-0g'
+            });
+          } else {
+            gameFlowIntegration.applyLocalZeroGBalance(player.id, -chainBuyIn, baseBalanceWei, {
+              rawLockedWei: chainBuyIn.toString(),
+              lockedAmount: Number(chainBuyIn),
+              chain: '0G',
+              source: 'cash-game-join-0g'
+            });
+          }
+        } else {
+          gameFlowIntegration.updatePlayerBalanceCache(player.id, -cappedBuyIn, cappedBuyIn);
+        }
 
         // Sit down with the buy-in amount
-        await sitDown(tableId, emptySeatId, cappedBuyIn);
+        await sitDown(tableId, emptySeatId, restoredExistingSession ? Number(chainBuyIn / ZERO_G_WEI_PER_SUN) : cappedBuyIn);
         
         // Sync balance from contract
-        const freshBalance = await contractService.getPlayerInfo(player.id);
+        let freshBalance;
+        if (isZeroGPlayer) {
+          const [custodyRaw, lockedRaw] = await Promise.all([
+            zgContractService.getCustodyBalance(player.id),
+            zgContractService.getLockedBalance(player.id)
+          ]);
+          freshBalance = {
+            balance: Number(BigInt(custodyRaw || '0')),
+            lockedAmount: Number(BigInt(lockedRaw || '0')),
+            rawBalanceWei: BigInt(custodyRaw || '0').toString(),
+            rawLockedWei: BigInt(lockedRaw || '0').toString()
+          };
+          gameFlowIntegration.setPlayerBalanceCache(player.id, freshBalance.balance, freshBalance.lockedAmount, {
+            rawBalanceWei: freshBalance.rawBalanceWei,
+            rawLockedWei: freshBalance.rawLockedWei,
+            chain: '0G',
+            source: 'cash-game-join-sync-0g'
+          });
+        } else {
+          freshBalance = await contractService.getPlayerInfo(player.id);
+        }
         player.bankroll = freshBalance.balance;
-        
-        // Notify player about balance update
+
         socket.emit(SC_BALANCE_SYNCED, {
           walletAddress: player.id,
-          balance: freshBalance.balance,
-          locked: freshBalance.lockedAmount,
-          available: freshBalance.balance,
-          reason: 'join_table'
+          balance: isZeroGPlayer ? freshBalance.rawBalanceWei : freshBalance.balance,
+          locked: isZeroGPlayer ? freshBalance.rawLockedWei : freshBalance.lockedAmount,
+          available: isZeroGPlayer ? freshBalance.rawBalanceWei : freshBalance.balance,
+          reason: 'join_table',
+          txHash: receiptHash(result)
         });
         
         let message = `${player.name} joined the table.`;
@@ -537,16 +637,32 @@ const init = (socket, io) => {
       return;
     }
 
+    if (!table) {
+      socket.emit(SC_BLOCKCHAIN_ERROR, {
+        operation: 'leaveTable',
+        message: 'Table not found'
+      });
+      return;
+    }
+
     const seat = Object.values(table.seats).find(
       (seat) => seat && seat.player.socketId === socket.id,
     );
 
+    if (!seat) {
+      table.removePlayer(socket.id);
+      socket.broadcast.emit(SC_TABLES_UPDATED, getCurrentTables());
+      socket.emit(SC_TABLE_LEFT, { tables: getCurrentTables(), tableId });
+      return;
+    }
+
     if (config.BLOCKCHAIN_ENABLED) {
       try {
         // Detect player chain type by address format
-        const isZeroGPlayer = player.id.startsWith('0x');
+        const isZeroGPlayer = isZeroGAddress(player.id);
         let isAuthorized = false;
         let serverAddress = null;
+        let zgContractService = null;
 
         const stack = seat?.stack || 0;
 
@@ -572,7 +688,7 @@ const init = (socket, io) => {
             return;
           }
 
-          const zgContractService = new ZeroGContractService();
+          zgContractService = new ZeroGContractService();
           zgContractService.init(zgService, config.ZEROG_NETWORK || 'testnet');
 
           serverAddress = zgService.getSignerAddress();
@@ -602,40 +718,50 @@ const init = (socket, io) => {
             // ===== 0G Leave Path =====
             console.log('[Socket] Calling 0G leaveTableSession via server...');
             try {
-              const zgService = getZeroGService();
-              const zgContractSvc = new ZeroGContractService();
-              zgContractSvc.init(zgService, config.ZEROG_NETWORK || 'testnet');
-
-              // Server calls leaveTableSession on behalf of player
-              const result = await zgContractSvc.leaveTableSession(player.id, BigInt(stack));
+              const stackWei = sunToZeroGWei(stack);
+              const result = await zgContractService.leaveTableFor(player.id, tableId, stackWei);
               console.log('[Socket] 0G leaveTableSession txHash:', result?.hash || result);
 
               // Query actual custody balance after leave
-              let syncBalance;
+              let syncBalanceRaw = '0';
+              let syncLockedRaw = '0';
               try {
-                const custodyRaw = await zgContractSvc.getCustodyBalance(player.id);
-                syncBalance = Number(BigInt(custodyRaw || '0')) / 1e18;
-                console.log(`[Socket] 0G custody after leave: ${syncBalance} 0G`);
+                const [custodyRaw, lockedRaw] = await Promise.all([
+                  zgContractService.getCustodyBalance(player.id),
+                  zgContractService.getLockedBalance(player.id)
+                ]);
+                syncBalanceRaw = BigInt(custodyRaw || '0').toString();
+                syncLockedRaw = BigInt(lockedRaw || '0').toString();
+                console.log(`[Socket] 0G custody after leave: ${syncBalanceRaw} wei, locked=${syncLockedRaw} wei`);
               } catch (e2) {
                 console.warn('[Socket] Failed to fetch post-leave 0G balance:', e2.message);
-                syncBalance = 0;
               }
+
+              gameFlowIntegration.setPlayerBalanceCache(player.id, Number(BigInt(syncBalanceRaw)), Number(BigInt(syncLockedRaw)), {
+                rawBalanceWei: syncBalanceRaw,
+                rawLockedWei: syncLockedRaw,
+                chain: '0G',
+                source: 'cash-game-leave-0g',
+                settlementTx: receiptHash(result)
+              });
+              player.bankroll = Number(BigInt(syncBalanceRaw));
 
               socket.emit(SC_BALANCE_SYNCED, {
                 walletAddress: player.id,
-                balance: syncBalance,
-                locked: 0,
-                available: syncBalance,
-                reason: 'leave_table_zerog'
+                balance: syncBalanceRaw,
+                locked: syncLockedRaw,
+                available: syncBalanceRaw,
+                reason: 'leave_table_zerog',
+                txHash: receiptHash(result)
               });
             } catch (zgError) {
               console.error('[Socket] 0G leaveTableSession failed:', zgError.message);
-              // Allow local leave even if chain call fails
+              const cached = gameFlowIntegration.getPlayerBalanceCache(player.id);
               socket.emit(SC_BALANCE_SYNCED, {
                 walletAddress: player.id,
-                balance: 0,
-                locked: 0,
-                available: 0,
+                balance: cached?.rawBalanceWei || cached?.balance || 0,
+                locked: cached?.rawLockedWei || cached?.lockedAmount || 0,
+                available: cached?.rawBalanceWei || cached?.balance || 0,
                 reason: 'leave_table_zerog_fallback'
               });
             }
@@ -645,10 +771,15 @@ const init = (socket, io) => {
             const result = await contractService.leaveTableFor(player.id, tableId, stack);
             console.log('[Socket] leaveTableFor txId:', result.tx);
 
-            // Optimistically update local cache: locked=0, balance += stack
-            gameFlowIntegration.updatePlayerBalanceCache(player.id, stack, -stack);
+            const cachedBeforeLeave = gameFlowIntegration.getPlayerBalanceCache(player.id);
+            const nextBalance = (cachedBeforeLeave?.balance || player.bankroll || 0) + stack;
+            gameFlowIntegration.setPlayerBalanceCache(player.id, nextBalance, 0, {
+              source: 'cash-game-leave-tron',
+              settlementTx: result.tx
+            });
 
             const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(player.id);
+            player.bankroll = cachedBalance?.balance || player.bankroll;
             socket.emit(SC_BALANCE_SYNCED, {
               walletAddress: player.id,
               balance: cachedBalance?.balance || player.bankroll,
@@ -723,7 +854,16 @@ const init = (socket, io) => {
       return;
     }
 
-    const serverAddress = tronService.getSignerAddress();
+    let serverAddress = null;
+    try {
+      serverAddress = tronService.getSignerAddress();
+    } catch (e) {
+      if (!isZeroGAddress(walletAddress)) {
+        socket.emit(SC_DELEGATE_STATUS, { isAuthorized: false, error: e.message, playerAddress: walletAddress });
+        return;
+      }
+      console.warn('[Socket] TRON signer unavailable during 0G delegate check:', e.message);
+    }
 
     // Also get 0G server address for EVM authorization
     let zeroGServerAddress = null;
@@ -736,15 +876,16 @@ const init = (socket, io) => {
       console.warn('[Socket] Failed to get 0G signer address:', e.message);
     }
 
-    const cached = delegateCache[walletAddress];
+    const delegateCacheKey = normalizeAddress(walletAddress);
+    const cached = delegateCache[delegateCacheKey];
     const CACHE_TTL = 60 * 1000; // 1 minute
 
     // Return cache if fresh
     if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
       socket.emit(SC_DELEGATE_STATUS, {
         isAuthorized: cached.isAuthorized,
-        serverAddress,
-        zeroGServerAddress,
+        serverAddress: cached.serverAddress || serverAddress,
+        zeroGServerAddress: cached.zeroGServerAddress || zeroGServerAddress,
         playerAddress: walletAddress
       });
       return;
@@ -752,7 +893,7 @@ const init = (socket, io) => {
 
     try {
       // Detect player chain type by address format
-      const isZeroGPlayer = walletAddress.startsWith('0x');
+      const isZeroGPlayer = isZeroGAddress(walletAddress);
       let isAuthorized = false;
 
       if (isZeroGPlayer) {
@@ -774,7 +915,7 @@ const init = (socket, io) => {
         isAuthorized = await contractService.isAuthorizedDelegate(walletAddress, serverAddress);
       }
 
-      delegateCache[walletAddress] = { isAuthorized, ts: Date.now() };
+      delegateCache[delegateCacheKey] = { isAuthorized, serverAddress, zeroGServerAddress, ts: Date.now() };
 
       console.log('[Socket] CS_CHECK_DELEGATE:', { player: walletAddress, isAuthorized, isZeroGPlayer });
 
@@ -801,7 +942,7 @@ const init = (socket, io) => {
     }
     
     // Update cache immediately
-    delegateCache[player.id] = { isAuthorized: true, ts: Date.now() };
+    delegateCache[normalizeAddress(player.id)] = { isAuthorized: true, serverAddress: delegateAddress, zeroGServerAddress: chainType === 'zerog' ? delegateAddress : null, ts: Date.now() };
 
     // Optimistically confirm to frontend immediately (tx is already broadcast)
     socket.emit(SC_DELEGATE_SET, {
@@ -814,7 +955,7 @@ const init = (socket, io) => {
     // Verify on-chain in background with retries (don't block the response)
     const verify = async () => {
       // Determine chain type from player address format
-      const isZeroGPlayer = player.id.startsWith('0x');
+      const isZeroGPlayer = isZeroGAddress(player.id);
 
       if (isZeroGPlayer && chainType === 'zerog') {
         // 0G on-chain verification
@@ -872,7 +1013,7 @@ const init = (socket, io) => {
     }
     
     // Update cache immediately
-    delegateCache[player.id] = { isAuthorized: false, ts: Date.now() };
+    delegateCache[normalizeAddress(player.id)] = { isAuthorized: false, ts: Date.now() };
 
     // Confirm to frontend
     socket.emit(SC_DELEGATE_REVOKED, {
@@ -1609,9 +1750,10 @@ const init = (socket, io) => {
 
           // Notify client about balance update (for display purposes)
           // For 0G players, query actual custody balance from PokerGame0G contract
-          const isZeroGWinner = winner.address.startsWith('0x');
-          let actualBalance = balanceCache?.balance || player.bankroll;
-          let actualLocked = balanceCache?.lockedAmount || 0;
+          const isZeroGWinner = isZeroGAddress(winner.address);
+          const balanceCache = gameFlowIntegration.getPlayerBalanceCache(winner.address);
+          let actualBalance = balanceCache?.rawBalanceWei || balanceCache?.balance || player.bankroll;
+          let actualLocked = balanceCache?.rawLockedWei || balanceCache?.lockedAmount || 0;
 
           if (isZeroGWinner) {
             try {
@@ -1619,10 +1761,13 @@ const init = (socket, io) => {
               if (zgService && zgService.initialized) {
                 const zgContractSvc = new ZeroGContractService();
                 zgContractSvc.init(zgService, config.ZEROG_NETWORK || 'testnet');
-                const custodyRaw = await zgContractSvc.getCustodyBalance(winner.address);
-                // Convert wei to decimal
-                actualBalance = Number(BigInt(custodyRaw || '0')) / 1e18;
-                console.log(`[Socket] Winner ${winner.name} 0G custody balance: ${actualBalance} 0G`);
+                const [custodyRaw, lockedRaw] = await Promise.all([
+                  zgContractSvc.getCustodyBalance(winner.address),
+                  zgContractSvc.getLockedBalance(winner.address)
+                ]);
+                actualBalance = BigInt(custodyRaw || '0').toString();
+                actualLocked = BigInt(lockedRaw || '0').toString();
+                console.log(`[Socket] Winner ${winner.name} 0G custody balance: ${actualBalance} wei`);
               }
             } catch (e) {
               console.warn('[Socket] Failed to fetch 0G winner balance:', e.message);
@@ -1772,6 +1917,13 @@ let _checkAITurn = null;
 module.exports = { 
     init, 
     get checkAITurn() { return _checkAITurn; },
+    _test: {
+        tables,
+        players,
+        delegateCache,
+        isZeroGAddress,
+        sunToZeroGWei
+    },
     // Get player bankroll from active socket session (populated by Lobby CS_FETCH_LOBBY_INFO)
     getPlayerBankroll: (walletAddress) => {
         if (!walletAddress) return null;

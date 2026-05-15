@@ -232,6 +232,12 @@ class TournamentTable extends Table {
             this.endTournament();
             return;
         }
+
+        if (this.mockGame && this.handsPlayed >= 1) {
+            console.log(`[TournamentTable] Mock game complete after first hand, ending tournament by stack`);
+            this.endTournamentByStack('mock_game_complete');
+            return;
+        }
         
         // Check time limit
         if (this.isTimeLimitReached()) {
@@ -247,7 +253,14 @@ class TournamentTable extends Table {
         if (this.isTournamentActive && remaining.length > 1) {
             console.log(`[TournamentTable] Scheduling next hand in 3 seconds...`);
             setTimeout(() => {
-                this.startNextHand();
+                try {
+                    this.startNextHand();
+                } catch (error) {
+                    console.error(
+                        `[TournamentTable] startNextHand failed for tournament ${this.tournamentId}:`,
+                        error?.stack || error?.message || error
+                    );
+                }
             }, 3000);
         }
     }
@@ -291,6 +304,13 @@ class TournamentTable extends Table {
      * End tournament by time limit
      */
     endTournamentByTimeLimit() {
+        this.endTournamentByStack('time_limit');
+    }
+
+    /**
+     * End tournament and rank active players by stack size.
+     */
+    endTournamentByStack(reason = 'stack_ranking') {
         this.isTournamentActive = false;
         
         // Rank by stack size
@@ -306,7 +326,7 @@ class TournamentTable extends Table {
         
         rankings.push(...eliminatedSorted);
         
-        console.log(`[TournamentTable] Tournament ended by time limit`);
+        console.log(`[TournamentTable] Tournament ended by ${reason}`);
         console.log(`[TournamentTable] Rankings by stack: ${rankings.join(', ')}`);
         
         if (this.onTournamentEnd) {
@@ -315,7 +335,7 @@ class TournamentTable extends Table {
                 rankings,
                 totalHands: this.handsPlayed,
                 endedAt: new Date(),
-                reason: 'time_limit'
+                reason
             });
         }
     }

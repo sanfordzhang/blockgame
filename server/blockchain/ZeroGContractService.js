@@ -167,6 +167,50 @@ class ZeroGContractService {
         return await tx.wait();
     }
 
+    async joinTableFor(playerAddress, tableId, buyInWei) {
+        if (!this.pokerGameContract) throw new Error('PokerGame not connected');
+        if (!this.pokerGameContract.joinTableFor) {
+            throw new Error('PokerGame contract does not support joinTableFor; redeploy PokerGame0G');
+        }
+
+        const tx = await this.pokerGameContract.joinTableFor(
+            playerAddress,
+            BigInt(tableId),
+            BigInt(buyInWei)
+        );
+        return await tx.wait();
+    }
+
+    async leaveTableFor(playerAddress, tableId, finalStackWei) {
+        if (!this.pokerGameContract) throw new Error('PokerGame not connected');
+        if (!this.pokerGameContract.leaveTableFor) {
+            throw new Error('PokerGame contract does not support leaveTableFor; redeploy PokerGame0G');
+        }
+
+        const tx = await this.pokerGameContract.leaveTableFor(
+            playerAddress,
+            BigInt(tableId),
+            BigInt(finalStackWei)
+        );
+        return await tx.wait();
+    }
+
+    async settleTournament(tournamentId, players, payoutsWei, rakeWei, stateHash) {
+        if (!this.pokerGameContract) throw new Error('PokerGame not connected');
+        if (!this.pokerGameContract.settleTournament) {
+            throw new Error('PokerGame contract does not support settleTournament; redeploy PokerGame0G');
+        }
+
+        const tx = await this.pokerGameContract.settleTournament(
+            BigInt(tournamentId),
+            players,
+            payoutsWei.map(amount => BigInt(amount)),
+            BigInt(rakeWei),
+            stateHash || ethers.ZeroHash
+        );
+        return await tx.wait();
+    }
+
     /**
      * Player leaves table — return final stack to custody balance
      * @param {string} playerAddress - Player wallet address
@@ -229,6 +273,27 @@ class ZeroGContractService {
     async getCustodyBalance(playerAddress) {
         if (!this.pokerGameContract) return '0';
         return (await this.pokerGameContract.getCustodyBalance(playerAddress)).toString();
+    }
+
+    async getLockedBalance(playerAddress) {
+        if (!this.pokerGameContract || !this.pokerGameContract.getLockedBalance) return '0';
+        return (await this.pokerGameContract.getLockedBalance(playerAddress)).toString();
+    }
+
+    async getTableSession(tableId, playerAddress) {
+        if (!this.pokerGameContract || !this.pokerGameContract.getTableSession) {
+            return { buyIn: '0', active: false };
+        }
+
+        const session = await this.pokerGameContract.getTableSession(
+            BigInt(tableId),
+            playerAddress
+        );
+
+        return {
+            buyIn: (session.buyIn ?? session[0] ?? 0).toString(),
+            active: Boolean(session.active ?? session[1])
+        };
     }
 
     async getHandStateHash(handId) {

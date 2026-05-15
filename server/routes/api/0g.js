@@ -17,6 +17,16 @@ function init0GController() {
 
 let controller;
 
+const WEI_PER_0G = 1000000000000000000n;
+
+function formatWeiAs0G(rawWei) {
+    const wei = BigInt(rawWei || '0');
+    const whole = wei / WEI_PER_0G;
+    const fraction = wei % WEI_PER_0G;
+    const fractionText = fraction.toString().padStart(18, '0').replace(/0+$/, '');
+    return fractionText ? `${whole}.${fractionText}` : whole.toString();
+}
+
 // Lazy-load controller on first request
 function getController() {
     if (!controller) {
@@ -120,10 +130,28 @@ router.get('/balance/:walletAddress', async (req, res) => {
     try {
         const { getZeroGService } = require('../../blockchain/blockchainFactory');
         const ZeroGContractService = require('../../blockchain/ZeroGContractService');
+        const gameFlowIntegration = require('../../services/GameFlowIntegration');
 
         const walletAddress = req.params.walletAddress;
         if (!walletAddress || !walletAddress.startsWith('0x')) {
             return res.status(400).json({ error: 'Invalid EVM address' });
+        }
+
+        const cachedBalance = gameFlowIntegration.getPlayerBalanceCache(walletAddress);
+        const shouldUseFreshChainBalance = walletAddress.startsWith('0x');
+        if (!shouldUseFreshChainBalance && cachedBalance?.rawBalanceWei !== undefined) {
+            const balanceDecimal = formatWeiAs0G(cachedBalance.rawBalanceWei);
+            console.log('[0G API] Balance query from local cache:', {
+                player: walletAddress,
+                raw: cachedBalance.rawBalanceWei,
+                decimal: balanceDecimal
+            });
+            return res.json({
+                success: true,
+                balance: balanceDecimal,
+                rawBalance: cachedBalance.rawBalanceWei,
+                source: cachedBalance.source || 'local-cache'
+            });
         }
 
         const zgService = getZeroGService();
@@ -137,10 +165,16 @@ router.get('/balance/:walletAddress', async (req, res) => {
         const rawBalance = await zgContractService.getCustodyBalance(walletAddress);
         // Convert from wei (smallest unit) to decimal 0G tokens
         const rawNum = BigInt(rawBalance || '0');
-        const balanceDecimal = Number(rawNum) / 1e18;
-        console.log('[0G API] Balance query:', { player: walletAddress, raw: rawBalance, decimal: balanceDecimal.toFixed(6) });
+        const balanceDecimal = formatWeiAs0G(rawNum);
+        console.log('[0G API] Balance query:', { player: walletAddress, raw: rawBalance, decimal: balanceDecimal });
 
-        res.json({ success: true, balance: balanceDecimal.toString() });
+        gameFlowIntegration.setPlayerBalanceCache(walletAddress, Number(rawNum), 0, {
+            rawBalanceWei: rawNum.toString(),
+            chain: '0G',
+            source: 'chain'
+        });
+
+        res.json({ success: true, balance: balanceDecimal.toString(), rawBalance: rawNum.toString(), source: 'chain' });
     } catch (error) {
         console.error('[0G API] Balance error:', error.message);
         res.status(500).json({ success: false, balance: '0', error: error.message });

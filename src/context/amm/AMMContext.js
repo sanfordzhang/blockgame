@@ -4,13 +4,10 @@
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { getServerBaseUrl } from '../../utils/serverConfig';
 
 const AMMContext = createContext(null);
-
-const API_BASE = process.env.REACT_APP_SERVER_URI
-  || (process.env.REACT_APP_SERVER_PORT
-    ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${process.env.REACT_APP_SERVER_PORT}`
-    : `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:7778`);
+const API_BASE = getServerBaseUrl();
 
 export function AMMProvider({ children, tronLink }) {
     // 池状态

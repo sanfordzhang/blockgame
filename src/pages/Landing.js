@@ -10,7 +10,7 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, getCustodyBalance, normalizeBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract } from '../utils/zeroGInteract';
+import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, getCustodyBalance, normalizeBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract, getPokerGame0GAddress } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
@@ -531,7 +531,7 @@ const Landing = () => {
         }
         
         console.log('[Landing] Depositing', amountEth, '0G to contract...');
-        const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+        const POKERGAME_0G_ADDRESS = getPokerGame0GAddress();
         const DEPOSIT_ABI = ['function deposit() payable'];
         const valueWei = '0x' + (amountEth * 1e18).toString(16);
         
@@ -832,7 +832,11 @@ const Landing = () => {
 
   // Handle delegate authorization (supports both TRON and 0G)
   const handleAuthorizeServer = async () => {
-    if (!serverAddress) {
+    const requiredServerAddress = localWalletType === 'zerog'
+      ? (zeroGServerAddress || serverAddress)
+      : serverAddress;
+
+    if (!requiredServerAddress) {
       if (socket && socket.connected) {
         socket.emit(CS_CHECK_DELEGATE, { walletAddress });
         setError(t('errServerAddr'));
@@ -857,7 +861,7 @@ const Landing = () => {
 
         console.log('[Landing] Authorizing server via 0G contract...');
         
-        const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+        const POKERGAME_0G_ADDRESS = getPokerGame0GAddress();
         const POKERGAME_ABI = [
           'function authorizeDelegate(address delegate) returns (bool)',
           'function isDelegateFor(address player, address delegate) view returns (bool)'
@@ -884,7 +888,7 @@ const Landing = () => {
         
         if (socket && socket.connected) {
           socket.emit('CS_SET_DELEGATE', { 
-            delegateAddress: serverAddress, 
+            delegateAddress: delegateAddr, 
             txId: txHash,
             chainType: 'zerog'
           });

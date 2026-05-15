@@ -4,11 +4,16 @@
  */
 
 import { ethers } from 'ethers';
+import { buildApiUrl } from './serverConfig';
 
 const CHAIN_IDS = {
     TESTNET: '0x40DA',   // 16602 (0G Testnet)
     MAINNET: '0x4115'    // 16661 (0G Mainnet)
 };
+
+export function getPokerGame0GAddress() {
+    return process.env.REACT_APP_ZEROG_POKERGAME_ADDRESS || '0xc4975D55aD2607B14616E97B9a8E5622778eF5aE';
+}
 
 // === Global pending request guard ===
 // Prevents "wallet_requestPermissions already pending" error when multiple
@@ -210,8 +215,7 @@ export async function sendTransaction(tx) {
 export async function withdrawFromContract(amountEth) {
     if (!hasEvmWallet()) throw new Error('No wallet');
 
-    // PokerGame0G contract address (testnet)
-    const CONTRACT_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+    const CONTRACT_ADDRESS = getPokerGame0GAddress();
 
     // withdraw(uint256 amount) ABI
     const abi = [
@@ -303,9 +307,7 @@ export async function getCustodyBalance(address) {
 
     // Try server API first
     try {
-        const serverPort = (typeof process !== 'undefined' && process.env?.REACT_APP_SERVER_PORT) || '7778';
-        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-        const response = await fetch(`http://${host}:${serverPort}/api/0g/balance/${address}`);
+        const response = await fetch(buildApiUrl(`/api/0g/balance/${address}`));
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.balance) {
@@ -318,7 +320,7 @@ export async function getCustodyBalance(address) {
     }
 
     // Fallback: direct RPC call to PokerGame0G contract
-    const CONTRACT_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
+    const CONTRACT_ADDRESS = getPokerGame0GAddress();
     const ABI = ['function getCustodyBalance(address player) view returns (uint256)'];
 
     try {
@@ -362,7 +364,7 @@ export async function getCustodyBalance(address) {
  * @param {number} stackWei - Stack amount in wei (from game)
  * @returns {Promise<{tx: string}>} Transaction result
  */
-export async function leaveTableSession(stackWei) {
+export async function leaveTableSession(stackWei, tableId = 1) {
     if (!hasEvmWallet()) throw new Error('No wallet');
 
     // Ensure we're on the correct 0G chain
@@ -370,10 +372,10 @@ export async function leaveTableSession(stackWei) {
         throw new Error(`Failed to switch to 0G network: ${e.message}`);
     }
 
-    const POKERGAME_0G_ADDRESS = '0xc6F5495D411405630dF5d5ad32225d7F51dC1645';
-    const ABI = ['function leaveTableSession(uint256 finalStack)'];
+    const POKERGAME_0G_ADDRESS = getPokerGame0GAddress();
+    const ABI = ['function leaveTableSession(uint256 tableId, uint256 finalStack)'];
     const iface = new ethers.utils.Interface(ABI);
-    const data = iface.encodeFunctionData('leaveTableSession', [stackWei.toString()]);
+    const data = iface.encodeFunctionData('leaveTableSession', [tableId.toString(), stackWei.toString()]);
 
     console.log(`[zeroG] Leaving table session, stack: ${stackWei} wei`);
 

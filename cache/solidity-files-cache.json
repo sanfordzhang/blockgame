@@ -1713,8 +1713,8 @@
       ]
     },
     "/Users/yingfengzhang/1JackSource/blockchain/game-core/contracts/0g/PokerGame0G.sol": {
-      "lastModificationDate": 1778514358670,
-      "contentHash": "33545cb4a5f9b5f555d5139df8652369",
+      "lastModificationDate": 1778818498877,
+      "contentHash": "cf68c48fba2b6041c882d7cf24b248a0",
       "sourceName": "contracts/0g/PokerGame0G.sol",
       "solcConfig": {
         "version": "0.8.27",
@@ -1743,7 +1743,8 @@
       },
       "imports": [
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol"
+        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/security/ReentrancyGuard.sol"
       ],
       "versionPragmas": [
         "^0.8.20"

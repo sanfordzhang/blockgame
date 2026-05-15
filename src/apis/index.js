@@ -1,16 +1,8 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { getServerBaseUrl } from '../utils/serverConfig';
 
-// Safe access to environment variables
-const getEnvVar = (name, defaultValue = '') => {
-  if (typeof process !== 'undefined' && process.env && process.env[name]) {
-    return process.env[name];
-  }
-  return defaultValue;
-};
-
-const SERVER_URI = getEnvVar('REACT_APP_SERVER_URI')
-  || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${getEnvVar('REACT_APP_SERVER_PORT', '7778')}`;
+const SERVER_URI = getServerBaseUrl();
 
 export const useApi = () => {
   const getUserProfile = async (address) => {

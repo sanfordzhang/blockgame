@@ -25,13 +25,29 @@ import PokerCard from '../components/game/PokerCard';
 import background from '../assets/img/background.png';
 import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas';
+import socket from '../socket';
+import { buildApiUrl } from '../utils/serverConfig';
 import './Play.scss';
 
 // Detect language for i18n
 const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
 
-const API_BASE = process.env.REACT_APP_SERVER_URI || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${process.env.REACT_APP_SERVER_PORT || '7778'}`;
 const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+const ZEROG_WEI_PER_SUN = 1e9;
+
+const toDisplayTournamentAmount = (amountSun, isZeroGPlayer) => {
+  const amount = Number(amountSun || 0);
+  return amount / (isZeroGPlayer ? ZEROG_WEI_PER_SUN : 1e6);
+};
+
+const toBalanceUnits = (value, isZeroGPlayer) => {
+  if (value === null || value === undefined) return null;
+  const raw = String(value);
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return null;
+  if (!isZeroGPlayer) return parsed;
+  return raw.includes('.') ? parsed * 1e18 : parsed;
+};
 
 const importINFTToMetaMask = async (tokenId) => {
   if (!window.ethereum || !tokenId) return false;
@@ -110,6 +126,8 @@ const TournamentTableGame = ({ tournamentId }) => {
   const [chipBalanceBefore, setChipBalanceBefore] = useState(0);
   const [chipBalanceAfter, setChipBalanceAfter] = useState(0);
   const prevTournamentEnded = useRef(false);
+  const balancePollTimerRef = useRef(null);
+  const balanceSyncInFlightRef = useRef(false);
 
   // Track previous turn state to only reset bet when turn changes
   const prevTurnRef = useRef(null);
@@ -117,6 +135,7 @@ const TournamentTableGame = ({ tournamentId }) => {
 
   // Detect if player is using 0G (EVM address with 0x prefix)
   const isZeroGPlayer = walletAddress?.startsWith('0x');
+  const tournamentBuyIn = tournament?.buyIn || 100000000;
 
   // Fetch GameBalance from contract
   const fetchGameBalance = useCallback(async () => {
@@ -147,7 +166,7 @@ const TournamentTableGame = ({ tournamentId }) => {
   const fetchChipBalance = useCallback(async () => {
     if (!walletAddress) return 0;
     try {
-      const res = await fetch(`${API_BASE}/api/chip/onchain/balance/${walletAddress}`);
+      const res = await fetch(buildApiUrl(`/api/chip/onchain/balance/${walletAddress}`));
       const data = await res.json();
       return data.balance || 0;
     } catch (e) {
@@ -156,12 +175,24 @@ const TournamentTableGame = ({ tournamentId }) => {
     }
   }, [walletAddress]);
 
+  const refreshGameBalance = useCallback(async () => {
+    if (!walletAddress || balanceSyncInFlightRef.current) return null;
+
+    balanceSyncInFlightRef.current = true;
+    try {
+      return await fetchGameBalance();
+    } finally {
+      balanceSyncInFlightRef.current = false;
+    }
+  }, [walletAddress, fetchGameBalance]);
+
   // Fetch balance on mount and when walletAddress changes
   useEffect(() => {
     if (walletAddress) {
-      fetchGameBalance().then(balance => {
+      refreshGameBalance().then(balance => {
         if (balance !== null && !prevTournamentEnded.current) {
-          setBalanceBefore(balance);
+          const buyInUnits = isZeroGPlayer ? (Number(tournamentBuyIn) * ZEROG_WEI_PER_SUN) : 0;
+          setBalanceBefore(balance + buyInUnits);
         }
       });
       fetchChipBalance().then(chipBalance => {
@@ -170,13 +201,48 @@ const TournamentTableGame = ({ tournamentId }) => {
         }
       });
     }
-  }, [walletAddress, fetchGameBalance, fetchChipBalance]);
+  }, [walletAddress, refreshGameBalance, fetchChipBalance, isZeroGPlayer, tournamentBuyIn]);
+
+  useEffect(() => {
+    const handleBalanceSynced = (data) => {
+      const eventAddress = data?.walletAddress?.toLowerCase();
+      if (eventAddress && eventAddress !== walletAddress?.toLowerCase()) return;
+
+      const nextBalance = toBalanceUnits(data?.available ?? data?.balance, isZeroGPlayer);
+      if (nextBalance !== null) {
+        console.log('[TournamentTable] Balance synced from socket:', data);
+        setGameBalance(nextBalance);
+      }
+    };
+
+    socket.on('SC_BALANCE_SYNCED', handleBalanceSynced);
+    return () => socket.off('SC_BALANCE_SYNCED', handleBalanceSynced);
+  }, [walletAddress, isZeroGPlayer]);
+
+  // Fallback: keep re-syncing 0G custody balance even if socket events are missed
+  useEffect(() => {
+    if (!walletAddress || !isZeroGPlayer) return;
+
+    let cancelled = false;
+    const syncBalance = async () => {
+      if (cancelled) return;
+      await refreshGameBalance();
+    };
+
+    syncBalance();
+    balancePollTimerRef.current = setInterval(syncBalance, 10000);
+
+    return () => {
+      cancelled = true;
+      if (balancePollTimerRef.current) clearInterval(balancePollTimerRef.current);
+      balancePollTimerRef.current = null;
+    };
+  }, [walletAddress, isZeroGPlayer, refreshGameBalance]);
 
   // When tournament ends, fetch new balance to show change
   useEffect(() => {
     if (tournamentEnded && !prevTournamentEnded.current) {
       prevTournamentEnded.current = true;
-      setBalanceBefore(gameBalance); // Save balance before end
       setChipBalanceBefore(chipBalanceBefore); // Keep CHIP balance before
       // Fetch new balance after a short delay to allow settlement
       setTimeout(() => {
@@ -193,7 +259,7 @@ const TournamentTableGame = ({ tournamentId }) => {
         // Or we can auto-navigate after a delay (currently letting user see results)
       }
     }
-  }, [tournamentEnded, gameBalance, chipBalanceBefore, fetchGameBalance, fetchChipBalance, isLeaving]);
+  }, [tournamentEnded, chipBalanceBefore, fetchGameBalance, fetchChipBalance, isLeaving]);
 
   // Handle NFT Achievement notification
   useEffect(() => {
@@ -430,7 +496,7 @@ const TournamentTableGame = ({ tournamentId }) => {
 
                   const metadataURI = data.metadataURI || (
                     data.claimId
-                      ? `${API_BASE.replace(/\/$/, '')}/api/nft/metadata/inft/${data.claimId}`
+                      ? buildApiUrl(`/api/nft/metadata/inft/${data.claimId}`)
                       : null
                   );
 
@@ -460,7 +526,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                   // Update database with txHash
                   let mintedTokenId = data.onchainTokenId || data.onchainResult?.onchainTokenId || data.onchainResult?.tokenId || data.tokenId;
                   try {
-                    const confirmResponse = await fetch(`${API_BASE}/api/nft/confirm-mint`, {
+                    const confirmResponse = await fetch(buildApiUrl('/api/nft/confirm-mint'), {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -575,7 +641,7 @@ const TournamentTableGame = ({ tournamentId }) => {
 
               // Update database with txHash and onchainTokenId
               try {
-                await fetch(`${API_BASE}/api/nft/confirm-mint`, {
+                await fetch(buildApiUrl('/api/nft/confirm-mint'), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -683,16 +749,16 @@ const TournamentTableGame = ({ tournamentId }) => {
 
   // Tournament ended - show final results
   if (tournamentEnded) {
-    const walletAddress = globalCtx?.walletAddress?.toLowerCase();
+    const normalizedWalletAddress = (globalCtx?.walletAddress || walletAddress || '').toLowerCase();
     const myRank = finalRankings.find(r => {
       const addr = (r.address || r)?.toLowerCase();
-      return addr === walletAddress;
+      return addr === normalizedWalletAddress;
     });
     const myPosition = myRank ? finalRankings.indexOf(myRank) + 1 : finalRankings.length;
     const isWinner = myPosition === 1;
 
     // Find my CHIP reward
-    const myChipReward = chipRewards?.find(r => r.address?.toLowerCase() === walletAddress);
+    const myChipReward = chipRewards?.find(r => r.address?.toLowerCase() === normalizedWalletAddress);
 
     return (
       <Container fullHeight flexDirection="column" padding="6rem 2rem 2rem 2rem">
@@ -705,7 +771,7 @@ const TournamentTableGame = ({ tournamentId }) => {
           <Heading as="h3" textCentered marginBottom="1rem" color="#fff">Final Rankings</Heading>
           {finalRankings.map((ranking, index) => {
             const address = ranking.address || ranking;
-            const isMe = address?.toLowerCase() === walletAddress;
+            const isMe = address?.toLowerCase() === normalizedWalletAddress;
             const position = index + 1;
             const chipReward = chipRewards?.find(r => r.address?.toLowerCase() === address?.toLowerCase());
 
@@ -732,7 +798,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                   {ranking.prizeAmount && (
                     <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1rem' }}>
-                      {(ranking.prizeAmount / (isZeroGPlayer ? 1e18 : 1e6)).toLocaleString()} {isZeroGPlayer ? '0G' : 'TRX'}
+                      {toDisplayTournamentAmount(ranking.prizeAmount, isZeroGPlayer).toLocaleString()} {isZeroGPlayer ? '0G' : 'TRX'}
                     </span>
                   )}
                   {chipReward && chipReward.chipReward > 0 && (
@@ -789,7 +855,7 @@ const TournamentTableGame = ({ tournamentId }) => {
         {/* 抽成信息 */}
         {rakeAmount > 0 && (
           <Text textCentered marginTop="1rem" color="#888" style={{ fontSize: '0.85rem' }}>
-            Rake: {(rakeAmount / (isZeroGPlayer ? 1e18 : 1e6)).toFixed(1)} {isZeroGPlayer ? '0G' : 'TRX'} (5%)
+            Rake: {toDisplayTournamentAmount(rakeAmount, isZeroGPlayer).toFixed(isZeroGPlayer ? 4 : 1)} {isZeroGPlayer ? '0G' : 'TRX'} (5%)
           </Text>
         )}
 

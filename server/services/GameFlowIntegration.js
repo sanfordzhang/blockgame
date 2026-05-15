@@ -8,6 +8,8 @@ const gameSettlementService = require('./GameSettlementService');
 const transactionQueue = require('../blockchain/TransactionQueue');
 const { SC_BALANCE_SYNCED } = require('../pokergame/actions');
 const config = require('../config');
+const { getZeroGService } = require('../blockchain/blockchainFactory');
+const ZeroGContractService = require('../blockchain/ZeroGContractService');
 
 // Lazy-load SettlementRouter for 0G mode support
 let _settlementRouter = null;
@@ -82,12 +84,13 @@ class GameFlowIntegration {
 
                 // 从合约同步最新状态
                 await this.syncPlayerBalance(playerAddress);
+                const cachedBalance = this.getPlayerBalanceCache(playerAddress);
 
                 // 通知客户端
                 this.notifyPlayer(socketId, SC_BALANCE_SYNCED, {
-                    balance: this.playerBalances.get(playerAddress)?.balance || 0,
-                    locked: this.playerBalances.get(playerAddress)?.lockedAmount || 0,
-                    available: this.playerBalances.get(playerAddress)?.balance || 0,
+                    balance: cachedBalance?.balance || 0,
+                    locked: cachedBalance?.lockedAmount || 0,
+                    available: cachedBalance?.balance || 0,
                     message: `${operationType} completed successfully (async retry)`
                 });
 
@@ -112,15 +115,10 @@ class GameFlowIntegration {
                 const newBalance = this.toNumber(contractBalance.balance);
                 const newLocked = this.toNumber(contractBalance.lockedAmount);
 
-                const cached = this.playerBalances.get(playerAddress);
-
                 console.log(`[GameFlowIntegration] Syncing balance for ${playerAddress}`);
                 console.log(`[GameFlowIntegration]   Contract: balance=${newBalance/1e6} TRX, locked=${newLocked/1e6} TRX`);
 
-                this.playerBalances.set(playerAddress, {
-                    balance: newBalance,
-                    lockedAmount: newLocked,
-                    lastSync: Date.now(),
+                this.setPlayerBalanceCache(playerAddress, newBalance, newLocked, {
                     pendingSync: false,
                     isRegistered: true
                 });
@@ -217,7 +215,7 @@ class GameFlowIntegration {
             }
 
             // Get cached balance first (fast)
-            let cachedBalance = this.playerBalances.get(playerAddress);
+            let cachedBalance = this.getPlayerBalanceCache(playerAddress);
 
             // Log balance info BEFORE join
             const gameBalanceBefore = cachedBalance ? cachedBalance.balance : 0;
@@ -252,15 +250,14 @@ class GameFlowIntegration {
 
             // 【要求5】先更新本地缓存，确保用户可以继续操作
             // 这样即使合约调用还在进行，用户也能看到本地状态
-            const cachedBeforeUpdate = this.playerBalances.get(playerAddress);
+            const cachedBeforeUpdate = this.getPlayerBalanceCache(playerAddress);
             const localBalance = cachedBeforeUpdate ? cachedBeforeUpdate.balance : (playerInfo?.balance || 0);
             const localLocked = cachedBeforeUpdate ? cachedBeforeUpdate.lockedAmount : (playerInfo?.lockedAmount || 0);
 
             // 更新本地缓存：balance 不变，locked 增加
-            this.playerBalances.set(playerAddress, {
+            this.setPlayerBalanceCache(playerAddress, localBalance, localLocked + buyInAmount, {
                 balance: localBalance,
                 lockedAmount: localLocked + buyInAmount,
-                lastSync: Date.now(),
                 pendingSync: true,  // 标记为待同步
                 pendingTxType: 'joinTable',
                 pendingTxData: { tableId, buyInAmount }
@@ -330,7 +327,7 @@ class GameFlowIntegration {
             }
 
             // Log balance info AFTER join
-            const updatedCache = this.playerBalances.get(playerAddress);
+            const updatedCache = this.getPlayerBalanceCache(playerAddress);
             const gameBalanceAfter = updatedCache ? updatedCache.balance : 0;
             const lockedAfter = updatedCache ? updatedCache.lockedAmount : 0;
             console.log(`[GameFlowIntegration] ========== JOIN TABLE AFTER ==========`);
@@ -387,7 +384,7 @@ class GameFlowIntegration {
         console.log(`[GameFlowIntegration] Player ${playerAddress} leaving table ${tableId}, stack: ${stack}`);
 
         // Get cached balance BEFORE leave
-        const cachedBefore = this.playerBalances.get(playerAddress);
+        const cachedBefore = this.getPlayerBalanceCache(playerAddress);
         const gameBalanceBefore = cachedBefore ? cachedBefore.balance : 0;
         const lockedBefore = cachedBefore ? cachedBefore.lockedAmount : 0;
         console.log(`[GameFlowIntegration] ========== LEAVE TABLE BEFORE ==========`);
@@ -416,10 +413,9 @@ class GameFlowIntegration {
         // 1. 清除 locked
         // 2. 将 finalStack 加到 balance
         // 所以本地缓存应该：balance = balance + stack, locked = 0
-        this.playerBalances.set(playerAddress, {
+        this.setPlayerBalanceCache(playerAddress, localBalance + stack, 0, {
             balance: localBalance + stack,
             lockedAmount: 0,  // 清除 locked
-            lastSync: Date.now(),
             pendingSync: true,
             pendingTxType: 'leaveTable',
             pendingTxData: { tableId, stack }
@@ -531,7 +527,7 @@ class GameFlowIntegration {
         });
 
         // Log balance info AFTER leave
-        const cachedAfter = this.playerBalances.get(playerAddress);
+        const cachedAfter = this.getPlayerBalanceCache(playerAddress);
         const gameBalanceAfter = cachedAfter ? cachedAfter.balance : 0;
         const lockedAfter = cachedAfter ? cachedAfter.lockedAmount : 0;
         console.log(`[GameFlowIntegration] ========== LEAVE TABLE AFTER ==========`);
@@ -580,7 +576,7 @@ class GameFlowIntegration {
 
         try {
             // Check cache first - if it was just optimistically updated (pendingSync), use it
-            const pendingCache = this.playerBalances.get(playerAddress);
+            const pendingCache = this.getPlayerBalanceCache(playerAddress);
             if (pendingCache && pendingCache.pendingSync && (Date.now() - pendingCache.lastSync) < 30000) {
                 console.log(`[GameFlowIntegration] Using optimistic cache (pendingSync): balance=${pendingCache.balance/1e6} TRX, locked=${pendingCache.lockedAmount/1e6} TRX`);
                 // After joinTableFor, funds are locked in contract - use locked amount for validation
@@ -641,10 +637,8 @@ class GameFlowIntegration {
                 console.log(`[GameFlowIntegration] Calculated: balance=${balance} (${balance/1000000} TRX), locked=${locked} (${locked/1000000} TRX), available=${availableBalance} (${availableBalance/1000000} TRX)`);
 
                 // Update cache with fresh data
-                this.playerBalances.set(playerAddress, {
-                    balance: balance,
-                    lockedAmount: locked,
-                    lastSync: Date.now()
+                this.setPlayerBalanceCache(playerAddress, balance, locked, {
+                    pendingSync: false
                 });
 
                 if (availableBalance >= requiredAmount) {
@@ -674,7 +668,7 @@ class GameFlowIntegration {
             }
             
             // Fallback to cache if contract fetch failed
-            const cached = this.playerBalances.get(playerAddress);
+            const cached = this.getPlayerBalanceCache(playerAddress);
             if (cached && !isNaN(cached.balance) && !isNaN(cached.lockedAmount)) {
                 // Sanity check: if player is not at any table, locked should be 0
                 let locked = cached.lockedAmount || 0;
@@ -682,10 +676,9 @@ class GameFlowIntegration {
                     console.log(`[GameFlowIntegration] Player not at table but cache has locked=${locked}, resetting to 0`);
                     locked = 0;
                     // Update cache
-                    this.playerBalances.set(playerAddress, {
+                    this.setPlayerBalanceCache(playerAddress, cached.balance, 0, {
                         ...cached,
                         lockedAmount: 0,
-                        lastSync: Date.now()
                     });
                 }
                 // Rule a: availableBalance = balance (bankroll = balance)
@@ -976,10 +969,8 @@ class GameFlowIntegration {
             const playerInfo = await this.getPlayerBalance(playerAddress);
             
             // Update cache
-            this.playerBalances.set(playerAddress, {
-                balance: playerInfo.balance,
-                lockedAmount: playerInfo.lockedAmount,
-                lastSync: Date.now()
+            this.setPlayerBalanceCache(playerAddress, playerInfo.balance, playerInfo.lockedAmount, {
+                pendingSync: false
             });
 
             return playerInfo;
@@ -999,8 +990,38 @@ class GameFlowIntegration {
         console.log(`[GameFlowIntegration] Syncing on connect for ${playerAddress}`);
 
         // Use cached balance as fallback when API is rate-limited (429)
-        const cached = this.playerBalances.get(playerAddress);
+        const cached = this.getPlayerBalanceCache(playerAddress);
         const cachedFallback = cached && cached.balance > 0 ? cached : null;
+
+        if (this.isZeroGAddress(playerAddress) && (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both')) {
+            try {
+                const balance = await this.syncZeroGPlayerBalance(playerAddress);
+                this.playerSessions.set(socketId, {
+                    address: playerAddress,
+                    connectedAt: Date.now(),
+                    balance: balance.balance
+                });
+                this.notifyPlayer(socketId, 'blockchain:status', {
+                    registered: balance.isRegistered,
+                    balance: balance.rawBalanceWei,
+                    locked: balance.rawLockedWei,
+                    available: balance.rawBalanceWei,
+                    chain: '0G'
+                });
+                return balance;
+            } catch (error) {
+                console.warn('[GameFlowIntegration] 0G connect sync failed:', error.message);
+                if (cachedFallback) return cachedFallback;
+                return {
+                    balance: 0,
+                    lockedAmount: 0,
+                    rawBalanceWei: '0',
+                    rawLockedWei: '0',
+                    isRegistered: false,
+                    chain: '0G'
+                };
+            }
+        }
 
         try {
             // Check registration with timeout
@@ -1032,9 +1053,7 @@ class GameFlowIntegration {
                 console.log(`[GameFlowIntegration] Player ${playerAddress} not registered`);
 
                 const defaultBalance = { balance: 0, lockedAmount: 0, isRegistered: false };
-                this.playerBalances.set(playerAddress, {
-                    balance: 0, lockedAmount: 0, lastSync: Date.now(), isRegistered: false
-                });
+                this.setPlayerBalanceCache(playerAddress, 0, 0, { isRegistered: false, pendingSync: false });
                 this.playerSessions.set(socketId, {
                     address: playerAddress, connectedAt: Date.now(), balance: 0
                 });
@@ -1231,6 +1250,11 @@ class GameFlowIntegration {
      * Check if player is registered on contract
      */
     async checkPlayerRegistration(playerAddress) {
+        if (this.isZeroGAddress(playerAddress) && (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both')) {
+            const info = await this.getZeroGPlayerBalance(playerAddress);
+            return info.isRegistered;
+        }
+
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
@@ -1268,6 +1292,10 @@ class GameFlowIntegration {
      * Get player balance from contract
      */
     async getPlayerBalance(playerAddress) {
+        if (this.isZeroGAddress(playerAddress) && (config.BLOCKCHAIN_MODE === '0g' || config.BLOCKCHAIN_MODE === 'both')) {
+            return await this.syncZeroGPlayerBalance(playerAddress);
+        }
+
         try {
             return await contractService.getPlayerInfo(playerAddress);
         } catch (error) {
@@ -1281,28 +1309,137 @@ class GameFlowIntegration {
      * Update player balance cache
      */
     updatePlayerBalanceCache(playerAddress, balanceDelta, lockedDelta, devMode = false) {
-        const cached = this.playerBalances.get(playerAddress) || {
+        const key = this.normalizeAddress(playerAddress);
+        const cached = this.playerBalances.get(key) || {
             balance: 0,
             lockedAmount: 0,
             lastSync: Date.now(),
             devMode: false
         };
 
-        this.playerBalances.set(playerAddress, {
+        const next = {
             ...cached,
             balance: cached.balance + balanceDelta,
             lockedAmount: (cached.lockedAmount || 0) + lockedDelta,
             devMode: devMode || cached.devMode || false,
             lastSync: Date.now(),
             pendingSync: true
-        });
+        };
+
+        this.playerBalances.set(key, next);
+        return next;
     }
 
     /**
      * Get player balance cache
      */
     getPlayerBalanceCache(playerAddress) {
-        return this.playerBalances.get(playerAddress) || null;
+        const key = this.normalizeAddress(playerAddress);
+        return this.playerBalances.get(key) || null;
+    }
+
+    normalizeAddress(playerAddress) {
+        return typeof playerAddress === 'string' ? playerAddress.toLowerCase() : playerAddress;
+    }
+
+    isZeroGAddress(playerAddress) {
+        return typeof playerAddress === 'string' && playerAddress.startsWith('0x');
+    }
+
+    getZeroGContractService() {
+        const zgService = getZeroGService();
+        if (!zgService || !zgService.initialized) {
+            throw new Error('0G service not initialized');
+        }
+        const svc = new ZeroGContractService();
+        svc.init(zgService, config.ZEROG_NETWORK || 'testnet');
+        return svc;
+    }
+
+    async getZeroGPlayerBalance(playerAddress) {
+        const svc = this.getZeroGContractService();
+        const [custodyRaw, lockedRaw] = await Promise.all([
+            svc.getCustodyBalance(playerAddress),
+            svc.getLockedBalance(playerAddress)
+        ]);
+        const rawBalanceWei = BigInt(custodyRaw || '0').toString();
+        const rawLockedWei = BigInt(lockedRaw || '0').toString();
+        const balance = Number(BigInt(rawBalanceWei));
+        const lockedAmount = Number(BigInt(rawLockedWei));
+
+        return {
+            balance,
+            lockedAmount,
+            rawBalanceWei,
+            rawLockedWei,
+            isRegistered: BigInt(rawBalanceWei) + BigInt(rawLockedWei) > 0n,
+            chain: '0G'
+        };
+    }
+
+    async syncZeroGPlayerBalance(playerAddress) {
+        const info = await this.getZeroGPlayerBalance(playerAddress);
+        this.setPlayerBalanceCache(playerAddress, info.balance, info.lockedAmount, {
+            rawBalanceWei: info.rawBalanceWei,
+            rawLockedWei: info.rawLockedWei,
+            isRegistered: info.isRegistered,
+            chain: '0G',
+            pendingSync: false,
+            source: 'zerog-sync'
+        });
+        return info;
+    }
+
+    setPlayerBalanceCache(playerAddress, balance, lockedAmount = 0, extra = {}) {
+        const key = this.normalizeAddress(playerAddress);
+        const next = {
+            ...extra,
+            balance,
+            lockedAmount,
+            lastSync: Date.now(),
+            pendingSync: extra.pendingSync ?? true
+        };
+        this.playerBalances.set(key, next);
+        return next;
+    }
+
+    toBigIntBalance(value) {
+        if (typeof value === 'bigint') return value;
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value)) return 0n;
+            return BigInt(Math.trunc(value));
+        }
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) return 0n;
+            if (trimmed.includes('.')) {
+                return BigInt(Math.trunc(Number(trimmed)));
+            }
+            return BigInt(trimmed);
+        }
+        return 0n;
+    }
+
+    applyLocalZeroGBalance(playerAddress, deltaWei, baseBalanceWei = 0, extra = {}) {
+        const key = this.normalizeAddress(playerAddress);
+        const cached = this.playerBalances.get(key);
+        const currentWei = this.toBigIntBalance(cached?.rawBalanceWei ?? cached?.balance ?? baseBalanceWei);
+        const nextWei = currentWei + this.toBigIntBalance(deltaWei);
+
+        if (nextWei < 0n) {
+            throw new Error('Insufficient 0G game balance');
+        }
+
+        const nextLockedWei = extra.rawLockedWei ?? cached?.rawLockedWei ?? extra.lockedAmount ?? cached?.lockedAmount ?? 0;
+
+        return this.setPlayerBalanceCache(playerAddress, Number(nextWei), Number(this.toBigIntBalance(nextLockedWei)), {
+            ...cached,
+            ...extra,
+            rawBalanceWei: nextWei.toString(),
+            rawLockedWei: this.toBigIntBalance(nextLockedWei).toString(),
+            chain: '0G',
+            source: extra.source || cached?.source || 'tournament-local-0g'
+        });
     }
 
     /**
@@ -1311,14 +1448,15 @@ class GameFlowIntegration {
     addBalanceInstant(playerAddress, amount) {
         console.log(`[GameFlowIntegration] 💰 DEV MODE: Adding ${amount} SUN (${amount/1000000} TRX) to ${playerAddress}`);
 
-        const cached = this.playerBalances.get(playerAddress) || {
+        const key = this.normalizeAddress(playerAddress);
+        const cached = this.playerBalances.get(key) || {
             balance: 0,
             lockedAmount: 0,
             lastSync: Date.now()
         };
 
         const newBalance = cached.balance + amount;
-        this.playerBalances.set(playerAddress, {
+        this.playerBalances.set(key, {
             ...cached,
             balance: newBalance,
             lastSync: Date.now()

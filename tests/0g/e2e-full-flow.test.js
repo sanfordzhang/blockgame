@@ -60,8 +60,8 @@ describe('E2E 0G Poker Full Flow', function () {
      */
     describe('Step 3: Fairness Verification Cycle', function () {
         it('should complete full commitment-reveal-verify cycle', function () {
-            const fs = require('../../server/pokergame/FairnessService');
-            const fairness = new fs();
+            const { FairnessService } = require('../../server/pokergame/FairnessService');
+            const fairness = new FairnessService();
 
             const tableId = `e2e-table-${Date.now()}`;
             const handNumber = Math.floor(Math.random() * 10000);
@@ -84,51 +84,46 @@ describe('E2E 0G Poker Full Flow', function () {
                 rake: 20
             };
 
-            const stateResult = fairness.generateStateHash(mockGameResult);
-            assert.ok(stateResult.stateHash, 'State hash should be generated');
-            console.log(`  B. State Hash: ${stateResult.stateHash.slice(0, 20)}...`);
+            const stateHash = fairness.generateStateHash(mockGameResult);
+            assert.ok(stateHash, 'State hash should be generated');
+            console.log(`  B. State Hash: ${stateHash.slice(0, 20)}...`);
 
             // Step C: Reveal seed after deal
-            const revealResult = fairness.revealSeed(
-                mockGameResult.handId,
-                commitment.seed,
-                commitment.salt,
-                tableId,
-                handNumber
-            );
+            const revealResult = fairness.revealSeed(commitment.handId);
             assert.ok(revealResult.valid, 'Reveal should be valid');
             console.log(`  C. Seed Revealed: valid=${revealResult.valid}`);
 
             // Step D: Verify commitment matches revealed seed
             const verifyResult = fairness.verifyCommitment(
                 commitment.commitment,
-                commitment.seed,
-                commitment.salt,
+                revealResult.seed,
+                revealResult.salt,
                 tableId,
                 handNumber
             );
-            assert.ok(verifyResult.valid, 'Verification should pass');
-            console.log(`  D. Verified: valid=${verifyResult.valid} ✅`);
+            assert.ok(verifyResult, 'Verification should pass');
+            console.log(`  D. Verified: valid=${verifyResult} ✅`);
         });
 
         it('should detect tampered commitment', function () {
-            const fs = require('../../server/pokergame/FairnessService');
-            const fairness = new fs();
+            const { FairnessService } = require('../../server/pokergame/FairnessService');
+            const fairness = new FairnessService();
 
             // Generate legitimate commitment
             const commitment = fairness.generateCommitment('tamper-test', 1);
+            const reveal = fairness.revealSeed(commitment.handId);
 
             // Try to verify with wrong seed
             const badVerify = fairness.verifyCommitment(
                 commitment.commitment,
                 'wrong-seed-tampered',
-                commitment.salt,
+                reveal.salt,
                 'tamper-test',
                 1
             );
 
-            assert.strictEqual(badVerify.valid, false, 'Tampered verification must fail');
-            console.log(`  Tampering detected: valid=${badVerify.valid} ✅ (correctly rejected)`);
+            assert.strictEqual(badVerify, false, 'Tampered verification must fail');
+            console.log(`  Tampering detected: valid=${badVerify} ✅ (correctly rejected)`);
         });
     });
 
@@ -137,11 +132,11 @@ describe('E2E 0G Poker Full Flow', function () {
      */
     describe('Step 4: AI Decision Engine', function () {
         it('should have AIService defined', function () {
-            const AISvc = require('../../server/services/AIService');
-            const ai = new AISvc();
+            const { AIService } = require('../../server/services/AIService');
+            const ai = new AIService();
             assert.strictEqual(typeof ai.requestAction, 'function');
             assert.strictEqual(typeof ai.spawnAIProcess, 'function');
-            assert.strictEqual(typeof ai.isRunning, 'function');
+            assert.strictEqual(typeof ai.getStatus, 'function');
         });
     });
 
@@ -151,6 +146,13 @@ describe('E2E 0G Poker Full Flow', function () {
     describe('Step 5: Dual-Chain Settlement', function () {
         it('should route settlement based on mode', async function () {
             const router = require('../../server/services/SettlementRouter');
+            router.init({
+                settle: async (gameResult) => ({
+                    success: true,
+                    txHash: '0xmock',
+                    handId: gameResult.handId
+                })
+            }, null);
             
             // Test fallback settlement
             const result = await router.settle({
