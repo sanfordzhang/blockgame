@@ -13,7 +13,8 @@ import { getPlayerBalance } from '../utils/tronInteract';
 import { getCustodyBalance } from '../utils/zeroGInteract';
 import { buildApiUrl } from '../utils/serverConfig';
 
-const MOCK_GAME_ENABLED = process.env.REACT_APP_TOURNAMENT_MOCK_GAME_ENABLED === 'true';
+const IS_TESTNET_BUILD = process.env.REACT_APP_NETWORK !== 'mainnet';
+const MOCK_GAME_ENABLED = IS_TESTNET_BUILD && process.env.REACT_APP_TOURNAMENT_MOCK_GAME_ENABLED !== 'false';
 
 const TournamentCard = styled.div`
   background: ${(props) => props.theme.colors.playingCardBg};
@@ -603,7 +604,7 @@ const Tournament = () => {
       </InfoBanner>
       
       {/* Mock 游戏开关 - 仅测试网显示 */}
-      {process.env.REACT_APP_NETWORK === 'testnet' && MOCK_GAME_ENABLED && (
+      {IS_TESTNET_BUILD && MOCK_GAME_ENABLED && (
       <MockSection data-testid="mock-game-section">
         <MockCheckbox>
           <input

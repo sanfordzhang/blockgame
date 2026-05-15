@@ -9,9 +9,6 @@ import styled from 'styled-components';
 import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
-import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, getGameBalance, normalizeBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract, getPokerGame0GAddress } from '../utils/zeroGInteract';
-import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
 import locaContext from '../context/localization/locaContext';
@@ -39,6 +36,37 @@ import {
 // Static import illustrations for reliable loading
 import illustrationMobile from '../assets/img/main-illustration-mobile@2x.png';
 import illustrationDesktop from '../assets/img/main-illustration-desktop@2x.png';
+
+const loadZeroG = () => import('../utils/zeroGInteract');
+const loadEthers = () => import('ethers');
+
+const normalizeBalanceValue = (val) => {
+  if (!val) return '0';
+  const num = typeof val === 'string' ? parseFloat(val) : val;
+  if (!isFinite(num)) return '0';
+  if (num > 10000 && !(num > 0 && num < 10)) {
+    return (num / 1e18).toString();
+  }
+  return num.toString();
+};
+
+const connectMetamaskFallback = async () => {
+  if (window.ethereum) {
+    try {
+      const addressArr = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      return { event: 'connected', response: addressArr[0] };
+    } catch (err) {
+      console.log(err.message);
+      return { event: 'error', response: err.message };
+    }
+  }
+
+  console.log('plz install metamask on your browser');
+  return { event: 'No Wallet', response: 'plz install metamask on your browser' };
+};
 
 const MarketingHeadline = styled(Heading)`
   @media screen and (min-width: 1024px) {
@@ -110,8 +138,8 @@ const Landing = () => {
   const [localWalletType, setLocalWalletType] = useState(null);
 
   const applyZeroGGameBalance = useCallback((info, source = 'zerog') => {
-    const available = parseFloat(normalizeBalance(info?.balance || info?.available || '0')) || 0;
-    const locked = parseFloat(normalizeBalance(info?.locked || '0')) || 0;
+    const available = parseFloat(normalizeBalanceValue(info?.balance || info?.available || '0')) || 0;
+    const locked = parseFloat(normalizeBalanceValue(info?.locked || '0')) || 0;
     const total = available + locked;
     setContractBalanceRaw(available);
     setLockedBalance(locked);
@@ -230,12 +258,14 @@ const Landing = () => {
           // Check both localWalletType state AND address format (0x = EVM) for race condition safety
           const isEvmAddress = walletAddress.toLowerCase().startsWith('0x');
           if (localWalletType === 'zerog' || isEvmAddress) {
+            const { getBalance: get0GBalance } = await loadZeroG();
             const bal = await get0GBalance(walletAddress);
             setIsRegistered(true);
             setWalletBalance(parseFloat(bal));
 
             // Fetch 0G game balance from PokerGame0G contract (custody + active-table locked)
             try {
+              const { getGameBalance } = await loadZeroG();
               const gameBal = await getGameBalance(walletAddress);
               applyZeroGGameBalance(gameBal, 'checkReg');
             } catch (e) {
@@ -270,12 +300,13 @@ const Landing = () => {
   useEffect(() => {
     if (chipsAmount !== null && chipsAmount !== undefined) {
       if (localWalletType === 'zerog' && walletAddress) {
-        getGameBalance(walletAddress)
+        loadZeroG()
+          .then(({ getGameBalance }) => getGameBalance(walletAddress))
           .then(gameBal => applyZeroGGameBalance(gameBal, 'chips-sync'))
           .catch(() => {});
         return;
       }
-      const normalized = parseFloat(normalizeBalance(chipsAmount));
+      const normalized = parseFloat(normalizeBalanceValue(chipsAmount));
       console.log('[Landing] Syncing contractBalance from chipsAmount:', { chipsAmount, normalized, current: contractBalance });
       setContractBalance(normalized);
     }
@@ -285,7 +316,8 @@ const Landing = () => {
   // This ensures the most accurate balance is shown (not relying solely on socket sync)
   useEffect(() => {
     if (walletAddress && localWalletType === 'zerog' && isRegistered) {
-      getGameBalance(walletAddress)
+      loadZeroG()
+        .then(({ getGameBalance }) => getGameBalance(walletAddress))
         .then(gameBal => applyZeroGGameBalance(gameBal, 'fresh'))
         .catch(() => {});
     }
@@ -320,7 +352,7 @@ const Landing = () => {
         setContractBalance(0);
         setLockedBalance(0);
         setWalletBalanceRaw(0);
-        disconnectWallet();
+        loadZeroG().then(({ disconnectWallet }) => disconnectWallet()).catch(() => {});
       } else if (accounts[0].toLowerCase() !== walletAddress?.toLowerCase()) {
         // User switched to a different account
         console.log('[Landing] Account switched:', accounts[0]);
@@ -408,13 +440,15 @@ const Landing = () => {
     try {
       // For 0G/EVM mode, use 0G balance
       if (localWalletType === 'zerog') {
-        const bal = await get0GBalance(walletAddress);
+        const { getBalance: get0GBalance } = await loadZeroG();
+            const bal = await get0GBalance(walletAddress);
         setWalletBalance(parseFloat(bal));
 
         // Also fetch game balance from PokerGame0G contract
         if (isRegistered) {
           try {
-            const gameBal = await getGameBalance(walletAddress);
+            const { getGameBalance } = await loadZeroG();
+              const gameBal = await getGameBalance(walletAddress);
             applyZeroGGameBalance(gameBal, 'refresh');
           } catch (e) {
             console.warn('[Landing] Failed to fetch 0G game balance:', e.message);
@@ -468,7 +502,7 @@ const Landing = () => {
         }
       } else {
         // Fallback to MetaMask
-        const result = await connectMetamask();
+        const result = await connectMetamaskFallback();
 
         if (result?.event === 'connected') {
           const address = result.response;
@@ -529,7 +563,8 @@ const Landing = () => {
       if (localWalletType === 'zerog') {
         // ====== 0G Deposit Path ======
         // Ensure we're on the correct 0G chain (fixes "invalid chain id for signer" error)
-        try { await ensureCorrectChain('testnet'); } catch (chainErr) {
+        try { const { ensureCorrectChain } = await loadZeroG();
+          await ensureCorrectChain('testnet'); } catch (chainErr) {
           setError(chainErr.message);
           setDepositing(false);
           return;
@@ -542,8 +577,10 @@ const Landing = () => {
         }
         
         console.log('[Landing] Depositing', amountEth, '0G to contract...');
+        const { getPokerGame0GAddress } = await loadZeroG();
         const POKERGAME_0G_ADDRESS = getPokerGame0GAddress();
         const DEPOSIT_ABI = ['function deposit() payable'];
+        const { ethers } = await loadEthers();
         const valueWei = ethers.utils.parseEther(depositAmount).toHexString();
         
         const txParams = {
@@ -588,9 +625,11 @@ const Landing = () => {
         attempts++;
         try {
           if (localWalletType === 'zerog') {
+            const { getBalance: get0GBalance } = await loadZeroG();
             const bal = await get0GBalance(walletAddress);
             setWalletBalance(parseFloat(bal));
-            const gameBal = await getGameBalance(walletAddress);
+            const { getGameBalance } = await loadZeroG();
+              const gameBal = await getGameBalance(walletAddress);
             applyZeroGGameBalance(gameBal, 'deposit-poll');
           } else {
             const balance = await getPlayerBalance(walletAddress);
@@ -650,6 +689,7 @@ const Landing = () => {
           return;
         }
         console.log('Withdrawing', amount, '0G');
+        const { withdrawFromContract } = await loadZeroG();
         const txHash = await withdrawFromContract(amount);
         console.log('0G Withdraw tx:', txHash);
 
@@ -757,6 +797,7 @@ const Landing = () => {
           return;
         }
         console.log('Withdrawing all available:', amount, '0G');
+        const { withdrawFromContract } = await loadZeroG();
         const txHash = await withdrawFromContract(amount);
         console.log('0G Withdraw tx:', txHash);
         setContractBalance(0);
@@ -864,7 +905,8 @@ const Landing = () => {
       if (localWalletType === 'zerog') {
         // ====== 0G Authorization Path ======
         // Ensure we're on the correct 0G chain
-        try { await ensureCorrectChain('testnet'); } catch (chainErr) {
+        try { const { ensureCorrectChain } = await loadZeroG();
+          await ensureCorrectChain('testnet'); } catch (chainErr) {
           setError(chainErr.message);
           setAuthorizing(false);
           return;
@@ -872,6 +914,7 @@ const Landing = () => {
 
         console.log('[Landing] Authorizing server via 0G contract...');
         
+        const { getPokerGame0GAddress } = await loadZeroG();
         const POKERGAME_0G_ADDRESS = getPokerGame0GAddress();
         const POKERGAME_ABI = [
           'function authorizeDelegate(address delegate) returns (bool)',
@@ -883,6 +926,7 @@ const Landing = () => {
           throw new Error('0G server address not available. Please refresh and try again.');
         }
         
+        const { ethers } = await loadEthers();
         const txParams = {
           from: walletAddress,
           to: POKERGAME_0G_ADDRESS,
@@ -1124,6 +1168,7 @@ const Landing = () => {
                   }
 
                   try {
+                    const { connectWallet: connectZeroGWallet, switchChain } = await loadZeroG();
                     const result = await connectZeroGWallet();
                     if (result?.address) {
                       // Auto-switch to 0G Testnet network
@@ -1186,7 +1231,7 @@ const Landing = () => {
                       setContractBalance(0);
                       setLockedBalance(0);
                       setWalletBalanceRaw(0);
-                      disconnectWallet();
+                      loadZeroG().then(({ disconnectWallet }) => disconnectWallet()).catch(() => {});
                     }}
                     style={{
                       background: 'transparent',

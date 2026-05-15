@@ -110,7 +110,7 @@ const zh = {
   joinTournament:        '加入锦标赛',
   createTournament:      '创建锦标赛',
   tournamentHint:        '💡 点击状态为 WAITING 的锦标赛卡片即可报名参赛',
-  mockMode:              '🎮 Mock 游戏模式',
+  mockMode:              '🎮 模拟特殊牌型',
   mockModeOn:            '开启 - 玩家1将获得顺子牌型',
   mockModeOff:           '关闭 - 正常游戏模式',
   testModeTitle:         '快速创建锦标赛',

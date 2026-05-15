@@ -385,11 +385,21 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Error handling - close server
 
 process.on("unhandledRejection", (err) => {
+    // Network/timeout errors from blockchain RPC should NOT kill the process
+    const msg = err?.message || String(err);
+    const isTransient = /timeout|ECONNREFUSED|ECONNRESET|ENOTFOUND|socket hang up|429|502|503|504|network|abort/i.test(msg);
+
+    if (isTransient) {
+        console.warn(`[unhandledRejection] Transient error (ignored): ${msg}`);
+        return;
+    }
+
+    console.error(`[unhandledRejection] Fatal: ${msg}`);
+    console.error(err.stack || '');
     const aiService = require('./services/ai/AIService');
     aiService.shutdown().catch(() => {});
     db.disconnect();
 
-    console.error(`Error: ${err.message}`);
     server.close(() => {
         process.exit(1);
     });

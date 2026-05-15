@@ -110,7 +110,7 @@ const en = {
   joinTournament:        'Join Tournament',
   createTournament:      'Create Tournament',
   tournamentHint:        '💡 Click a tournament card with status WAITING to register',
-  mockMode:              '🎮 Mock Game Mode',
+  mockMode:              '🎮 Simulate Special Hand',
   mockModeOn:            'ON - Player 1 will receive a straight hand',
   mockModeOff:           'OFF - Normal game mode',
   testModeTitle:         'Quick Create Tournament',

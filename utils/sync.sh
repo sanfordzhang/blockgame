@@ -15,7 +15,7 @@ SERVER_USER="ubuntu"
 SERVER_PASS="QWer!@34"
 SERVER="$SERVER_USER@$SERVER_HOST"
 APP_DIR="/home/ubuntu/game-core"
-LOCAL_DIR="$(cd "$(dirname "$0")" && pwd)"  # 脚本所在目录（项目根目录）
+LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"  # 项目根目录
 
 run_ssh() { sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no "$SERVER" "$1"; }
 run_rsync() {
@@ -79,6 +79,9 @@ build_testnet() {
         REACT_APP_MAINNET_CONTRACT_ADDRESS=THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd \
         REACT_APP_TESTNET_CONTRACT_ADDRESS=TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c \
         REACT_APP_NFT_CONTRACT_ONCHAIN=TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC \
+        REACT_APP_ZEROG_INFT_ADDRESS=0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5 \
+        REACT_APP_ZEROG_POKERGAME_ADDRESS=0xc4975D55aD2607B14616E97B9a8E5622778eF5aE \
+        REACT_APP_TOURNAMENT_MOCK_GAME_ENABLED=true \
         npx react-scripts --openssl-legacy-provider build 2>&1 | tail -5 \
         && rm -rf build-testnet && mv build build-testnet \
         && chmod -R o+r build-testnet \

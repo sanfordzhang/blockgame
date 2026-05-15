@@ -551,6 +551,15 @@ module.exports = {
     },
     prepareMint: async (walletAddress, data) => {
         const { achievementType, gameSessionId, handData } = data;
+        const blockchainMode = process.env.BLOCKCHAIN_MODE || 'tron';
+        const requiresRealScreenshot = walletAddress?.startsWith('0x') && (blockchainMode === '0g' || blockchainMode === 'both');
+        const normalizeScreenshot = (value) => {
+            if (typeof value !== 'string') return null;
+            const raw = value.includes(',') ? value.split(',').pop() : value;
+            const trimmed = raw.trim();
+            return trimmed.length > 1000 ? trimmed : null;
+        };
+        const screenshot = normalizeScreenshot(data?.screenshot);
         
         // Get type ID from type name
         const typeIds = {
@@ -592,6 +601,10 @@ module.exports = {
         if (!walletAddress) {
             throw new Error('walletAddress is required');
         }
+
+        if (requiresRealScreenshot && !screenshot) {
+            throw new Error('真实游戏截图捕获失败，已取消铸造。保持游戏画面可见后重试。');
+        }
         
         // Extract cards for description
         let handDescription = '';
@@ -624,7 +637,7 @@ module.exports = {
             handDescription,
             gameId,
             cards: parsedCards,
-            gameScreenshot: data.screenshot || null,
+            gameScreenshot: screenshot,
             screenshotFormat: 'png',
             yearMonth: NFTClaim.getYearMonth()
         });
@@ -634,7 +647,6 @@ module.exports = {
 
         // ========== 0G ON-CHAIN MINT (when in 0G or both mode) ==========
         let onchainResult = null;
-        const blockchainMode = process.env.BLOCKCHAIN_MODE || 'tron';
         const metadataURI = `${(
             process.env.NFT_PUBLIC_BASE_URL ||
             process.env.PUBLIC_API_BASE_URL ||

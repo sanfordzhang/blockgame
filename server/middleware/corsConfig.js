@@ -9,6 +9,17 @@ function getConfiguredOrigins() {
   );
 }
 
+// Get the server's own hostname from env (e.g., SERVER_HOSTNAME) or auto-detect
+function getServerHostname() {
+  if (process.env.SERVER_HOSTNAME) return process.env.SERVER_HOSTNAME;
+  if (process.env.ALLOWED_ORIGINS) {
+    return process.env.ALLOWED_ORIGINS.split(',').map(o => {
+      try { return new URL(o.trim()).hostname; } catch { return null; }
+    }).filter(Boolean);
+  }
+  return null;
+}
+
 function isPrivateNetworkHost(hostname) {
   if (!hostname) return false;
   if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
@@ -36,6 +47,17 @@ function isAllowedOrigin(origin) {
     if (LOCAL_ORIGIN_HOSTS.has(normalizedHost)) return true;
     if (isPrivateNetworkHost(normalizedHost)) return true;
     if (normalizedHost.endsWith('.trycloudflare.com')) return true;
+
+    // Allow requests from the server's own public IP / hostname
+    // This supports production deployments where frontend and backend are on the same server
+    const serverHost = getServerHostname();
+    if (serverHost) {
+      if (Array.isArray(serverHost)) {
+        if (serverHost.some(h => h.toLowerCase() === normalizedHost)) return true;
+      } else {
+        if (serverHost.toLowerCase() === normalizedHost) return true;
+      }
+    }
 
     return false;
   } catch (error) {

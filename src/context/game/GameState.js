@@ -35,7 +35,16 @@ import socketContext from '../websocket/socketContext'
 import GameContext from './gameContext'
 import globalContext from '../global/globalContext'
 import { leaveTableSession as contractLeaveTableSession } from '../../utils/tronInteract'
-import { leaveTableSession as zeroGLeaveTableSession, normalizeBalance } from '../../utils/zeroGInteract'
+
+const loadZeroG = () => import('../../utils/zeroGInteract')
+
+const normalizeBalance = (val) => {
+  if (!val) return '0'
+  const num = typeof val === 'string' ? parseFloat(val) : val
+  if (!isFinite(num)) return '0'
+  if (num > 10000 && !(num > 0 && num < 10)) return (num / 1e18).toString()
+  return num.toString()
+}
 
 // i18n: detect language at module load time
 const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
@@ -225,6 +234,7 @@ const GameState = ({ children }) => {
           if (isZeroGPlayer) {
             // 0G path: call PokerGame0G.leaveTableSession
             console.log('[GameState] Using 0G leaveTableSession');
+            const { leaveTableSession: zeroGLeaveTableSession } = await loadZeroG()
             result = await zeroGLeaveTableSession(stack);
           } else {
             // TRON path: call TRON contract leaveTableSession

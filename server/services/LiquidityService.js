@@ -26,15 +26,19 @@ class LiquidityService {
             // 加载合约
             this.poolContract = await this.tronWeb.contract().at(this.poolAddress);
             this.tokenContract = await this.tronWeb.contract().at(this.tokenAddress);
-            
+
             console.log('[LiquidityService] Initialized successfully');
-            
-            // 初始同步
-            await this.syncPoolState();
-            
+
+            // 初始同步（失败不阻塞启动，可能是网络问题）
+            try {
+                await this.syncPoolState();
+            } catch (syncErr) {
+                console.warn('[LiquidityService] Initial sync failed (non-fatal):', syncErr.message || syncErr.code);
+            }
+
             // 启动定时同步（30秒）
             this.startPeriodicSync(30000);
-            
+
             return true;
         } catch (error) {
             console.error('[LiquidityService] Initialize error:', error);
@@ -49,16 +53,43 @@ class LiquidityService {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
         }
-        
+
+        this.consecutiveFailures = 0;
+        this.baseInterval = intervalMs;
+
         this.syncInterval = setInterval(async () => {
             try {
                 await this.syncPoolState();
+                this.consecutiveFailures = 0; // 成功后重置失败计数
             } catch (error) {
-                console.error('[LiquidityService] Periodic sync error:', error);
+                this.consecutiveFailures = (this.consecutiveFailures || 0) + 1;
+                console.error(`[LiquidityService] Periodic sync error (fail #${this.consecutiveFailures}):`, error.message || error.code);
+                // 连续失败时自动降级：延长同步间隔（最多5分钟）
+                if (this.consecutiveFailures >= 3 && this.syncInterval) {
+                    const newInterval = Math.min(this.baseInterval * Math.pow(2, this.consecutiveFailures - 2), 300000);
+                    console.warn(`[LiquidityService] Backing off sync interval to ${newInterval / 1000}s due to ${this.consecutiveFailures} consecutive failures`);
+                    clearInterval(this.syncInterval);
+                    this.syncInterval = setInterval(() => this._doSync(), newInterval);
+                }
             }
         }, intervalMs);
-        
+
         console.log(`[LiquidityService] Started periodic sync (${intervalMs}ms)`);
+    }
+
+    async _doSync() {
+        try {
+            await this.syncPoolState();
+            this.consecutiveFailures = 0;
+            // 恢复正常间隔
+            if (this.consecutiveFailures === 0 && this.syncInterval) {
+                clearInterval(this.syncInterval);
+                this.startPeriodicSync(this.baseInterval);
+            }
+        } catch (error) {
+            this.consecutiveFailures = (this.consecutiveFailures || 0) + 1;
+            console.error(`[LiquidityService] Periodic sync error (fail #${this.consecutiveFailures}):`, error.message || error.code);
+        }
     }
 
     /**
@@ -75,56 +106,51 @@ class LiquidityService {
      * 同步流动性池状态
      */
     async syncPoolState() {
-        try {
-            // 获取链上储备量
-            const reserves = await this.poolContract.getReserves().call();
-            const totalSupply = await this.poolContract.totalSupply().call();
-            
-            const reserveTRX = reserves[0].toString();
-            const reserveCHIP = reserves[1].toString();
-            const blockTimestamp = Number(reserves[2]);
-            
-            // 获取价格累积
-            const price0Cumulative = await this.poolContract.price0CumulativeLast().call();
-            const price1Cumulative = await this.poolContract.price1CumulativeLast().call();
-            
-            // 获取当前区块号
-            const blockNumber = await this.tronWeb.trx.getCurrentBlock();
-            const currentBlockNumber = blockNumber ? blockNumber.block_header.raw_data.number : 0;
-            
-            // 更新或创建PoolState
-            const poolState = await PoolState.findOneAndUpdate(
-                { poolAddress: this.poolAddress },
-                {
-                    $set: {
-                        token0: 'TRX',
-                        token1: this.tokenAddress,
-                        reserve0: reserveTRX,
-                        reserve1: reserveCHIP,
-                        totalSupply: totalSupply.toString(),
-                        blockNumber: currentBlockNumber,
-                        blockTimestamp: blockTimestamp,
-                        price0CumulativeLast: price0Cumulative.toString(),
-                        price1CumulativeLast: price1Cumulative.toString()
-                    }
-                },
-                { upsert: true, new: true }
-            );
-            
-            // 计算价格
-            poolState.calculatePrices();
-            await poolState.save();
-            
-            // 记录价格历史（按分钟聚合）
-            await this.recordPriceHistory(poolState);
-            
-            console.log(`[LiquidityService] Synced pool state: reserveTRX=${reserveTRX}, reserveCHIP=${reserveCHIP}`);
-            
-            return poolState;
-        } catch (error) {
-            console.error('[LiquidityService] Sync pool state error:', error);
-            throw error;
-        }
+        // 获取链上储备量（带超时保护）
+        const reserves = await this.poolContract.getReserves().call();
+        const totalSupply = await this.poolContract.totalSupply().call();
+
+        const reserveTRX = reserves[0].toString();
+        const reserveCHIP = reserves[1].toString();
+        const blockTimestamp = Number(reserves[2]);
+
+        // 获取价格累积
+        const price0Cumulative = await this.poolContract.price0CumulativeLast().call();
+        const price1Cumulative = await this.poolContract.price1CumulativeLast().call();
+
+        // 获取当前区块号
+        const blockNumber = await this.tronWeb.trx.getCurrentBlock();
+        const currentBlockNumber = blockNumber ? blockNumber.block_header.raw_data.number : 0;
+
+        // 更新或创建PoolState
+        const poolState = await PoolState.findOneAndUpdate(
+            { poolAddress: this.poolAddress },
+            {
+                $set: {
+                    token0: 'TRX',
+                    token1: this.tokenAddress,
+                    reserve0: reserveTRX,
+                    reserve1: reserveCHIP,
+                    totalSupply: totalSupply.toString(),
+                    blockNumber: currentBlockNumber,
+                    blockTimestamp: blockTimestamp,
+                    price0CumulativeLast: price0Cumulative.toString(),
+                    price1CumulativeLast: price1Cumulative.toString()
+                }
+            },
+            { upsert: true, new: true }
+        );
+
+        // 计算价格
+        poolState.calculatePrices();
+        await poolState.save();
+
+        // 记录价格历史（按分钟聚合）
+        await this.recordPriceHistory(poolState);
+
+        console.log(`[LiquidityService] Synced pool state: reserveTRX=${reserveTRX}, reserveCHIP=${reserveCHIP}`);
+
+        return poolState;
     }
 
     /**

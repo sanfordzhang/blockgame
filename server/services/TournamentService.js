@@ -1054,6 +1054,27 @@ module.exports = {
             const isZeroGPlayer = isZeroGAddress(walletAddress);
             let pendingZeroGBuyInWei = null;
             let pendingZeroGBaseBalanceWei = null;
+            let zeroGChainLock = null;
+
+            const rollbackZeroGChainLock = async (reason) => {
+                if (!zeroGChainLock || zeroGChainLock.released) return;
+
+                try {
+                    const zgContractService = getZeroGContractService();
+                    const session = await zgContractService.getTableSession(zeroGChainLock.tableId, walletAddress);
+                    if (!session.active) {
+                        zeroGChainLock.released = true;
+                        return;
+                    }
+
+                    const stackWei = BigInt(session.buyIn || zeroGChainLock.buyInWei || '0');
+                    const receipt = await zgContractService.leaveTableFor(walletAddress, zeroGChainLock.tableId, stackWei);
+                    zeroGChainLock.released = true;
+                    console.warn(`[TournamentService] Rolled back 0G tournament lock after ${reason}: tableId=${zeroGChainLock.tableId}, player=${walletAddress.substring(0, 10)}..., tx=${receipt?.hash || receipt?.transactionHash || 'confirmed'}`);
+                } catch (rollbackError) {
+                    console.error(`[TournamentService] Failed to roll back 0G tournament lock after ${reason}:`, rollbackError.message);
+                }
+            };
 
             const existingTournament = await TournamentModel.findOne({ tournamentId });
             if (!existingTournament) {
@@ -1162,6 +1183,12 @@ module.exports = {
                             const zgContractService = getZeroGContractService();
                             console.log(`[TournamentService] 0G mode: Locking buy-in on-chain via joinTableFor tableId=${tableId}, buyIn=${pendingZeroGBuyInWei}`);
                             const receipt = await zgContractService.joinTableFor(walletAddress, tableId, pendingZeroGBuyInWei);
+                            zeroGChainLock = {
+                                tableId,
+                                buyInWei: pendingZeroGBuyInWei.toString(),
+                                txHash: receipt?.hash || receipt?.transactionHash || null,
+                                released: false
+                            };
                             console.log(`[TournamentService] Test mode: ✅ Locked ${formatZeroGWei(pendingZeroGBuyInWei)} 0G buyIn on 0G chain, tx=${receipt?.hash || receipt?.transactionHash || 'confirmed'}`);
                         } else {
                             // TRON player: call joinTableFor on BridgeGameV2
@@ -1182,33 +1209,41 @@ module.exports = {
             }
 
             // Use atomic update to prevent race condition
-            const tournament = await TournamentModel.findOneAndUpdate(
-                {
-                    tournamentId,
-                    status: 'WAITING',
-                    'players.address': { $ne: normalizedAddress }
-                },
-                {
-                    $push: {
-                        players: {
-                            address: normalizedAddress,
-                            socketId,
-                            joinedAt: new Date(),
-                            finalPosition: null,
-                            prizeAmount: null,
-                            claimed: false
+            let tournament;
+            try {
+                tournament = await TournamentModel.findOneAndUpdate(
+                    {
+                        tournamentId,
+                        status: 'WAITING',
+                        'players.address': { $ne: normalizedAddress }
+                    },
+                    {
+                        $push: {
+                            players: {
+                                address: normalizedAddress,
+                                socketId,
+                                joinedAt: new Date(),
+                                finalPosition: null,
+                                prizeAmount: null,
+                                claimed: false
+                            }
                         }
-                    }
-                },
-                { new: true }
-            );
+                    },
+                    { new: true }
+                );
+            } catch (dbError) {
+                await rollbackZeroGChainLock(`database join failure (${dbError.message})`);
+                throw dbError;
+            }
 
             if (!tournament) {
                 const existing = await TournamentModel.findOne({ tournamentId });
                 if (!existing) {
+                    await rollbackZeroGChainLock('missing tournament after chain lock');
                     throw new Error('Tournament not found');
                 }
                 if (existing.status !== 'WAITING') {
+                    await rollbackZeroGChainLock(`tournament status changed to ${existing.status}`);
                     throw new Error('Tournament not accepting players');
                 }
                 // Check if player is already in the list
@@ -1216,8 +1251,8 @@ module.exports = {
                 if (alreadyJoined) {
                     return { success: true, tournament: existing, alreadyJoined: true };
                 }
-                // If we get here, it means concurrent request won, return success anyway
-                return { success: true, tournament: existing };
+                await rollbackZeroGChainLock('join conflict');
+                throw new Error('Tournament join conflict. Please retry.');
             }
 
             if (isZeroGPlayer && pendingZeroGBuyInWei !== null) {
@@ -1806,6 +1841,7 @@ module.exports = {
                             console.log(`[TournamentService] Sending NFT achievement to ${playerWallet?.substring(0, 10)}: ${achievement.achievementType}`);
                             
                             testModeSocketIO.to(sockId).emit(SC_NFT_ACHIEVEMENT_EARNED, {
+                                playerAddress: achievement.playerAddress,
                                 achievementType: achievement.achievementType,
                                 handType: achievement.handType,
                                 cards: achievement.cards,

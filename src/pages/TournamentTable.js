@@ -69,6 +69,18 @@ const importINFTToMetaMask = async (tokenId) => {
   }
 };
 
+const getMetaMaskImportCopy = (tokenId) => {
+  if (!tokenId) {
+    return _lang === 'zh'
+      ? '未拿到链上 Token ID，无法自动请求 MetaMask 添加 NFT。请先在收藏页确认铸造记录。'
+      : 'No on-chain Token ID was returned, so MetaMask import cannot be requested automatically. Check the collection page first.';
+  }
+
+  return _lang === 'zh'
+    ? `如果 MetaMask 没有弹出确认，请手动导入 NFT。合约: ${POKERHAND_INFT_ADDRESS}，Token ID: ${tokenId}`
+    : `If MetaMask did not show a confirmation, import the NFT manually. Contract: ${POKERHAND_INFT_ADDRESS}, Token ID: ${tokenId}`;
+};
+
 // NFT Achievement types mapping
 const achievementTypes = {
   'STRAIGHT': { name: '顺子', icon: '🃏' },
@@ -379,11 +391,24 @@ const TournamentTableGame = ({ tournamentId }) => {
         }).then(async (result) => {
           if (result.isConfirmed) {
             // Screenshot already captured before popup was shown
+            if (!screenshotBase64) {
+              await Swal.fire({
+                title: _lang === 'zh' ? '截图失败' : 'Screenshot Failed',
+                text: _lang === 'zh'
+                  ? '没有捕获到真实游戏画面，已取消铸造。请保持游戏桌面可见后重试。'
+                  : 'No real game screenshot was captured, so minting was cancelled. Keep the game table visible and try again.',
+                icon: 'error',
+                background: '#1a1a2e',
+                color: '#fff',
+              });
+              return;
+            }
             
             // Mint NFT via socket
             const socket = require('../socket').default;
+            const achievementOwner = nftAchievement.playerAddress || walletAddress;
             socket.emit('CS_NFT_PREPARE_MINT', {
-            walletAddress: walletAddress,  // Use from context
+            walletAddress: achievementOwner,
             achievementType: nftAchievement.achievementType,
             gameSessionId: nftAchievement.gameId,
             handData: { 
@@ -428,14 +453,24 @@ const TournamentTableGame = ({ tournamentId }) => {
                       <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? 'Token ID:' : 'Token ID:'} ${mintedTokenId || '-'}</p>
                       <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${serverTx?.substring(0, 18)}...</p>
                       <p style="font-size:0.8rem;color:#aaa">${imported ? (_lang === 'zh' ? '已请求 MetaMask 导入 NFT' : 'MetaMask NFT import requested') : ''}</p>
+                      <p style="font-size:0.75rem;color:#aaa;word-break:break-all">${!imported ? getMetaMaskImportCopy(mintedTokenId) : ''}</p>
                       <p style="font-size:0.8rem;color:#aaa">${data.warning || ''}</p>
                     </div>`,
                   icon: 'success',
                   showCancelButton: true,
-                  confirmButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
+                  showDenyButton: !imported && !!mintedTokenId,
+                  confirmButtonText: imported ? (_lang === 'zh' ? '查看收藏' : 'View Collection') : (_lang === 'zh' ? '添加到 MetaMask' : 'Add to MetaMask'),
+                  denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
                   cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
-                }).then((result) => {
-                  if (result.isConfirmed) { setIsLeaving(true); navigate('/nft'); }
+                }).then(async (result) => {
+                  if (!imported && result.isConfirmed && mintedTokenId) {
+                    await importINFTToMetaMask(mintedTokenId);
+                    return;
+                  }
+                  if ((imported && result.isConfirmed) || result.isDenied) {
+                    setIsLeaving(true);
+                    navigate('/nft');
+                  }
                 });
                 return;
               }
@@ -465,7 +500,7 @@ const TournamentTableGame = ({ tournamentId }) => {
               const contractAddress = onchainContractAddress || process.env.REACT_APP_NFT_CONTRACT_ONCHAIN || window.__NFT_CONTRACT_ONCHAIN;
 
               // Detect 0G player by wallet address prefix
-              const isZeroGMinter = walletAddress?.startsWith('0x');
+              const isZeroGMinter = achievementOwner?.startsWith('0x');
 
               // === 0G NFT Mint Path (MetaMask/Ethers) ===
               if (isZeroGMinter) {
@@ -506,16 +541,16 @@ const TournamentTableGame = ({ tournamentId }) => {
 
                   const iface = new ethers.utils.Interface(abi);
                   const mintData = iface.encodeFunctionData('mint', [
-                    walletAddress,
+                    achievementOwner,
                     handTypeName,
                     '0x0000000000000000000000000000000000000000000000000000000000000000',
                     metadataURI
                   ]);
 
                   const txHash = await window.ethereum.request({
-                    method: 'eth_sendTransaction',
-                    params: [{
-                      from: walletAddress,
+                      method: 'eth_sendTransaction',
+                      params: [{
+                      from: achievementOwner,
                       to: POKERHAND_INFT_ADDRESS,
                       data: mintData
                     }]
@@ -530,7 +565,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        walletAddress: walletAddress,
+                        walletAddress: achievementOwner,
                         gameId: signature.gameId,
                         txHash: txHash,
                         tokenId: data.tokenId
@@ -553,13 +588,23 @@ const TournamentTableGame = ({ tournamentId }) => {
                         <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? 'Token ID:' : 'Token ID:'} ${mintedTokenId || '-'}</p>
                         <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${txHash?.substring(0, 18)}...</p>
                         <p style="font-size:0.8rem;color:#aaa">${imported ? (_lang === 'zh' ? '已请求 MetaMask 导入 NFT' : 'MetaMask NFT import requested') : ''}</p>
+                        <p style="font-size:0.75rem;color:#aaa;word-break:break-all">${!imported ? getMetaMaskImportCopy(mintedTokenId) : ''}</p>
                       </div>`,
                     icon: 'success',
                     showCancelButton: true,
-                    confirmButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
+                    showDenyButton: !imported && !!mintedTokenId,
+                    confirmButtonText: imported ? (_lang === 'zh' ? '查看收藏' : 'View Collection') : (_lang === 'zh' ? '添加到 MetaMask' : 'Add to MetaMask'),
+                    denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
                     cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
-                  }).then((result) => {
-                    if (result.isConfirmed) { setIsLeaving(true); navigate('/nft'); }
+                  }).then(async (result) => {
+                    if (!imported && result.isConfirmed && mintedTokenId) {
+                      await importINFTToMetaMask(mintedTokenId);
+                      return;
+                    }
+                    if ((imported && result.isConfirmed) || result.isDenied) {
+                      setIsLeaving(true);
+                      navigate('/nft');
+                    }
                   });
                 } catch (zeroGErr) {
                   console.error('[NFT] 0G mint error:', zeroGErr);
@@ -645,7 +690,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    walletAddress: walletAddress,
+                    walletAddress: achievementOwner,
                     gameId: signature.gameId,
                     txHash: tx,
                     tokenId: onchainTokenId || data.tokenId
@@ -1263,9 +1308,11 @@ const TournamentTable = () => {
   
   // Get wallet address
   const walletAddress = useMemo(() => {
-    if (contextWalletAddress) return contextWalletAddress;
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('address') || localStorage.getItem('testWalletAddress');
+    return urlParams.get('address') ||
+      contextWalletAddress ||
+      localStorage.getItem('wallet_address') ||
+      localStorage.getItem('testWalletAddress');
   }, [contextWalletAddress]);
 
   // No wallet address - show error

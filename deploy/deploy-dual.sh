@@ -1,8 +1,10 @@
 #!/bin/bash
+set -euo pipefail
+
 # ===========================================
 # QEntrix 双网络部署脚本
-# 主网:   http://43.163.114.175      (PORT 80 -> 3000, 后端 7777)
-# 测试网: http://43.163.114.175:3001 (PORT 3001,        后端 7778)
+# 主网:   http://43.163.114.175      (PORT 80 -> build-mainnet,  后端 7777)
+# 测试网: http://43.163.114.175:3001 (PORT 3001 -> build-testnet, 后端 7778)
 # ===========================================
 
 SERVER_HOST="43.163.114.175"
@@ -11,12 +13,37 @@ SERVER_PASS="QWer!@34"
 SERVER="$SERVER_USER@$SERVER_HOST"
 APP_DIR="/home/ubuntu/game-core"
 LOCAL_DIR="/Users/yingfengzhang/1JackSource/blockchain/game-core"
+CONTROL_PATH="/tmp/game-core-deploy-${SERVER_USER}-${SERVER_HOST}-22.sock"
+
+SSH_BASE_OPTS=(
+    -o StrictHostKeyChecking=no
+    -o UserKnownHostsFile=/dev/null
+    -o ControlPath="$CONTROL_PATH"
+)
+
+cleanup_mux() {
+    ssh -o ControlPath="$CONTROL_PATH" -O exit "$SERVER" >/dev/null 2>&1 || true
+}
+trap cleanup_mux EXIT
+
+ensure_mux() {
+    rm -f "$CONTROL_PATH"
+    sshpass -p "$SERVER_PASS" ssh \
+        "${SSH_BASE_OPTS[@]}" \
+        -o ControlMaster=yes \
+        -o ControlPersist=10m \
+        -fN \
+        "$SERVER"
+}
 
 run_ssh() {
-    sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no "$SERVER" "$1"
+    ssh "${SSH_BASE_OPTS[@]}" -o ControlMaster=no "$SERVER" "$1"
 }
+
 run_rsync() {
-    sshpass -p "$SERVER_PASS" rsync -avz -e "ssh -o StrictHostKeyChecking=no" "$@"
+    local ssh_cmd
+    ssh_cmd="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ControlMaster=no -o ControlPath=$CONTROL_PATH"
+    rsync -avz -e "$ssh_cmd" "$@"
 }
 
 echo "================================================"
@@ -24,6 +51,11 @@ echo "  QEntrix 双网络部署"
 echo "  主网:   http://$SERVER_HOST"
 echo "  测试网: http://$SERVER_HOST:3001"
 echo "================================================"
+
+echo ""
+echo "=== Step 0: 建立 SSH 复用连接 ==="
+ensure_mux
+run_ssh "echo 'SSH multiplexing ready'"
 
 # ---- Step 1: 同步最新源码 ----
 echo ""
@@ -33,6 +65,10 @@ run_rsync \
     --exclude='build/' \
     --exclude='build-mainnet/' \
     --exclude='build-testnet/' \
+    --exclude='build-*-next/' \
+    --exclude='build-*.previous/' \
+    --exclude='build-*.bak.*/' \
+    --exclude='build-rewired-test-backup/' \
     --exclude='.git/' \
     --exclude='*.log' \
     --exclude='ai_engine/models/' \
@@ -54,33 +90,52 @@ run_ssh "cd $APP_DIR && npm install --legacy-peer-deps 2>&1 | tail -5"
 # ---- Step 4: 构建主网前端 ----
 echo ""
 echo "=== Step 4: 构建主网前端 ==="
-run_ssh "cd $APP_DIR && \
+run_ssh "set -e; cd $APP_DIR && \
+    rm -rf build build-mainnet-next && \
     NODE_OPTIONS='--openssl-legacy-provider' \
     NODE_ENV=production \
+    GENERATE_SOURCEMAP=false \
     REACT_APP_NETWORK=mainnet \
     REACT_APP_SERVER_URI=http://$SERVER_HOST \
     REACT_APP_SERVER_PORT=7777 \
     REACT_APP_MAINNET_CONTRACT_ADDRESS=THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd \
     REACT_APP_TESTNET_CONTRACT_ADDRESS=TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c \
     REACT_APP_NFT_CONTRACT_ONCHAIN=TZ44KG9TPtWzFWKHy4SJxHFmzwbgTZU9fc \
-    npx react-scripts --openssl-legacy-provider build 2>&1 | tail -8 \
-    && mv build build-mainnet \
+    npx react-app-rewired --openssl-legacy-provider build > /tmp/game-core-build-mainnet.log 2>&1 \
+    && tail -8 /tmp/game-core-build-mainnet.log \
+    && mv build build-mainnet-next \
+    && if [ -d build-mainnet/static ]; then mkdir -p build-mainnet-next/static && cp -an build-mainnet/static/. build-mainnet-next/static/; fi \
+    && find build-mainnet-next -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' -o -name '*.ttf' -o -name '*.woff' -o -name '*.woff2' \) -print0 | xargs -0 -r gzip -kf -9 \
+    && mkdir -p build-mainnet \
+    && rsync -a --delete --delay-updates build-mainnet-next/ build-mainnet/ \
+    && rm -rf build-mainnet-next \
     && echo '主网构建完成 -> build-mainnet/'"
 
 # ---- Step 5: 构建测试网前端 ----
 echo ""
 echo "=== Step 5: 构建测试网前端 ==="
-run_ssh "cd $APP_DIR && \
+run_ssh "set -e; cd $APP_DIR && \
+    rm -rf build build-testnet-next && \
     NODE_OPTIONS='--openssl-legacy-provider' \
     NODE_ENV=production \
+    GENERATE_SOURCEMAP=false \
     REACT_APP_NETWORK=testnet \
     REACT_APP_SERVER_URI=http://$SERVER_HOST:3001 \
     REACT_APP_SERVER_PORT=7778 \
     REACT_APP_MAINNET_CONTRACT_ADDRESS=THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd \
     REACT_APP_TESTNET_CONTRACT_ADDRESS=TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c \
     REACT_APP_NFT_CONTRACT_ONCHAIN=TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC \
-    npx react-scripts --openssl-legacy-provider build 2>&1 | tail -8 \
-    && mv build build-testnet \
+    REACT_APP_ZEROG_INFT_ADDRESS=0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5 \
+    REACT_APP_ZEROG_POKERGAME_ADDRESS=0xc4975D55aD2607B14616E97B9a8E5622778eF5aE \
+    REACT_APP_TOURNAMENT_MOCK_GAME_ENABLED=true \
+    npx react-app-rewired --openssl-legacy-provider build > /tmp/game-core-build-testnet.log 2>&1 \
+    && tail -8 /tmp/game-core-build-testnet.log \
+    && mv build build-testnet-next \
+    && if [ -d build-testnet/static ]; then mkdir -p build-testnet-next/static && cp -an build-testnet/static/. build-testnet-next/static/; fi \
+    && find build-testnet-next -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' -o -name '*.ttf' -o -name '*.woff' -o -name '*.woff2' \) -print0 | xargs -0 -r gzip -kf -9 \
+    && mkdir -p build-testnet \
+    && rsync -a --delete --delay-updates build-testnet-next/ build-testnet/ \
+    && rm -rf build-testnet-next \
     && echo '测试网构建完成 -> build-testnet/'"
 
 # ---- Step 6: 修复权限 ----
@@ -91,7 +146,36 @@ run_ssh "chmod o+x /home/ubuntu && chmod -R o+r $APP_DIR/build-mainnet $APP_DIR/
 # ---- Step 7: 配置 PM2 双后端 ----
 echo ""
 echo "=== Step 7: 配置 PM2 双后端 ==="
-cat << 'PM2EOF' | sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no "$SERVER" "cat > $APP_DIR/ecosystem.config.js"
+cat << 'PM2EOF' | ssh "${SSH_BASE_OPTS[@]}" -o ControlMaster=no "$SERVER" "cat > $APP_DIR/ecosystem.config.js"
+const fs = require('fs');
+const path = require('path');
+
+function loadEnvFile(filePath) {
+  try {
+    const content = fs.readFileSync(path.resolve(__dirname, filePath), 'utf8');
+    const env = {};
+    content.split('\n').forEach(line => {
+      line = line.trim();
+      if (!line || line.startsWith('#')) return;
+      const idx = line.indexOf('=');
+      if (idx < 0) return;
+      const key = line.slice(0, idx).trim();
+      let val = line.slice(idx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) ||
+          (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      env[key] = val;
+    });
+    return env;
+  } catch (e) {
+    return {};
+  }
+}
+
+const mainnetEnv = loadEnvFile('***REMOVED***');
+const testnetEnv = loadEnvFile('.env.testnet');
+
 module.exports = {
   apps: [
     {
@@ -101,8 +185,9 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      env_file: '***REMOVED***',
       env: {
+        ...mainnetEnv,
+        ENV_FILE: '***REMOVED***',
         NODE_ENV: 'production',
         SERVER_PORT: 7777,
         MONGODB_URI: 'mongodb://localhost:27017/bridge-poker-mainnet',
@@ -116,8 +201,9 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      env_file: '.env.testnet',
       env: {
+        ...testnetEnv,
+        ENV_FILE: '.env.testnet',
         NODE_ENV: 'production',
         SERVER_PORT: 7778,
         MONGODB_URI: 'mongodb://localhost:27017/bridge-poker-testnet',
@@ -128,81 +214,162 @@ module.exports = {
 };
 PM2EOF
 
-run_ssh "cd $APP_DIR && pm2 delete all 2>/dev/null || true && pm2 start ecosystem.config.js && sleep 3 && pm2 status"
+run_ssh "set -e; cd $APP_DIR && pm2 startOrReload ecosystem.config.js --update-env && (pm2 delete testnet-frontend 2>/dev/null || true) && sleep 3 && pm2 status"
 run_ssh "pm2 save"
 
-# ---- Step 8: 配置 nginx (主网80 + 测试网3001) ----
+# ---- Step 8: 配置 nginx (主网80；测试网3001均由 Nginx 直接服务静态文件) ----
 echo ""
 echo "=== Step 8: 配置 Nginx ==="
-NGINX_CONF='server {
+cat << 'NGINXEOF' | ssh "${SSH_BASE_OPTS[@]}" -o ControlMaster=no "$SERVER" "sudo tee /etc/nginx/sites-available/game-core > /dev/null"
+server {
     listen 80;
     server_name _;
+    keepalive_timeout 0;
+    send_timeout 60s;
 
     root /home/ubuntu/game-core/build-mainnet;
     index index.html;
 
-    location / {
-        try_files $uri $uri/ /index.html;
+    sendfile off;
+    tcp_nopush off;
+    tcp_nodelay on;
+    gzip off;
+    gzip_static on;
+
+    types {
+        text/html html;
+        text/css css;
+        application/javascript js;
+        application/json json map;
+        image/png png;
+        image/jpeg jpg jpeg;
+        image/gif gif;
+        image/x-icon ico;
+        image/svg+xml svg;
+        font/ttf ttf;
+        font/woff woff;
+        font/woff2 woff2;
+        application/vnd.ms-fontobject eot;
+    }
+
+    location = /service-worker.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        return 200 "self.addEventListener('install', event => { self.skipWaiting(); });\nself.addEventListener('activate', event => { event.waitUntil((async () => { if (self.caches) { const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); } await self.clients.claim(); await self.registration.unregister(); const clients = await self.clients.matchAll({ type: 'window' }); clients.forEach(client => client.navigate(client.url)); })()); });\n";
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map|json)$ {
+        try_files $uri =404;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
     }
 
     location /api/ {
-        proxy_pass http://localhost:7777/api/;
+        proxy_pass http://127.0.0.1:7777/api/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
     location /socket.io/ {
-        proxy_pass http://localhost:7777/socket.io/;
+        proxy_pass http://127.0.0.1:7777/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_cache_bypass $http_upgrade;
+        add_header Cache-Control "no-cache";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 }
 
 server {
     listen 3001;
     server_name _;
+    keepalive_timeout 0;
+    send_timeout 60s;
 
     root /home/ubuntu/game-core/build-testnet;
     index index.html;
 
-    location / {
-        try_files $uri $uri/ /index.html;
+    sendfile off;
+    tcp_nopush off;
+    tcp_nodelay on;
+    gzip off;
+    gzip_static on;
+
+    types {
+        text/html html;
+        text/css css;
+        application/javascript js;
+        application/json json map;
+        image/png png;
+        image/jpeg jpg jpeg;
+        image/gif gif;
+        image/x-icon ico;
+        image/svg+xml svg;
+        font/ttf ttf;
+        font/woff woff;
+        font/woff2 woff2;
+        application/vnd.ms-fontobject eot;
+    }
+
+    location = /service-worker.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        return 200 "self.addEventListener('install', event => { self.skipWaiting(); });\nself.addEventListener('activate', event => { event.waitUntil((async () => { if (self.caches) { const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); } await self.clients.claim(); await self.registration.unregister(); const clients = await self.clients.matchAll({ type: 'window' }); clients.forEach(client => client.navigate(client.url)); })()); });\n";
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map|json)$ {
+        try_files $uri =404;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
     }
 
     location /api/ {
-        proxy_pass http://localhost:7778/api/;
+        proxy_pass http://127.0.0.1:7778/api/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
     location /socket.io/ {
-        proxy_pass http://localhost:7778/socket.io/;
+        proxy_pass http://127.0.0.1:7778/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_cache_bypass $http_upgrade;
+        add_header Cache-Control "no-cache";
     }
-}'
 
-echo "$NGINX_CONF" | sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no "$SERVER" "sudo tee /etc/nginx/sites-available/game-core > /dev/null"
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+}
+NGINXEOF
+
 run_ssh "sudo nginx -t && sudo systemctl reload nginx && echo 'Nginx reloaded'"
 
 # ---- Step 9: 验证 ----

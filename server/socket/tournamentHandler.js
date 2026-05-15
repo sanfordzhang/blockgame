@@ -118,6 +118,7 @@ function initTournamentHandlers(socket, io) {
             
             if (result.hasAchievement) {
                 socket.emit(SC_NFT_ACHIEVEMENT_EARNED, {
+                    playerAddress: walletAddress,
                     achievementType: result.achievementType,
                     handType: result.handType,
                     cards: result.cards,

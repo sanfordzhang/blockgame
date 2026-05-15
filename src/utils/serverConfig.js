@@ -77,13 +77,24 @@ const getFallbackServerUri = () => {
   return `http://localhost:${DEFAULT_SERVER_PORT}`;
 };
 
-export const getServerBaseUrl = () =>
-  normalizeBaseUrl(
+export const getServerBaseUrl = () => {
+  const url = normalizeBaseUrl(
     getRuntimeServerUri() ||
       getEnvVar('REACT_APP_SERVER_URI') ||
       getEnvVar('REACT_APP_SERVER_URL') ||
       getFallbackServerUri()
   );
+
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    console.log('[serverConfig] Server base URL resolved:', url);
+    console.log('  - runtimeUri:', getRuntimeServerUri());
+    console.log('  - env SERVER_URI:', getEnvVar('REACT_APP_SERVER_URI'));
+    console.log('  - env SERVER_URL:', getEnvVar('REACT_APP_SERVER_URL'));
+    console.log('  - fallback:', getFallbackServerUri());
+  }
+
+  return url;
+};
 
 export const getSocketBaseUrl = () =>
   normalizeBaseUrl(getEnvVar('REACT_APP_SOCKET_URI') || getServerBaseUrl());

@@ -85,12 +85,15 @@ const convertToTableFormat = (state, tournamentId, playerAddress) => {
  * TournamentGameContext - 锦标赛游戏状态管理
  * 提供与 gameContext 相同的接口，复用 Play.js 的 UI 组件
  */
-export const TournamentGameProvider = ({ children, tournamentId }) => {
+export const TournamentGameProvider = ({ children, tournamentId, walletAddress: walletAddressProp }) => {
   const { walletAddress: contextWalletAddress } = useContext(globalContext);
   
-  // Get wallet address from context or URL params
-  const walletAddress = contextWalletAddress || 
-    new URLSearchParams(window.location.search).get('address') || 
+  // Tournament routes carry the active player in the URL. Prefer that over
+  // stale global/local wallet state from a previously connected account.
+  const walletAddress = walletAddressProp ||
+    new URLSearchParams(window.location.search).get('address') ||
+    contextWalletAddress ||
+    localStorage.getItem('wallet_address') ||
     localStorage.getItem('testWalletAddress');
 
   // Game state - same interface as gameContext

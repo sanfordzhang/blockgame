@@ -11,6 +11,8 @@ import { useZeroG } from '../context/zero-g/ZeroGContext';
 import socket from '../socket';
 import PokerCard from '../components/game/PokerCard';
 
+const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+
 const NFTGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -380,6 +382,60 @@ const NFTGallery = () => {
     localStorage.setItem('wallet_address', addr);
     localStorage.setItem('testWalletAddress', addr);
   }, [setWalletAddress, setWalletType]);
+
+  const importINFTToMetaMask = useCallback(async (tokenId) => {
+    if (!window.ethereum) {
+      window.alert('MetaMask is not available.');
+      return;
+    }
+    if (!tokenId) {
+      window.alert('Missing on-chain Token ID.');
+      return;
+    }
+
+    try {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x40DA' }],
+        });
+      } catch (switchError) {
+        if (switchError.code !== 4902) throw switchError;
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x40DA',
+            chainName: '0G Testnet',
+            nativeCurrency: { name: '0G Token', symbol: '0G', decimals: 18 },
+            rpcUrls: ['https://evmrpc-galileo.0g.ai'],
+            blockExplorerUrls: ['https://chainscan-galileo.0g.ai'],
+          }],
+        });
+      }
+
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const activeAccount = accounts?.[0];
+      if (walletAddress?.startsWith('0x') && activeAccount &&
+          activeAccount.toLowerCase() !== walletAddress.toLowerCase()) {
+        window.alert(`Switch MetaMask to the owner account first:\n${walletAddress}`);
+        return;
+      }
+
+      await window.ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC721',
+          options: {
+            address: POKERHAND_INFT_ADDRESS,
+            tokenId: String(tokenId),
+          },
+        },
+      });
+    } catch (err) {
+      console.error('[NFTGallery] MetaMask import failed:', err);
+      window.alert(err.message || 'Failed to add NFT to MetaMask.');
+    }
+  }, [walletAddress]);
 
   // Achievement types with numeric rarity
   const achievementTypes = {
@@ -793,6 +849,8 @@ const NFTGallery = () => {
               const achievement = achievementTypes[nft.achievementType] || achievementTypes[nft.achievementTypeId] || {};
               const rarity = nft.achievementTypeId || achievement.rarity || 6;
               const hasScreenshot = nft.gameScreenshot && nft.gameScreenshot.length > 100;
+              const chainTokenId = nft.onchainTokenId || nft.tokenId;
+              const isZeroGNFT = !!nft.onchainTokenId || (walletAddress || '').startsWith('0x');
               
               return (
                 <CollectionCard key={nft.tokenId} rarity={rarity}>
@@ -835,6 +893,28 @@ const NFTGallery = () => {
                       <span style={{ color: 'rgba(255,255,255,0.5)' }}>Minted: </span>
                       <span style={{ color: 'rgba(255,255,255,0.8)' }}>{formatDate(nft.claimedAt || nft.createdAt)}</span>
                     </AchievementType>
+                    <AchievementType>
+                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>Chain Token ID: </span>
+                      <span style={{ color: '#fff' }}>{chainTokenId}</span>
+                    </AchievementType>
+                    {isZeroGNFT && nft.onchainTokenId && (
+                      <button
+                        type="button"
+                        onClick={() => importINFTToMetaMask(nft.onchainTokenId)}
+                        style={{
+                          marginTop: '0.75rem',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(98, 126, 234, 0.6)',
+                          background: 'rgba(98, 126, 234, 0.14)',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          width: '100%'
+                        }}
+                      >
+                        Add to MetaMask
+                      </button>
+                    )}
                     {nft.gameId && (
                       <Text size="0.7rem" color="rgba(255,255,255,0.4)" marginTop="0.25rem">
                         Game: {nft.gameId}
