@@ -10,7 +10,7 @@ import useScrollToTopOnPageLoad from '../hooks/useScrollToTopOnPageLoad';
 import { preloadGameAssets, emergencyPreload } from '../utils/gamePreload';
 import Markdown from 'react-remarkable';
 import { connectMetamask } from '../utils/interact';
-import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, getCustodyBalance, normalizeBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract, getPokerGame0GAddress } from '../utils/zeroGInteract';
+import { connectWallet as connectZeroGWallet, switchChain, getBalance as get0GBalance, getGameBalance, normalizeBalance, disconnectWallet, ensureCorrectChain, withdrawFromContract, getPokerGame0GAddress } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
 import globalContext from '../context/global/globalContext';
 import socketContext from '../context/websocket/socketContext';
@@ -108,6 +108,15 @@ const Landing = () => {
   const [zeroGServerAddress, setZeroGServerAddress] = useState(null);
   // Track which wallet type is connected: 'tron' | 'zerog' | null
   const [localWalletType, setLocalWalletType] = useState(null);
+
+  const applyZeroGGameBalance = useCallback((info, source = 'zerog') => {
+    const available = parseFloat(normalizeBalance(info?.balance || info?.available || '0')) || 0;
+    const locked = parseFloat(normalizeBalance(info?.locked || '0')) || 0;
+    setContractBalance(available);
+    setLockedBalance(locked);
+    console.log('[Landing] 0G game balance:', { source, available, locked, total: available + locked });
+    return { available, locked, total: available + locked };
+  }, [setContractBalance]);
 
   // Calculate balances
   // contractBalance = balance (available in contract)
@@ -223,13 +232,12 @@ const Landing = () => {
             setIsRegistered(true);
             setWalletBalance(parseFloat(bal));
 
-            // Fetch 0G game balance from PokerGame0G contract
+            // Fetch 0G game balance from PokerGame0G contract (custody + active-table locked)
             try {
-              const custodyBal = await getCustodyBalance(walletAddress);
-              setContractBalance(parseFloat(normalizeBalance(custodyBal)));
-              console.log('[Landing] 0G custody balance (checkReg):', normalizeBalance(custodyBal));
+              const gameBal = await getGameBalance(walletAddress);
+              applyZeroGGameBalance(gameBal, 'checkReg');
             } catch (e) {
-              console.warn('[Landing] Failed to fetch 0G custody balance:', e.message);
+              console.warn('[Landing] Failed to fetch 0G game balance:', e.message);
             }
             return;
           }
@@ -252,32 +260,34 @@ const Landing = () => {
       }
     };
     checkRegistration();
-  }, [walletAddress, localWalletType]);
+  }, [walletAddress, localWalletType, applyZeroGGameBalance]);
 
   // Sync contractBalance from GlobalState.chipsAmount when returning from game
   // GameState.js updates chipsAmount via SC_BALANCE_SYNCED during gameplay
   // This ensures Landing always shows the latest balance after games end
   useEffect(() => {
     if (chipsAmount !== null && chipsAmount !== undefined) {
+      if (localWalletType === 'zerog' && walletAddress) {
+        getGameBalance(walletAddress)
+          .then(gameBal => applyZeroGGameBalance(gameBal, 'chips-sync'))
+          .catch(() => {});
+        return;
+      }
       const normalized = parseFloat(normalizeBalance(chipsAmount));
       console.log('[Landing] Syncing contractBalance from chipsAmount:', { chipsAmount, normalized, current: contractBalance });
       setContractBalance(normalized);
     }
-  }, [chipsAmount]);
+  }, [chipsAmount, localWalletType, walletAddress, applyZeroGGameBalance]);
 
-  // On mount and when wallet changes, ALWAYS re-fetch 0G custody balance from contract
+  // On mount and when wallet changes, ALWAYS re-fetch 0G game balance from contract
   // This ensures the most accurate balance is shown (not relying solely on socket sync)
   useEffect(() => {
     if (walletAddress && localWalletType === 'zerog' && isRegistered) {
-      getCustodyBalance(walletAddress).then(custodyBal => {
-        const normalized = parseFloat(normalizeBalance(custodyBal));
-        if (normalized > 0) {
-          console.log('[Landing] Fresh 0G custody balance:', normalized);
-          setContractBalance(normalized);
-        }
-      }).catch(() => {});
+      getGameBalance(walletAddress)
+        .then(gameBal => applyZeroGGameBalance(gameBal, 'fresh'))
+        .catch(() => {});
     }
-  }, [walletAddress, localWalletType, isRegistered]);
+  }, [walletAddress, localWalletType, isRegistered, applyZeroGGameBalance]);
 
   // Update default deposit amount based on chain type
   useEffect(() => {
@@ -399,14 +409,13 @@ const Landing = () => {
         const bal = await get0GBalance(walletAddress);
         setWalletBalance(parseFloat(bal));
 
-        // Also fetch game (custody) balance from PokerGame0G contract
+        // Also fetch game balance from PokerGame0G contract
         if (isRegistered) {
           try {
-            const custodyBal = await getCustodyBalance(walletAddress);
-            setContractBalance(parseFloat(normalizeBalance(custodyBal)));
-            console.log('[Landing] 0G custody balance:', normalizeBalance(custodyBal));
+            const gameBal = await getGameBalance(walletAddress);
+            applyZeroGGameBalance(gameBal, 'refresh');
           } catch (e) {
-            console.warn('[Landing] Failed to fetch 0G custody balance:', e.message);
+            console.warn('[Landing] Failed to fetch 0G game balance:', e.message);
           }
         }
       } else {
@@ -533,7 +542,7 @@ const Landing = () => {
         console.log('[Landing] Depositing', amountEth, '0G to contract...');
         const POKERGAME_0G_ADDRESS = getPokerGame0GAddress();
         const DEPOSIT_ABI = ['function deposit() payable'];
-        const valueWei = '0x' + (amountEth * 1e18).toString(16);
+        const valueWei = ethers.utils.parseEther(depositAmount).toHexString();
         
         const txParams = {
           from: walletAddress,
@@ -577,10 +586,10 @@ const Landing = () => {
         attempts++;
         try {
           if (localWalletType === 'zerog') {
-            // For 0G: keep contractBalance as-is from optimistic update
-            // (polling contract balance requires on-chain query, skip for testnet)
             const bal = await get0GBalance(walletAddress);
             setWalletBalance(parseFloat(bal));
+            const gameBal = await getGameBalance(walletAddress);
+            applyZeroGGameBalance(gameBal, 'deposit-poll');
           } else {
             const balance = await getPlayerBalance(walletAddress);
             setContractBalance(balance.balance);

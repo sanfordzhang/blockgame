@@ -297,35 +297,55 @@ export async function getBalance(address) {
 }
 
 /**
- * Get player's custody (game) balance from PokerGame0G contract
- * Uses server API first, falls back to direct RPC call
+ * Get player's 0G game balance from PokerGame0G contract.
+ * `balance` is spendable custody, `locked` is active-table funds, `total` is both.
  * @param {string} address - EVM wallet address
- * @returns {Promise<string>} Balance as decimal string (in 0G tokens)
+ * @returns {Promise<{balance: string, locked: string, total: string, rawBalance: string, rawLockedBalance: string, rawTotalBalance: string}>}
  */
-export async function getCustodyBalance(address) {
-    if (!address || !address.startsWith('0x')) return '0';
+export async function getGameBalance(address) {
+    const zero = {
+        balance: '0',
+        locked: '0',
+        total: '0',
+        rawBalance: '0',
+        rawLockedBalance: '0',
+        rawTotalBalance: '0'
+    };
+
+    if (!address || !address.startsWith('0x')) return zero;
 
     // Try server API first
     try {
         const response = await fetch(buildApiUrl(`/api/0g/balance/${address}`));
         if (response.ok) {
             const data = await response.json();
-            if (data.success && data.balance) {
-                console.log('[zeroG] Custody balance via API:', data.balance);
-                return data.balance;
+            if (data.success) {
+                const balance = data.balance || data.available || '0';
+                const locked = data.locked || '0';
+                const total = data.total || String((parseFloat(balance) || 0) + (parseFloat(locked) || 0));
+                const info = {
+                    balance,
+                    locked,
+                    total,
+                    rawBalance: data.rawBalance || '0',
+                    rawLockedBalance: data.rawLockedBalance || '0',
+                    rawTotalBalance: data.rawTotalBalance || '0'
+                };
+                console.log('[zeroG] Game balance via API:', info);
+                return info;
             }
         }
     } catch (e) {
-        console.warn('[zeroG] API balance fetch failed, trying RPC:', e.message);
+        console.warn('[zeroG] API game balance fetch failed, trying RPC:', e.message);
     }
 
     // Fallback: direct RPC call to PokerGame0G contract
     const CONTRACT_ADDRESS = getPokerGame0GAddress();
-    const ABI = ['function getCustodyBalance(address player) view returns (uint256)'];
+    const ABI = ['function getPlayerInfo(address player) view returns (uint256 balance, uint256 lockedAmount, bool isRegistered)'];
 
     try {
         const iface = new ethers.utils.Interface(ABI);
-        const data = iface.encodeFunctionData('getCustodyBalance', [address]);
+        const data = iface.encodeFunctionData('getPlayerInfo', [address]);
 
         for (const rpcUrl of [
             'https://evmrpc-galileo.0g.ai',
@@ -344,17 +364,54 @@ export async function getCustodyBalance(address) {
                 });
                 const result = await response.json();
                 if (result.result) {
-                    const balWei = parseInt(result.result, 16);
-                    const bal = (balWei / 1e18).toString();
-                    console.log(`[zeroG] Custody balance via ${rpcUrl}: ${bal}`);
-                    return bal;
+                    const decoded = iface.decodeFunctionResult('getPlayerInfo', result.result);
+                    const rawBalance = decoded.balance.toString();
+                    const rawLockedBalance = decoded.lockedAmount.toString();
+                    const rawTotalBalance = decoded.balance.add(decoded.lockedAmount).toString();
+                    const info = {
+                        balance: ethers.utils.formatEther(decoded.balance),
+                        locked: ethers.utils.formatEther(decoded.lockedAmount),
+                        total: ethers.utils.formatEther(decoded.balance.add(decoded.lockedAmount)),
+                        rawBalance,
+                        rawLockedBalance,
+                        rawTotalBalance
+                    };
+                    console.log(`[zeroG] Game balance via ${rpcUrl}:`, info);
+                    return info;
                 }
             } catch (e) { /* try next RPC */ }
         }
     } catch (e) {
-        console.error('[zeroG] RPC custody balance failed:', e.message);
+        console.error('[zeroG] RPC game balance failed:', e.message);
     }
 
+    return zero;
+}
+
+/**
+ * Get player's spendable custody balance from PokerGame0G contract
+ * Uses server API first, falls back to direct RPC call
+ * @param {string} address - EVM wallet address
+ * @returns {Promise<string>} Custody balance as decimal string (in 0G tokens)
+ */
+export async function getCustodyBalance(address) {
+    const info = await getGameBalance(address);
+    console.log('[zeroG] Custody balance:', info.balance);
+    return info.balance;
+}
+
+/**
+ * Backwards-compatible alias for the total 0G game balance.
+ */
+export async function getTotalGameBalance(address) {
+    const info = await getGameBalance(address);
+    return info.total;
+}
+
+/**
+ * Return zero when no custody balance can be read.
+ */
+export async function getCustodyBalanceFallback() {
     return '0';
 }
 
