@@ -2,32 +2,60 @@
 
 # dependencies
 /node_modules
+node_modules/
+ai_venv/
 /.pnp
 .pnp.js
 
 # testing
 /coverage
+/test-results/
+/test-results*/
+/playwright-report/
+/screenshots/
+/tests/e2e/screenshots/
 
 # production
 /build
+/build-*/
+/dist/
 
 # misc
 .DS_Store
-.env.development.local
-.env.test.local
-.env.production.local
+.env
+.env.*
+!.env.template
+*.log
+*.bak
+*.backup
+*.tmp
+*.gz
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.env
-***REMOVED***
-.env.testnet
-/tests/e2e/screenshots
-/test-resultsOLD
-/test-results
-/test-results_副本
-/ai_engine/models/nfsp_v1_副本
-/screenshots
-/logs
-/build-rewired-test-backup
+
+# generated contract/build output
+/artifacts/
+/cache/
+
+# runtime logs and local diagnostics
+/logs/
+/2026-*.txt
+
+# local tool/workspace state
+/.claude/
+/.amazonq/
+/.codebuddy/
+/.workbuddy/
+/.vscode/
+
+# Python/cache/model output
+__pycache__/
+*.pyc
+*.pyo
+/ai_engine/models/
+*.pt
+
+# local binaries and large generated files
+/bun
