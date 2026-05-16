@@ -59,3 +59,12 @@ __pycache__/
 
 # local binaries and large generated files
 /bun
+ai_engine/models/nfsp_v1/agent_1_checkpoint.pt
+ai_engine/models/nfsp_v1/agent_0_checkpoint.pt
+cdp-scripts/cdp-play-game-0g.js
+docs/HACKATHON_PROGRESS_EXECUTIVE_EN.md
+docs/HACKATHON_PROGRESS_BRIEF_EN.md
+docs/HACKATHON_PROGRESS_BRIEF.md
+docs/HACKATHON_PROGRESS.md
+cdp-scripts/cdp-play-game-0g.js
+cdp-scripts/cdp-play-game-0g.js
