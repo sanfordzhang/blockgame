@@ -34,7 +34,7 @@ const PLAYER = {
 // 0G 机器人钱包
 const BOT = {
     address: process.env.BOT_ADDRESS || '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
-    privateKey: process.env.BOT_PRIVATE_KEY,
+    privateKey: process.env.BOT_PRIVATE_KEY || '[REMOVED BOT KEY - SET BOT_PRIVATE_KEY ENV VAR]',
     get addressLower() {
         return this.address.toLowerCase();
     }
