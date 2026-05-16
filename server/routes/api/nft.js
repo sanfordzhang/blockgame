@@ -121,10 +121,13 @@ router.post('/detect', async (req, res) => {
 router.get('/collection/:walletAddress', async (req, res) => {
     try {
         const { walletAddress } = req.params;
-        // 直接使用NFTClaim模型查询数据库
-        const nfts = await NFTClaim.findByPlayer(walletAddress);
-        console.log('[NFT API] Collection query for', walletAddress, 'found', nfts.length, 'NFTs');
-        res.json({ success: true, nfts });
+        const { chain } = req.query;
+        const nfts = chain
+            ? await NFTClaim.findByPlayerAndChain(walletAddress, chain)
+            : await NFTClaim.findByPlayer(walletAddress);
+
+        console.log('[NFT API] Collection query for', walletAddress, chain ? `chain=${chain}` : 'all', 'found', nfts.length, 'NFTs');
+        res.json({ success: true, nfts, chain: chain || 'all' });
     } catch (error) {
         console.error('[NFT API] Collection error:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -368,7 +371,14 @@ router.post('/confirm-mint', async (req, res) => {
                 $set: { 
                     txHash: txHash,
                     onchainTokenId: resolvedTokenId ? parseInt(resolvedTokenId, 10) : tokenId,
-                    mintedAt: new Date()
+                    mintedAt: new Date(),
+                    ...(walletAddress?.startsWith('0x') ? {
+                        chain: '0G',
+                        tokenStandard: 'ERC-7857',
+                        contractAddress: process.env.ZEROG_INFT_ADDRESS || null
+                    } : {
+                        chain: 'TRON'
+                    })
                 } 
             }
         );

@@ -312,12 +312,16 @@ class NFTService {
      * Record NFT claim
      */
     async recordClaim(playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId) {
+        const isZeroGClaim = playerAddress?.startsWith('0x');
         const claim = new NFTClaim({
             playerAddress,
             achievementTypeId,
             achievementType: this._getAchievementTypeName(achievementTypeId),
             tokenId,
             txHash,
+            chain: isZeroGClaim ? '0G' : 'TRON',
+            tokenStandard: isZeroGClaim ? 'ERC-7857' : 'TRC-721',
+            contractAddress: isZeroGClaim ? (process.env.ZEROG_INFT_ADDRESS || null) : (this.contractAddress || process.env.NFT_CONTRACT_ONCHAIN || null),
             handDescription,
             gameId,
             yearMonth: NFTClaim.getYearMonth()
@@ -522,12 +526,16 @@ module.exports = {
         return nftServiceInstance.generateMintSignature(playerAddress, achievementTypeId, gameId);
     },
     recordClaim: async (playerAddress, achievementTypeId, tokenId, txHash, handDescription, gameId, cards) => {
+        const isZeroGClaim = playerAddress?.startsWith('0x');
         const claim = new NFTClaim({
             playerAddress,
             achievementTypeId,
             achievementType: ['ROYAL_FLUSH', 'STRAIGHT_FLUSH', 'FOUR_OF_A_KIND', 'FULL_HOUSE', 'FLUSH', 'STRAIGHT'][achievementTypeId - 1],
             tokenId,
             txHash,
+            chain: isZeroGClaim ? '0G' : 'TRON',
+            tokenStandard: isZeroGClaim ? 'ERC-7857' : 'TRC-721',
+            contractAddress: isZeroGClaim ? (process.env.ZEROG_INFT_ADDRESS || null) : (process.env.NFT_CONTRACT_ONCHAIN || null),
             handDescription,
             gameId,
             cards: cards || [],
@@ -552,14 +560,32 @@ module.exports = {
     prepareMint: async (walletAddress, data) => {
         const { achievementType, gameSessionId, handData } = data;
         const blockchainMode = process.env.BLOCKCHAIN_MODE || 'tron';
-        const requiresRealScreenshot = walletAddress?.startsWith('0x') && (blockchainMode === '0g' || blockchainMode === 'both');
+        const isZeroGWallet = walletAddress?.startsWith('0x');
+        const isZeroGMint = isZeroGWallet && (blockchainMode === '0g' || blockchainMode === 'both');
+        const requiresRealScreenshot = isZeroGMint;
+        const onchainMintTimeoutMs = parseInt(process.env.NFT_ONCHAIN_MINT_TIMEOUT_MS || '75000', 10);
+        const withOperationTimeout = (promise, timeoutMs, errorMessage) => {
+            let timeoutId;
+            return Promise.race([
+                Promise.resolve(promise).finally(() => clearTimeout(timeoutId)),
+                new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+                })
+            ]);
+        };
         const normalizeScreenshot = (value) => {
             if (typeof value !== 'string') return null;
             const raw = value.includes(',') ? value.split(',').pop() : value;
             const trimmed = raw.trim();
             return trimmed.length > 1000 ? trimmed : null;
         };
+        const detectScreenshotFormat = (value) => {
+            if (typeof value !== 'string') return 'png';
+            const match = value.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,/);
+            return match?.[1] || 'png';
+        };
         const screenshot = normalizeScreenshot(data?.screenshot);
+        const screenshotFormat = detectScreenshotFormat(data?.screenshot);
         
         // Get type ID from type name
         const typeIds = {
@@ -634,11 +660,16 @@ module.exports = {
             rarity: rarityMap[achievementTypeName] || 'COMMON',
             tokenId,
             txHash: null, // Will be updated when blockchain tx completes
+            chain: isZeroGWallet ? '0G' : 'TRON',
+            tokenStandard: isZeroGWallet ? 'ERC-7857' : 'TRC-721',
+            contractAddress: isZeroGWallet
+                ? (process.env.ZEROG_INFT_ADDRESS || null)
+                : (process.env.NFT_CONTRACT_ONCHAIN || null),
             handDescription,
             gameId,
             cards: parsedCards,
             gameScreenshot: screenshot,
-            screenshotFormat: 'png',
+            screenshotFormat,
             yearMonth: NFTClaim.getYearMonth()
         });
         
@@ -654,6 +685,7 @@ module.exports = {
         ).replace(/\/$/, '')}/api/nft/metadata/inft/${claim._id.toString()}`;
         
         if (blockchainMode === '0g' || blockchainMode === 'both') {
+            let pendingZeroGMintTxHash = null;
             try {
                 const ethers6 = require('ethers6');
                 const { getZeroGService } = require('../blockchain/blockchainFactory');
@@ -676,14 +708,28 @@ module.exports = {
                         '0x0000000000000000000000000000000000000000000000000000000000000000',
                         metadataURI
                     ];
-                    const estimatedGas = await inftContract.mint.estimateGas(...mintArgs);
+                    const estimatedGas = await withOperationTimeout(
+                        inftContract.mint.estimateGas(...mintArgs),
+                        Math.min(onchainMintTimeoutMs, 30000),
+                        '0G mint gas estimation timed out'
+                    );
                     const gasLimit = (estimatedGas * 130n) / 100n;
                     console.log(`[NFTService] 0G mint gas estimate=${estimatedGas.toString()} limit=${gasLimit.toString()} metadataURI=${metadataURI}`);
 
                     // Call mint(address to, string handType, string storageRootHash, string metadataURI)
-                    const tx = await inftContract.mint(...mintArgs, { gasLimit });
-                    
-                    const receipt = await tx.wait();
+                    const tx = await withOperationTimeout(
+                        inftContract.mint(...mintArgs, { gasLimit }),
+                        Math.min(onchainMintTimeoutMs, 30000),
+                        '0G mint transaction submission timed out'
+                    );
+                    pendingZeroGMintTxHash = tx.hash;
+                    console.log(`[NFTService] 0G mint submitted tx=${tx.hash}; waiting for confirmation...`);
+
+                    const receipt = await withOperationTimeout(
+                        tx.wait(),
+                        onchainMintTimeoutMs,
+                        `0G mint transaction confirmation timed out after ${onchainMintTimeoutMs}ms: ${tx.hash}`
+                    );
                     const mintEvent = receipt.logs
                         .map((log) => {
                             try { return inftContract.interface.parseLog(log); } catch (_) { return null; }
@@ -706,13 +752,25 @@ module.exports = {
                     claim.txHash = receipt.hash;
                     claim.onchainTokenId = parseInt(actualTokenId);
                     claim.mintedAt = new Date();
+                    claim.chain = '0G';
+                    claim.tokenStandard = 'ERC-7857';
+                    claim.contractAddress = inftAddr;
                     await claim.save();
                 } else {
                     console.warn('[NFTService] 0G service not available, skipping on-chain mint');
                 }
             } catch (ogErr) {
                 console.error('[NFTService] ❌ 0G On-Chain Mint ERROR:', ogErr.message);
-                onchainResult = { success: false, error: ogErr.message, chain: '0g' };
+                if (pendingZeroGMintTxHash) {
+                    claim.txHash = pendingZeroGMintTxHash;
+                    await claim.save();
+                }
+                onchainResult = {
+                    success: false,
+                    error: ogErr.message,
+                    chain: '0G',
+                    txHash: pendingZeroGMintTxHash
+                };
             }
         }
 
@@ -740,6 +798,12 @@ module.exports = {
                 metadata,
                 onchainContractAddress: process.env.ZEROG_INFT_ADDRESS || process.env.NFT_CONTRACT_ONCHAIN,
             };
+        }
+
+        if (walletAddress.startsWith('0x') && (blockchainMode === '0g' || blockchainMode === 'both')) {
+            const detail = onchainResult?.error || '0G service not available';
+            const txHint = onchainResult?.txHash ? ` tx=${onchainResult.txHash}` : '';
+            throw new Error(`0G on-chain mint failed: ${detail}${txHint}`);
         }
 
         // Validate SERVER_PRIVATE_KEY exists (required for TRON signing path or fallback)

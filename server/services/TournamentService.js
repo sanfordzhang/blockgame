@@ -545,8 +545,10 @@ class TournamentService {
             const result = table.handleDisconnect(socketId, walletAddress);
             if (result) {
                 console.log(`[TournamentService] Player disconnected from tournament ${tournamentId}`);
+                return result;
             }
         }
+        return null;
     }
     
     // ============ Broadcasting ============
@@ -833,6 +835,7 @@ let tournamentServiceInstance = null;
 // Test mode globals (used when tournamentServiceInstance is null)
 let testModeSocketIO = null;
 let testModeActiveTables = new Map();
+let testModeStartPromises = new Map();
 
 const ZERO_G_WEI_PER_SUN = 1000000000n;
 const ZERO_G_WEI_PER_TOKEN = 1000000000000000000n;
@@ -929,6 +932,202 @@ function buildTournamentGameState(tournamentId, table, walletAddress = null) {
     return gameState;
 }
 
+function broadcastTestModeGameState(tournamentId, table) {
+    if (!testModeSocketIO || !table) return;
+
+    const roomName = `tournament:${tournamentId}`;
+    const roomSockets = testModeSocketIO.sockets.adapter.rooms.get(roomName);
+    console.log(`[TournamentService] broadcastTestModeGameState: tournament=${tournamentId}, sockets=${roomSockets ? roomSockets.size : 0}, turn=${table.turn}`);
+
+    if (roomSockets && roomSockets.size > 0) {
+        for (const sockId of roomSockets) {
+            const socket = testModeSocketIO.sockets.sockets.get(sockId);
+            const playerWallet = socket?.walletAddress ||
+                socket?.handshake?.query?.address ||
+                socket?.request?.query?.address;
+            const personalState = buildTournamentGameState(tournamentId, table, playerWallet);
+            testModeSocketIO.to(sockId).emit('tournament_game_state', personalState);
+        }
+        return;
+    }
+
+    testModeSocketIO.to(roomName).emit('tournament_game_state', buildTournamentGameState(tournamentId, table));
+}
+
+function attachTestModeTableHandlers(tournamentId, table) {
+    table.onTournamentEnd = (data) => {
+        console.log(`[TournamentService] Test mode: >>> Tournament ${tournamentId} ended`, data);
+        if (testModeSocketIO) {
+            testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', {
+                tournamentId,
+                isTournament: true,
+                isTournamentActive: false,
+                handOver: true,
+                board: [],
+                seats: {},
+                rankings: data.rankings,
+                reason: data.reason || 'elimination'
+            });
+        }
+
+        module.exports._handleTournamentEnd(tournamentId, data).catch(err => {
+            console.error(`[TournamentService] Test mode: _handleTournamentEnd error:`, err);
+        }).finally(() => {
+            testModeActiveTables.delete(tournamentId);
+            console.log(`[TournamentService] Test mode: >>> Removed from activeTables`);
+        });
+    };
+
+    table.onNextHand = (data) => {
+        console.log(`[TournamentService] Test mode: Next hand starting`, data);
+        if (!testModeSocketIO) return;
+
+        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_blind_update', {
+            tournamentId,
+            blindLevel: data.blindLevel,
+            smallBlind: data.smallBlind,
+            bigBlind: data.bigBlind,
+            handNumber: data.handNumber
+        });
+
+        setTimeout(() => {
+            try {
+                broadcastTestModeGameState(tournamentId, table);
+            } catch (error) {
+                console.error(
+                    `[TournamentService] Test mode: next-hand broadcast failed for ${tournamentId}:`,
+                    error?.stack || error?.message || error
+                );
+            }
+        }, 500);
+    };
+}
+
+function createTestModeTableFromTournament(tournament) {
+    const TournamentTable = require('../pokergame/TournamentTable');
+    const tournamentId = tournament.tournamentId;
+    const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
+    const initialChips = tournament.config?.initialChips || 2000000;
+
+    console.log(`[TournamentService] Test mode: Creating table for ${tournamentId} with mockGame=${tournament.mockGame}`);
+    const table = new TournamentTable(
+        tournamentId,
+        requiredPlayerCount,
+        initialChips,
+        null,
+        tournament.mockGame || false
+    );
+
+    attachTestModeTableHandlers(tournamentId, table);
+
+    for (let i = 0; i < tournament.players.length; i++) {
+        const player = tournament.players[i];
+        const playerAddress = player.address;
+        const shortAddress = playerAddress
+            ? `${playerAddress.substring(0, 4)}...${playerAddress.substring(playerAddress.length - 4)}`
+            : `Player ${i + 1}`;
+        const tablePlayer = {
+            address: player.address,
+            socketId: player.socketId,
+            id: player.address,
+            name: shortAddress
+        };
+
+        if (typeof table.addPlayer === 'function') {
+            table.addPlayer(tablePlayer);
+        }
+        table.sitPlayer(tablePlayer, i + 1, initialChips);
+    }
+
+    return table;
+}
+
+function startTestModeFirstHand(tournamentId, table, delayMs = 500) {
+    if (!table || table._firstHandScheduled || !table.isTournamentActive) return;
+    if (!table.handOver || table.turn !== null && table.turn !== undefined) return;
+
+    table._firstHandScheduled = true;
+    setTimeout(() => {
+        try {
+            if (testModeActiveTables.get(tournamentId) !== table || !table.isTournamentActive) return;
+
+            console.log(`[TournamentService] Test mode: >>> Starting first hand for ${tournamentId}...`);
+            table.startNextHand();
+            console.log(`[TournamentService] Test mode: startNextHand done. table.turn=${table.turn}`);
+            broadcastTestModeGameState(tournamentId, table);
+        } catch (error) {
+            console.error(
+                `[TournamentService] Test mode: initial hand start failed for ${tournamentId}:`,
+                error?.stack || error?.message || error
+            );
+        }
+    }, delayMs);
+}
+
+async function ensureTestModeTournamentStarted(tournamentId, options = {}) {
+    const activeTable = testModeActiveTables.get(tournamentId);
+    if (activeTable) {
+        startTestModeFirstHand(tournamentId, activeTable, options.firstHandDelayMs ?? 500);
+        return activeTable;
+    }
+
+    const existingPromise = testModeStartPromises.get(tournamentId);
+    if (existingPromise) return existingPromise;
+
+    const startPromise = (async () => {
+        const TournamentModel = require('../models/Tournament');
+        let tournament = await TournamentModel.findOne({ tournamentId });
+
+        if (!tournament) return null;
+        if (tournament.status === 'COMPLETED' || tournament.status === 'CANCELLED') return null;
+
+        const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
+        if ((tournament.players?.length || 0) < requiredPlayerCount) return null;
+
+        const prizePool = (tournament.players?.length || 0) * (tournament.buyIn || 100000000);
+        const setFields = { prizePool };
+        if (tournament.status === 'WAITING') {
+            setFields.status = 'IN_PROGRESS';
+            setFields.startedAt = new Date();
+        } else if (!tournament.startedAt) {
+            setFields.startedAt = new Date();
+        }
+
+        tournament = await TournamentModel.findOneAndUpdate(
+            { tournamentId, status: { $in: ['WAITING', 'IN_PROGRESS'] } },
+            { $set: setFields },
+            { new: true }
+        );
+
+        if (!tournament) return null;
+
+        const existingTable = testModeActiveTables.get(tournamentId);
+        if (existingTable) return existingTable;
+
+        const table = createTestModeTableFromTournament(tournament);
+        testModeActiveTables.set(tournamentId, table);
+        table.startTournamentTimer();
+
+        console.log(`[TournamentService] Test mode: Tournament ${tournamentId} ensured started (${options.source || 'unknown'}), players=${tournament.players.length}/${requiredPlayerCount}`);
+
+        if (testModeSocketIO) {
+            testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_STARTED', {
+                tournamentId,
+                status: 'IN_PROGRESS',
+                prizePool: tournament.prizePool
+            });
+        }
+
+        startTestModeFirstHand(tournamentId, table, options.firstHandDelayMs ?? 500);
+        return table;
+    })().finally(() => {
+        testModeStartPromises.delete(tournamentId);
+    });
+
+    testModeStartPromises.set(tournamentId, startPromise);
+    return startPromise;
+}
+
 function getZeroGContractService() {
     if (global.zeroGContractService) {
         return global.zeroGContractService;
@@ -991,9 +1190,16 @@ module.exports = {
         return tournamentServiceInstance.getTournament(tournamentId);
     },
     getLiveGameState: async (tournamentId, walletAddress) => {
-        const table = tournamentServiceInstance
+        let table = tournamentServiceInstance
             ? tournamentServiceInstance.activeTables.get(tournamentId)
             : testModeActiveTables.get(tournamentId);
+
+        if (!table && !tournamentServiceInstance) {
+            table = await ensureTestModeTournamentStarted(tournamentId, {
+                source: 'state_api',
+                firstHandDelayMs: 0
+            });
+        }
 
         if (!table) return null;
         return buildTournamentGameState(tournamentId, table, walletAddress);
@@ -1092,7 +1298,12 @@ module.exports = {
                     );
                 }
                 console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... already joined tournament ${tournamentId}, skipping buy-in lock`);
-                return { success: true, tournament: existingTournament, alreadyJoined: true };
+                await ensureTestModeTournamentStarted(tournamentId, {
+                    source: 'already_joined',
+                    firstHandDelayMs: 0
+                });
+                const refreshedTournament = await TournamentModel.findOne({ tournamentId });
+                return { success: true, tournament: refreshedTournament || existingTournament, alreadyJoined: true };
             }
 
             if (existingTournament.status !== 'WAITING') {
@@ -1293,255 +1504,10 @@ module.exports = {
             const requiredPlayerCount = tournament.playerCount || tournament.config?.playerCount || 2;
             
             if (tournament.players.length >= requiredPlayerCount) {
-                console.log(`[TournamentService] Test mode: Tournament ${tournamentId} is full, auto-starting...`);
-                tournament.status = 'IN_PROGRESS';
-                tournament.startedAt = new Date();
-                await tournament.save();
-                console.log(`[TournamentService] Test mode: Tournament ${tournamentId} started`);
-                
-                // Broadcast tournament started event to all players
-                if (testModeSocketIO) {
-                    testModeSocketIO.to(`tournament:${tournamentId}`).emit('SC_TOURNAMENT_STARTED', {
-                        tournamentId,
-                        status: 'IN_PROGRESS',
-                        prizePool: tournament.prizePool
-                    });
-                    console.log(`[TournamentService] Test mode: Broadcasted SC_TOURNAMENT_STARTED`);
-                }
-                
-                // Create game table (for testing without contract)
-                const TournamentTable = require('../pokergame/TournamentTable');
-                console.log(`[TournamentService] Test mode: Creating table with mockGame=${tournament.mockGame}`);
-                const table = new TournamentTable(
-                    tournamentId,
-                    requiredPlayerCount,
-                    tournament.config?.initialChips || 2000000,
-                    null,  // blindConfig
-                    tournament.mockGame || false  // mockGame
-                );
-                console.log(`[TournamentService] Test mode: Table created, table.mockGame=${table.mockGame}`);
-                
-                // Set callback for tournament end (sync wrapper for async handler)
-                table.onTournamentEnd = (data) => {
-                    console.log(`[TournamentService] Test mode: >>> Tournament ${tournamentId} ended`, data);
-                    if (testModeSocketIO) {
-                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', {
-                            tournamentId,
-                            isTournament: true,
-                            isTournamentActive: false,
-                            handOver: true,
-                            board: [],
-                            seats: {},
-                            rankings: data.rankings,
-                            reason: data.reason || 'elimination'
-                        });
-                    }
-                    // Handle DB save and broadcast asynchronously
-                    // Use module.exports._handleTournamentEnd since 'this' may not be correct in this context
-                    module.exports._handleTournamentEnd(tournamentId, data).catch(err => {
-                        console.error(`[TournamentService] Test mode: _handleTournamentEnd error:`, err);
-                    }).finally(() => {
-                        testModeActiveTables.delete(tournamentId);
-                        console.log(`[TournamentService] Test mode: >>> Removed from activeTables`);
-                    });
-                };
-                
-                // Set callback for next hand (for broadcasting)
-                table.onNextHand = (data) => {
-                    console.log(`[TournamentService] Test mode: Next hand starting`, data);
-                    if (testModeSocketIO) {
-                        // Broadcast blind update
-                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_blind_update', {
-                            tournamentId,
-                            blindLevel: data.blindLevel,
-                            smallBlind: data.smallBlind,
-                            bigBlind: data.bigBlind,
-                            handNumber: data.handNumber
-                        });
-                        
-                        // Broadcast full game state after a short delay to ensure hand is ready
-                        setTimeout(() => {
-                            try {
-                                console.log(`[TournamentService] Test mode: Broadcasting game state after next hand start`);
-                                broadcastGameState(tournamentId, table);
-                            } catch (error) {
-                                console.error(
-                                    `[TournamentService] Test mode: next-hand broadcast failed for ${tournamentId}:`,
-                                    error?.stack || error?.message || error
-                                );
-                            }
-                        }, 500);
-                    }
-                };
-                
-                // Helper function to broadcast game state
-                function broadcastGameState(tournamentId, table) {
-                    if (!testModeSocketIO || !table) return;
-                    
-                    const gameState = {
-                        tournamentId,
-                        isTournament: true,
-                        pot: table.pot,
-                        board: table.board,
-                        street: table.board.length === 0 ? 'preflop' : 
-                                table.board.length === 3 ? 'flop' :
-                                table.board.length === 4 ? 'turn' :
-                                table.board.length === 5 ? 'river' : 'showdown',
-                        turn: table.turn,
-                        button: table.button,
-                        smallBlind: table.smallBlind,
-                        bigBlind: table.bigBlind,
-                        initialChips: table.initialChips,
-                        handOver: table.handOver,
-                        winMessages: table.winMessages,
-                        wentToShowdown: table.wentToShowdown,
-                        callAmount: table.callAmount,
-                        minBet: table.minBet,
-                        // Tournament specific info
-                        blindLevel: table.currentBlindLevel,
-                        handsPlayed: table.handsPlayed,
-                        currentBlinds: {
-                            small: table.minBet,
-                            big: table.minBet * 2
-                        },
-                        remainingTime: table.getRemainingTime ? table.getRemainingTime() : null,
-                        isTournamentActive: table.isTournamentActive,
-                        eliminatedPlayers: table.eliminatedPlayers || [],
-                        remainingPlayers: table.getRemainingPlayers ? table.getRemainingPlayers() : [],
-                        seats: {}
-                    };
-                    
-                    // Build seats
-                    for (let i = 1; i <= table.maxPlayers; i++) {
-                        const seat = table.seats[i];
-                        if (seat && seat.player) {
-                            gameState.seats[i] = {
-                                player: { 
-                                    id: seat.player.id, 
-                                    name: seat.player.name,
-                                    socketId: seat.player.socketId
-                                },
-                                stack: seat.stack,
-                                bet: seat.bet,
-                                folded: seat.folded,
-                                checked: seat.checked,
-                                lastAction: seat.lastAction,
-                                turn: seat.turn,
-                                sittingOut: seat.sittingOut
-                            };
-                        }
-                    }
-                    
-                    // Send personalized state to each player (show their cards)
-                    // Get all sockets in the tournament room
-                    const roomSockets = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
-                    console.log(`[TournamentService] broadcastGameState: roomSockets count = ${roomSockets ? roomSockets.size : 0}`);
-                    
-                    // 需要从外部传入 socketWalletMap 或者在这里直接查找
-                    // 由于我们无法直接访问 socketWalletMap，我们需要修改策略：
-                    // 遍历所有座位，为每个玩家发送个性化的游戏状态
-                    
-                    if (roomSockets && roomSockets.size > 0) {
-                        for (const sockId of roomSockets) {
-                            const personalState = JSON.parse(JSON.stringify(gameState));
-                            
-                            // 获取 socket 实例来获取钱包地址
-                            const sock = testModeSocketIO.sockets.sockets.get(sockId);
-                            // 尝试多种方式获取钱包地址
-                            const playerWallet = sock?.handshake?.query?.address || 
-                                                sock?.walletAddress ||
-                                                sock?.request?.query?.address;
-                            
-                            console.log(`[TournamentService] Sending to socket ${sockId}, wallet=${playerWallet?.substring(0, 10)}, turn=${gameState.turn}`);
-                            
-                            // Add cards for each seat
-                            for (let i = 1; i <= table.maxPlayers; i++) {
-                                const seat = table.seats[i];
-                                if (seat && seat.player && seat.hand) {
-                                    // Case-insensitive address comparison
-                                    const seatAddr = seat.player.id?.toLowerCase();
-                                    const walletAddr = playerWallet?.toLowerCase();
-                                    if (seatAddr === walletAddr) {
-                                        // Show own cards
-                                        personalState.seats[i].hand = seat.hand;
-                                    } else if (!seat.folded && table.wentToShowdown) {
-                                        // Show cards at showdown
-                                        personalState.seats[i].hand = seat.hand;
-                                    } else {
-                                        // Hide opponent cards
-                                        personalState.seats[i].hand = null;
-                                    }
-                                }
-                            }
-                            
-                            testModeSocketIO.to(sockId).emit('tournament_game_state', personalState);
-                        }
-                    } else {
-                        // Fallback: broadcast to room without personalization
-                        console.log(`[TournamentService] No room sockets, broadcasting to room`);
-                        testModeSocketIO.to(`tournament:${tournamentId}`).emit('tournament_game_state', gameState);
-                    }
-                }
-                
-                // Sit all players
-                for (let i = 0; i < tournament.players.length; i++) {
-                    const player = tournament.players[i];
-                    // 使用钱包地址前8位作为名称
-                    const playerAddress = player.address;
-                    const shortAddress = playerAddress ? `${playerAddress.substring(0, 4)}...${playerAddress.substring(playerAddress.length - 4)}` : `Player ${i + 1}`;
-                    
-                    table.sitPlayer(
-                        { 
-                            address: player.address, 
-                            socketId: player.socketId,
-                            id: player.address,
-                            name: shortAddress
-                        },
-                        i + 1,
-                        tournament.config?.initialChips || 2000000
-                    );
-                }
-                
-                // Store active table
-                testModeActiveTables.set(tournamentId, table);
-                
-                // Start tournament timer
-                table.startTournamentTimer();
-                
-                console.log(`[TournamentService] Test mode: Created game table with ${tournament.players.length} players, 30 min time limit`);
-                
-                // Start first hand after a short delay
-                setTimeout(() => {
-                    try {
-                        console.log(`[TournamentService] Test mode: >>> Starting first hand...`);
-                        console.log(`[TournamentService] Test mode: Table mockGame=${table.mockGame}, handsPlayed=${table.handsPlayed}`);
-                        console.log(`[TournamentService] Test mode: Room sockets before startHand: ${testModeSocketIO ? (() => {
-                            const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
-                            return rs ? Array.from(rs).join(', ') : 'none';
-                        })() : 'no IO'}`);
-                        
-                        // Use startNextHand instead of startHand to ensure mock deck is applied
-                        table.startNextHand();
-                        console.log(`[TournamentService] Test mode: startNextHand done. table.turn=${table.turn}`);
-                        
-                        // Broadcast initial game state
-                        if (testModeSocketIO) {
-                            console.log(`[TournamentService] Test mode: Room sockets after startHand: ${(() => {
-                                const rs = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
-                                return rs ? Array.from(rs).join(', ') : 'none';
-                            })()}`);
-                            
-                            // Use broadcastGameState helper for personalized state
-                            broadcastGameState(tournamentId, table);
-                            console.log(`[TournamentService] Test mode: >>> Broadcasted initial game state via broadcastGameState`);
-                        }
-                    } catch (error) {
-                        console.error(
-                            `[TournamentService] Test mode: initial hand start failed for ${tournamentId}:`,
-                            error?.stack || error?.message || error
-                        );
-                    }
-                }, 2000);
+                await ensureTestModeTournamentStarted(tournamentId, {
+                    source: 'join_full',
+                    firstHandDelayMs: 500
+                });
             }
             
             return { success: true, tournament };
@@ -1737,10 +1703,12 @@ module.exports = {
             default:
                 throw new Error('Unknown action');
         }
+
+        let gameState = null;
         
         // Broadcast updated state (only if tournament is still active)
         if (testModeSocketIO && result && table.isTournamentActive) {
-            const gameState = {
+            gameState = {
                 tournamentId,
                 isTournament: true,
                 pot: table.pot,
@@ -1826,33 +1794,63 @@ module.exports = {
         }
         
         // Send NFT achievements if any
-        if (table.pendingAchievements && table.pendingAchievements.length > 0) {
+        if (testModeSocketIO && table.pendingAchievements && table.pendingAchievements.length > 0) {
             const { SC_NFT_ACHIEVEMENT_EARNED } = require('../pokergame/actions');
+            if (!gameState) {
+                gameState = buildTournamentGameState(tournamentId, table);
+            }
             
             for (const achievement of table.pendingAchievements) {
-                // Find the player's socket
+                // Prefer the current socket for the player to avoid duplicate emits
                 const roomSockets = testModeSocketIO.sockets.adapter.rooms.get(`tournament:${tournamentId}`);
-                if (roomSockets) {
+                const targetSocketIds = [];
+                if (achievement.playerSocketId && roomSockets?.has(achievement.playerSocketId)) {
+                    targetSocketIds.push(achievement.playerSocketId);
+                } else if (roomSockets) {
                     for (const sockId of roomSockets) {
                         const socket = testModeSocketIO.sockets.sockets.get(sockId);
                         const playerWallet = socket?.handshake?.query?.address || socket?.walletAddress;
-                        
                         if (playerWallet?.toLowerCase() === achievement.playerAddress?.toLowerCase()) {
-                            console.log(`[TournamentService] Sending NFT achievement to ${playerWallet?.substring(0, 10)}: ${achievement.achievementType}`);
-                            
-                            testModeSocketIO.to(sockId).emit(SC_NFT_ACHIEVEMENT_EARNED, {
-                                playerAddress: achievement.playerAddress,
-                                achievementType: achievement.achievementType,
-                                handType: achievement.handType,
-                                cards: achievement.cards,
-                                description: achievement.description,
-                                typeId: achievement.typeId,
-                                hand: achievement.hand,
-                                board: achievement.board,
-                                gameId: `tournament-${tournamentId}`
-                            });
+                            targetSocketIds.push(sockId);
+                            break;
                         }
                     }
+                }
+
+                for (const sockId of targetSocketIds) {
+                    const socket = testModeSocketIO.sockets.sockets.get(sockId);
+                    const playerWallet = socket?.handshake?.query?.address || socket?.walletAddress;
+                    console.log(`[TournamentService] Sending NFT achievement to ${playerWallet?.substring(0, 10)}: ${achievement.achievementType}`);
+
+                    if (!gameState) {
+                        console.warn(`[TournamentService] Skipping NFT achievement emit for ${playerWallet?.substring(0, 10)}: gameState unavailable`);
+                        continue;
+                    }
+
+                    const finalGameState = JSON.parse(JSON.stringify(gameState));
+                    finalGameState.showFinalHand = true;
+                    finalGameState.isTournamentActive = true;
+                    finalGameState.handOver = true;
+
+                    for (let i = 1; i <= table.maxPlayers; i++) {
+                        const seat = table.seats[i];
+                        if (seat && seat.player && seat.hand && finalGameState.seats[i]) {
+                            finalGameState.seats[i].hand = seat.hand;
+                        }
+                    }
+
+                    testModeSocketIO.to(sockId).emit(SC_NFT_ACHIEVEMENT_EARNED, {
+                        playerAddress: achievement.playerAddress,
+                        achievementType: achievement.achievementType,
+                        handType: achievement.handType,
+                        cards: achievement.cards,
+                        description: achievement.description,
+                        typeId: achievement.typeId,
+                        hand: achievement.hand,
+                        board: achievement.board,
+                        gameId: `tournament-${tournamentId}`,
+                        gameState: finalGameState
+                    });
                 }
             }
             

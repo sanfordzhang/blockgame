@@ -353,24 +353,32 @@ const NFTGallery = () => {
   const [infts, setInfts] = useState([]);
   const [inftLoading, setInftLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('collection');
+  const [tab, setTab] = useState(() => localStorage.getItem('wallet_type') === 'zerog' ? 'infts' : 'collection');
   const [mintingStatus, setMintingStatus] = useState(null);
   const [monthlyLimits, setMonthlyLimits] = useState({});
   const [enlargedScreenshot, setEnlargedScreenshot] = useState(null);
+  const storedWalletType = localStorage.getItem('wallet_type');
   
   // Sync TronLink address to global context (fixes navbar on refresh)
   useEffect(() => {
-    if (tronLinkAddress && tronLinkAddress !== contextWalletAddress) {
+    const isZeroGSession = storedWalletType === 'zerog' || zeroGConnected || contextWalletAddress?.startsWith('0x');
+    if (!isZeroGSession && tronLinkAddress && tronLinkAddress !== contextWalletAddress) {
       setWalletAddress(tronLinkAddress);
     }
-  }, [tronLinkAddress, contextWalletAddress, setWalletAddress]);
+  }, [tronLinkAddress, contextWalletAddress, setWalletAddress, storedWalletType, zeroGConnected]);
 
   // Get wallet address from context, URL params, or localStorage
   const walletAddress = useMemo(() => {
+    const localWalletAddress = localStorage.getItem('wallet_address') || localStorage.getItem('testWalletAddress');
+    if (storedWalletType === 'zerog') {
+      if (zeroGAddress) return zeroGAddress;
+      if (localWalletAddress?.startsWith('0x')) return localWalletAddress;
+      if (contextWalletAddress?.startsWith('0x')) return contextWalletAddress;
+    }
     if (contextWalletAddress) return contextWalletAddress;
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('address') || localStorage.getItem('wallet_address') || localStorage.getItem('testWalletAddress');
-  }, [contextWalletAddress]);
+    return urlParams.get('address') || localWalletAddress;
+  }, [contextWalletAddress, storedWalletType, zeroGAddress]);
   const zeroGWalletAddress = zeroGAddress || ((walletAddress || '').startsWith('0x') ? walletAddress : null);
   const hasZeroGWallet = !!zeroGWalletAddress;
 
@@ -475,6 +483,12 @@ const NFTGallery = () => {
       fetchNFTs();
     }
   }, [walletAddress, tab]);
+
+  useEffect(() => {
+    if (walletAddress && tab === 'infts' && (hasZeroGWallet || zeroGConnected)) {
+      fetchINFTs(zeroGWalletAddress || walletAddress);
+    }
+  }, [walletAddress, zeroGWalletAddress, hasZeroGWallet, zeroGConnected, tab]);
 
   // Task 17.3: Listen for achievement unlock events
   useEffect(() => {
@@ -667,7 +681,7 @@ const NFTGallery = () => {
   const fetchNFTs = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/nft/collection/${walletAddress}`);
+      const response = await fetch(`/api/nft/collection/${walletAddress}?chain=tron`);
       const data = await response.json();
       if (data.success) {
         setNfts(data.nfts);
@@ -689,12 +703,47 @@ const NFTGallery = () => {
         return;
       }
       console.log('[INFT] Fetching for address:', targetAddress);
-      const res = await fetch(`/api/0g/infts/${targetAddress}`);
-      const data = await res.json();
-      if (data.success) {
-        setInfts(data.infts || []);
+      const [chainRes, localRes] = await Promise.all([
+        fetch(`/api/0g/infts/${targetAddress}`),
+        fetch(`/api/nft/collection/${targetAddress}?chain=0g`)
+      ]);
+      const [chainData, localData] = await Promise.all([
+        chainRes.json(),
+        localRes.json()
+      ]);
+
+      if (chainData.success || localData.success) {
+        const chainInfts = chainData.infts || [];
+        const localInfts = (localData.nfts || []).map((claim) => ({
+          tokenId: claim.onchainTokenId || claim.tokenId,
+          localTokenId: claim.tokenId,
+          claimId: claim._id || claim.id,
+          owner: claim.playerAddress,
+          metadataName: claim.displayName || claim.achievementType,
+          handType: claim.achievementType,
+          mintedAt: claim.mintedAt || claim.claimedAt || claim.createdAt,
+          gameId: claim.gameId,
+          gameScreenshot: claim.gameScreenshot,
+          screenshotFormat: claim.screenshotFormat || 'png',
+          cards: claim.cards || [],
+          txHash: claim.txHash,
+          onchainTokenId: claim.onchainTokenId,
+          chain: '0G',
+          tokenStandard: claim.tokenStandard || 'ERC-7857',
+          localOnly: !claim.onchainTokenId
+        }));
+        const seen = new Set();
+        const merged = [...chainInfts, ...localInfts].filter((inft) => {
+          const key = inft.onchainTokenId || (!inft.localOnly && inft.tokenId)
+            ? `chain-${inft.onchainTokenId || inft.tokenId}`
+            : `local-${inft.claimId || inft.localTokenId || inft.tokenId}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setInfts(merged);
       } else {
-        console.warn('[INFT] Fetch failed:', data.error);
+        console.warn('[INFT] Fetch failed:', chainData.error || localData.error);
         setInfts([]);
       }
     } catch (err) {

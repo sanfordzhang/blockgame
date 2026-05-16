@@ -27,6 +27,11 @@ function formatWeiAs0G(rawWei) {
     return fractionText ? `${whole}.${fractionText}` : whole.toString();
 }
 
+function getTournamentChainTableId(tournamentId) {
+    const digits = String(tournamentId || '').replace(/\D/g, '');
+    return digits || null;
+}
+
 // Lazy-load controller on first request
 function getController() {
     if (!controller) {
@@ -215,6 +220,106 @@ router.get('/balance/:walletAddress', async (req, res) => {
     } catch (error) {
         console.error('[0G API] Balance error:', error.message);
         res.status(500).json({ success: false, balance: '0', error: error.message });
+    }
+});
+
+/**
+ * @route POST /api/0g/unlock
+ * @desc Try to release an active 0G table session back to custody balance.
+ */
+router.post('/unlock', async (req, res) => {
+    try {
+        const { getZeroGService } = require('../../blockchain/blockchainFactory');
+        const ZeroGContractService = require('../../blockchain/ZeroGContractService');
+        const Tournament = require('../../models/Tournament');
+        const gameFlowIntegration = require('../../services/GameFlowIntegration');
+
+        const walletAddress = req.body.walletAddress;
+        if (!walletAddress || !walletAddress.startsWith('0x')) {
+            return res.status(400).json({ success: false, error: 'Invalid EVM address' });
+        }
+
+        const zgService = getZeroGService();
+        if (!zgService || !zgService.initialized) {
+            return res.status(503).json({ success: false, error: '0G service not initialized' });
+        }
+
+        const zgContractService = new ZeroGContractService();
+        zgContractService.init(zgService, process.env.ZEROG_NETWORK || 'testnet');
+
+        const candidateTableIds = new Set(['1']);
+        if (req.body.tableId) {
+            candidateTableIds.add(String(req.body.tableId));
+        }
+
+        const activeTournaments = await Tournament.find({
+            status: { $in: ['WAITING', 'IN_PROGRESS'] },
+            'players.address': walletAddress.toLowerCase()
+        }).sort({ updatedAt: -1 }).limit(10);
+
+        for (const tournament of activeTournaments) {
+            const tableId = getTournamentChainTableId(tournament.tournamentId);
+            if (tableId) candidateTableIds.add(tableId);
+        }
+
+        let activeSession = null;
+        for (const tableId of candidateTableIds) {
+            const session = await zgContractService.getTableSession(tableId, walletAddress);
+            if (session.active) {
+                activeSession = { tableId, buyInWei: BigInt(session.buyIn || '0') };
+                break;
+            }
+        }
+
+        if (!activeSession) {
+            const rawLocked = BigInt(await zgContractService.getLockedBalance(walletAddress) || '0');
+            return res.status(404).json({
+                success: false,
+                error: rawLocked > 0n
+                    ? 'Locked 0G exists, but no active table session was found for known table IDs.'
+                    : 'No locked 0G balance to unlock.',
+                locked: formatWeiAs0G(rawLocked),
+                rawLockedBalance: rawLocked.toString(),
+                checkedTableIds: Array.from(candidateTableIds)
+            });
+        }
+
+        const receipt = await zgContractService.leaveTableFor(
+            walletAddress,
+            activeSession.tableId,
+            activeSession.buyInWei.toString()
+        );
+
+        const [rawBalance, rawLocked] = await Promise.all([
+            zgContractService.getCustodyBalance(walletAddress),
+            zgContractService.getLockedBalance(walletAddress)
+        ]);
+        const rawBalanceNum = BigInt(rawBalance || '0');
+        const rawLockedNum = BigInt(rawLocked || '0');
+
+        gameFlowIntegration.setPlayerBalanceCache(walletAddress, Number(rawBalanceNum), Number(rawLockedNum), {
+            rawBalanceWei: rawBalanceNum.toString(),
+            rawLockedWei: rawLockedNum.toString(),
+            chain: '0G',
+            source: 'unlock',
+            pendingSync: false,
+            unlockTx: receipt?.hash || receipt?.transactionHash || null
+        });
+
+        res.json({
+            success: true,
+            tableId: activeSession.tableId,
+            txHash: receipt?.hash || receipt?.transactionHash || null,
+            amountReturned: formatWeiAs0G(activeSession.buyInWei),
+            rawAmountReturned: activeSession.buyInWei.toString(),
+            balance: formatWeiAs0G(rawBalanceNum),
+            locked: formatWeiAs0G(rawLockedNum),
+            rawBalance: rawBalanceNum.toString(),
+            rawLockedBalance: rawLockedNum.toString()
+        });
+    } catch (error) {
+        console.error('[0G API] Unlock error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

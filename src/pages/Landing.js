@@ -32,6 +32,7 @@ import {
   getPlayerDelegate,
   getContractAddress
 } from '../utils/tronInteract';
+import { buildApiUrl } from '../utils/serverConfig';
 
 // Static import illustrations for reliable loading
 import illustrationMobile from '../assets/img/main-illustration-mobile@2x.png';
@@ -48,6 +49,12 @@ const normalizeBalanceValue = (val) => {
     return (num / 1e18).toString();
   }
   return num.toString();
+};
+
+const formatTokenAmount = (amount, maxDecimals = 6) => {
+  const value = Number(amount || 0);
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  return value.toFixed(maxDecimals).replace(/\.?0+$/, '');
 };
 
 const connectMetamaskFallback = async () => {
@@ -155,6 +162,7 @@ const Landing = () => {
   // bankroll = available balance for games/withdraw
   const gameBalance = contractBalance + lockedBalance;
   const bankroll = contractBalance;
+  const isZeroGWallet = localWalletType === 'zerog' || walletAddress?.toLowerCase?.().startsWith('0x');
 
   useScrollToTopOnPageLoad();
 
@@ -668,8 +676,10 @@ const Landing = () => {
       return;
     }
 
+    const isZeroG = isZeroGWallet;
+
     // Check if there's locked balance
-    if (lockedBalance > 0) {
+    if (!isZeroG && lockedBalance > 0) {
       setError(t('errLockedInGame')(formatTrx(lockedBalance)));
       return;
     }
@@ -679,7 +689,6 @@ const Landing = () => {
 
     try {
       let amount = bankroll; // Withdraw all available balance
-      const isZeroG = localWalletType === 'zerog';
 
       // === 0G Withdraw Path ===
       if (isZeroG) {
@@ -746,10 +755,17 @@ const Landing = () => {
       const poll = async () => {
         attempts++;
         try {
-          const balance = await getPlayerBalance(walletAddress);
-          setContractBalance(balance.balance);
-          setLockedBalance(balance.locked || 0);
-          if (balance.balance < prevContractBalance || attempts >= 15) return;
+          if (isZeroG) {
+            const { getGameBalance } = await loadZeroG();
+            const gameBal = await getGameBalance(walletAddress);
+            const { available } = applyZeroGGameBalance(gameBal, 'withdraw-poll');
+            if (available < prevContractBalance || attempts >= 15) return;
+          } else {
+            const balance = await getPlayerBalance(walletAddress);
+            setContractBalance(balance.balance);
+            setLockedBalance(balance.locked || 0);
+            if (balance.balance < prevContractBalance || attempts >= 15) return;
+          }
         } catch (e) { console.error('Balance poll error:', e); }
         setTimeout(poll, 3000);
       };
@@ -851,16 +867,56 @@ const Landing = () => {
     setError(null);
 
     try {
-      console.log(`[Landing] Attempting to unlock ${lockedBalance} SUN (${lockedBalance/1e6} TRX)...`);
-      
-      // Use leaveTableSession to unlock - works with PLAYING or FINISHED state
-      const result = await tryUnlockLockedBalance(1, lockedBalance);
+      let result;
+      if (isZeroGWallet) {
+        const lockedAmount = formatTokenAmount(lockedBalance, 18);
+
+        console.log(`[Landing] Attempting to unlock ${lockedAmount} 0G via server...`);
+        const response = await fetch(buildApiUrl('/api/0g/unlock'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || '0G unlock failed');
+        }
+        result = {
+          success: true,
+          tx: data.txHash,
+          amountReturned: parseFloat(data.amountReturned || lockedAmount) || lockedBalance,
+          balance: parseFloat(data.balance || '0') || 0,
+          locked: parseFloat(data.locked || '0') || 0
+        };
+      } else {
+        let stackToReturn = lockedBalance;
+        if (!Number.isInteger(stackToReturn)) {
+          console.warn('[Landing] Non-integer locked TRX balance, rounding down:', stackToReturn, '->', Math.floor(stackToReturn));
+          stackToReturn = Math.floor(stackToReturn);
+        }
+
+        if (stackToReturn <= 0) {
+          setError(t('errNoLocked'));
+          setUnlocking(false);
+          return;
+        }
+
+        console.log(`[Landing] Attempting to unlock ${stackToReturn} SUN (${stackToReturn / 1e6} TRX)...`);
+        // Use leaveTableSession to unlock - works with PLAYING or FINISHED state
+        result = await tryUnlockLockedBalance(1, stackToReturn);
+      }
       console.log('Unlock result:', result);
 
       if (result.success) {
         // Update balances optimistically
-        setContractBalance(prev => prev + result.amountReturned);
-        setLockedBalance(0);
+        if (isZeroGWallet) {
+          setContractBalance(result.balance);
+          setLockedBalance(result.locked);
+          setChipsAmount(result.balance + result.locked);
+        } else {
+          setContractBalance(prev => prev + result.amountReturned);
+          setLockedBalance(0);
+        }
         
         // Refresh actual balances after a short delay
         setTimeout(() => refreshAllBalances(), 3000);
@@ -902,7 +958,7 @@ const Landing = () => {
     setError(null);
 
     try {
-      if (localWalletType === 'zerog') {
+      if (isZeroGWallet) {
         // ====== 0G Authorization Path ======
         // Ensure we're on the correct 0G chain
         try { const { ensureCorrectChain } = await loadZeroG();

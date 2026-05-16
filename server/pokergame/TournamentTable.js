@@ -105,6 +105,7 @@ class TournamentTable extends Table {
         this.actionTimeout = 15000; // 15 seconds
         this.timeBankMax = 60000;   // 60 seconds max time bank
         this.playerTimeBanks = {};  // Track time bank per player
+        this.nftAchievementKeys = new Set();
         
         // Blind structure (default: increase every 10 hands, 2x multiplier)
         this.blindConfig = blindConfig || {
@@ -129,6 +130,72 @@ class TournamentTable extends Table {
         
         console.log(`[TournamentTable] Created tournament ${tournamentId} with ${maxPlayers} players, ${initialChips} starting chips`);
         console.log(`[TournamentTable] Blind config: level=${this.currentBlindLevel}, smallBlind=${this.minBet}, increase every ${this.blindConfig.increaseEveryHands} hands`);
+    }
+
+    /**
+     * Detect NFT achievements and queue them for TournamentService to emit.
+     *
+     * NFT images must represent the completed hand. Achievements are only
+     * queued after showdown, once the hand is over and the full board is visible.
+     */
+    detectNftAchievements({ reason = 'showdown' } = {}) {
+        const shouldCheck =
+            this.wentToShowdown &&
+            this.handOver &&
+            this.board &&
+            this.board.length === 5;
+
+        if (!shouldCheck) {
+            return 0;
+        }
+
+        console.log(`[TournamentTable] Checking NFT achievements (${reason}), showdown=${this.wentToShowdown}, mock=${this.mockGame}, board=${this.board?.length || 0}`);
+
+        const NFTService = require('../services/NFTService');
+        let detectedCount = 0;
+
+        for (const seatId of Object.keys(this.seats)) {
+            const seat = this.seats[seatId];
+            if (!seat || !seat.player || !seat.hand || seat.folded) {
+                continue;
+            }
+
+            try {
+                const achievement = NFTService.checkAchievement(seat.hand, this.board);
+                if (!achievement || !achievement.type) {
+                    continue;
+                }
+
+                const achievementKey = `${this.handsPlayed}:${seat.player.id}:${achievement.type}`;
+                if (this.nftAchievementKeys.has(achievementKey)) {
+                    continue;
+                }
+
+                this.nftAchievementKeys.add(achievementKey);
+                detectedCount += 1;
+
+                console.log(`[TournamentTable] 🎉 NFT Achievement detected for ${seat.player.name || seat.player.id?.substring(0,10)}: ${achievement.type}`);
+
+                if (!this.pendingAchievements) {
+                    this.pendingAchievements = [];
+                }
+                this.pendingAchievements.push({
+                    playerAddress: seat.player.id,
+                    playerSocketId: seat.player.socketId,
+                    achievementType: achievement.type,
+                    handType: achievement.name,
+                    cards: achievement.cards,
+                    description: achievement.description,
+                    typeId: achievement.typeId,
+                    hand: seat.hand,
+                    board: this.board
+                });
+            } catch (error) {
+                console.error(`[TournamentTable] NFT check error:`, error.message);
+            }
+        }
+
+        return detectedCount;
     }
     
     /**
@@ -180,41 +247,7 @@ class TournamentTable extends Table {
         // ============ NFT Achievement Detection ============
         // Auto-detect NFT achievements at showdown
         if (this.wentToShowdown) {
-            console.log('[TournamentTable] Checking NFT achievements at showdown...');
-            const NFTService = require('../services/NFTService');
-            const { SC_NFT_ACHIEVEMENT_EARNED } = require('./actions');
-            
-            for (const seatId of Object.keys(this.seats)) {
-                const seat = this.seats[seatId];
-                if (seat && seat.player && seat.hand && !seat.folded) {
-                    try {
-                        // Check if player's hand qualifies for NFT achievement
-                        const achievement = NFTService.checkAchievement(seat.hand, this.board);
-                        
-                        if (achievement && achievement.type) {
-                            console.log(`[TournamentTable] 🎉 NFT Achievement detected for ${seat.player.name || seat.player.id?.substring(0,10)}: ${achievement.type}`);
-                            
-                            // Store achievement for this player (will be sent via socket by TournamentService)
-                            if (!this.pendingAchievements) {
-                                this.pendingAchievements = [];
-                            }
-                            this.pendingAchievements.push({
-                                playerAddress: seat.player.id,
-                                playerSocketId: seat.player.socketId,
-                                achievementType: achievement.type,
-                                handType: achievement.name,
-                                cards: achievement.cards,
-                                description: achievement.description,
-                                typeId: achievement.typeId,
-                                hand: seat.hand,
-                                board: this.board
-                            });
-                        }
-                    } catch (error) {
-                        console.error(`[TournamentTable] NFT check error:`, error.message);
-                    }
-                }
-            }
+            this.detectNftAchievements({ reason: 'showdown' });
         }
         
         // Check for eliminated players

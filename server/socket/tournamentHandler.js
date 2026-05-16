@@ -116,12 +116,14 @@ function initTournamentHandlers(socket, io) {
         try {
             const result = await NFTService.checkAchievement(handCards, communityCards);
             
-            if (result.hasAchievement) {
+            if (result && result.type) {
                 socket.emit(SC_NFT_ACHIEVEMENT_EARNED, {
                     playerAddress: walletAddress,
-                    achievementType: result.achievementType,
-                    handType: result.handType,
+                    achievementType: result.type,
+                    handType: result.name,
                     cards: result.cards,
+                    description: result.description,
+                    typeId: result.typeId,
                     gameId
                 });
             } else {
@@ -133,17 +135,58 @@ function initTournamentHandlers(socket, io) {
     });
     
     socket.on(CS_NFT_PREPARE_MINT, async ({ walletAddress, achievementType, gameSessionId, handData, screenshot }) => {
+        const timeoutMs = parseInt(process.env.NFT_PREPARE_MINT_SOCKET_TIMEOUT_MS || '90000', 10);
+        const startedAt = Date.now();
+        const screenshotLength = typeof screenshot === 'string' ? screenshot.length : 0;
+        console.log('[NFTHandler] CS_NFT_PREPARE_MINT received:', {
+            socketId: socket.id,
+            wallet: walletAddress?.substring(0, 10),
+            achievementType,
+            gameSessionId,
+            cards: handData?.cards?.length || 0,
+            screenshotLength
+        });
+
+        const withTimeout = (promise, ms) => {
+            let timeoutId;
+            return Promise.race([
+                Promise.resolve(promise).finally(() => clearTimeout(timeoutId)),
+                new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error(`prepareMint timed out after ${ms}ms`)), ms);
+                })
+            ]);
+        };
+
         try {
-            const result = await NFTService.prepareMint(walletAddress, {
-                achievementType,
-                gameSessionId,
-                handData,
-                screenshot
-            });
+            const result = await withTimeout(
+                NFTService.prepareMint(walletAddress, {
+                    achievementType,
+                    gameSessionId,
+                    handData,
+                    screenshot
+                }),
+                timeoutMs
+            );
             
+            console.log('[NFTHandler] SC_NFT_MINT_READY sending:', {
+                socketId: socket.id,
+                wallet: walletAddress?.substring(0, 10),
+                success: result?.success,
+                chain: result?.chain,
+                txHash: result?.txHash,
+                tokenId: result?.tokenId,
+                elapsedMs: Date.now() - startedAt
+            });
             socket.emit(SC_NFT_MINT_READY, result);
         } catch (error) {
-            console.error('[NFTHandler] Prepare mint error:', error.message);
+            console.error('[NFTHandler] Prepare mint error:', {
+                socketId: socket.id,
+                wallet: walletAddress?.substring(0, 10),
+                achievementType,
+                gameSessionId,
+                elapsedMs: Date.now() - startedAt,
+                error: error.message
+            });
             socket.emit(SC_NFT_MINT_ERROR, { error: error.message });
         }
     });
@@ -376,6 +419,8 @@ function initTournamentHandlers(socket, io) {
         const walletAddress = socketWalletMap.get(socket.id);
         console.log(`[TournamentHandler] Player leaving tournament: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
         
+        socket.explicitTournamentLeave = true;
+
         // Keep socket reference before leaving room (to send end event later)
         const leavingSocket = socket;
         
@@ -472,7 +517,10 @@ function initTournamentHandlers(socket, io) {
         }
     });
     
-    // Handle disconnect - clean up tournament rooms
+    // Handle disconnect - clean up socket room state only.
+    // A browser refresh, wallet popup, network blip, or socket reconnect must not
+    // count as a tournament forfeit. Explicit leave is handled by
+    // CS_TOURNAMENT_ROOM_LEAVE above.
     socket.on('disconnect', () => {
         const tournamentId = playerTournamentMap.get(socket.id);
         const walletAddress = socketWalletMap.get(socket.id);
@@ -485,11 +533,7 @@ function initTournamentHandlers(socket, io) {
 
         if (tournamentId) {
             leaveTournamentRoom(socket, tournamentId);
-
-            // Handle player disconnect in active game (pass wallet address for test mode)
-            console.log(`[TournamentHandler] Calling TournamentService.handleDisconnect for tournament ${tournamentId}`);
-            const result = TournamentService.handleDisconnect?.(socket.id, walletAddress);
-            console.log(`[TournamentHandler] handleDisconnect result:`, result);
+            console.log(`[TournamentHandler] Transient socket disconnect for tournament ${tournamentId}; keeping player seated for reconnect`);
         }
 
         console.log(`[TournamentHandler] Socket disconnected: ${socket.id}, wallet: ${walletAddress?.substring(0, 10)}...`);

@@ -34,10 +34,52 @@ const getEnvVar = (name) => {
   return '';
 };
 
+const shouldUseCurrentOrigin = (value) => {
+  if (typeof window === 'undefined' || !value) return false;
+
+  try {
+    const configured = new URL(value);
+    const current = new URL(window.location.origin);
+    const currentIsLocal =
+      current.hostname === 'localhost' ||
+      current.hostname === '127.0.0.1' ||
+      current.hostname === '[::1]';
+
+    return (
+      !currentIsLocal &&
+      configured.hostname === current.hostname &&
+      Boolean(current.port) &&
+      !configured.port &&
+      configured.origin !== current.origin
+    );
+  } catch (err) {
+    return false;
+  }
+};
+
+const alignWithCurrentOrigin = (value) => {
+  const normalized = normalizeBaseUrl(value);
+  if (!shouldUseCurrentOrigin(normalized)) {
+    return normalized;
+  }
+
+  try {
+    const configured = new URL(normalized);
+    return normalizeBaseUrl(`${window.location.origin}${configured.pathname}`);
+  } catch (err) {
+    return normalizeBaseUrl(window.location.origin);
+  }
+};
+
 const getStoredServerUri = () => {
   if (typeof window === 'undefined') return '';
   try {
-    return normalizeBaseUrl(window.localStorage.getItem(LOCAL_STORAGE_SERVER_URI_KEY) || '');
+    const stored = window.localStorage.getItem(LOCAL_STORAGE_SERVER_URI_KEY) || '';
+    const normalized = alignWithCurrentOrigin(stored);
+    if (stored && normalized !== normalizeBaseUrl(stored)) {
+      window.localStorage.setItem(LOCAL_STORAGE_SERVER_URI_KEY, normalized);
+    }
+    return normalized;
   } catch (err) {
     return '';
   }
@@ -56,7 +98,7 @@ const getRuntimeServerUri = () => {
     return getStoredServerUri();
   }
 
-  const normalized = normalizeBaseUrl(fromQuery);
+  const normalized = alignWithCurrentOrigin(fromQuery);
   if (!normalized) {
     return getStoredServerUri();
   }
@@ -78,7 +120,7 @@ const getFallbackServerUri = () => {
 };
 
 export const getServerBaseUrl = () => {
-  const url = normalizeBaseUrl(
+  const url = alignWithCurrentOrigin(
     getRuntimeServerUri() ||
       getEnvVar('REACT_APP_SERVER_URI') ||
       getEnvVar('REACT_APP_SERVER_URL') ||

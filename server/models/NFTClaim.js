@@ -48,6 +48,26 @@ const nftClaimSchema = new mongoose.Schema({
         default: null
     },
 
+    // Blockchain where this achievement NFT belongs.
+    chain: {
+        type: String,
+        enum: ['TRON', '0G'],
+        default: null,
+        index: true
+    },
+
+    // Token standard shown by the gallery/import flows.
+    tokenStandard: {
+        type: String,
+        default: null
+    },
+
+    // NFT contract address used for the on-chain mint.
+    contractAddress: {
+        type: String,
+        default: null
+    },
+
     // On-chain token ID (from contract)
     onchainTokenId: {
         type: Number,
@@ -121,6 +141,34 @@ nftClaimSchema.index({ yearMonth: 1, achievementTypeId: 1, claimedAt: 1 });
 nftClaimSchema.statics.findByPlayer = function(address) {
     return this.find({ playerAddress: address.toLowerCase() })
         .sort({ claimedAt: -1 });
+};
+
+nftClaimSchema.statics.findByPlayerAndChain = function(address, chain) {
+    const normalizedAddress = address.toLowerCase();
+    const normalizedChain = String(chain || '').toLowerCase();
+
+    if (normalizedChain === '0g' || normalizedChain === 'zerog' || normalizedChain === 'inft') {
+        return this.find({
+            playerAddress: normalizedAddress,
+            $or: [
+                { chain: '0G' },
+                { tokenStandard: 'ERC-7857' },
+                { playerAddress: /^0x/i }
+            ]
+        }).sort({ claimedAt: -1 });
+    }
+
+    if (normalizedChain === 'tron') {
+        return this.find({
+            playerAddress: normalizedAddress,
+            $and: [
+                { $or: [{ chain: 'TRON' }, { chain: null }, { chain: { $exists: false } }] },
+                { playerAddress: { $not: /^0x/i } }
+            ]
+        }).sort({ claimedAt: -1 });
+    }
+
+    return this.findByPlayer(address);
 };
 
 nftClaimSchema.statics.getMonthlyMinted = function(yearMonth, achievementTypeId) {

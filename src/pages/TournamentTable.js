@@ -49,7 +49,61 @@ const toBalanceUnits = (value, isZeroGPlayer) => {
   return raw.includes('.') ? parsed * 1e18 : parsed;
 };
 
-const importINFTToMetaMask = async (tokenId) => {
+const METAMASK_IMPORT_TIMEOUT = Symbol('METAMASK_IMPORT_TIMEOUT');
+
+const withTimeout = (promise, timeoutMs, timeoutValue) => {
+  let timeoutId;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timeoutId)),
+    new Promise((resolve) => {
+      timeoutId = setTimeout(() => resolve(timeoutValue), timeoutMs);
+    }),
+  ]);
+};
+
+const canvasToCompressedImage = (canvas, { maxLength = 700000 } = {}) => {
+  const qualitySteps = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32];
+
+  for (const quality of qualitySteps) {
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    if (dataUrl && dataUrl.length <= maxLength) {
+      return dataUrl;
+    }
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.28);
+};
+
+const importINFTToMetaMask = async (tokenId, { timeoutMs = 12000 } = {}) => {
+  if (!window.ethereum || !tokenId) return false;
+  try {
+    const importRequest = async () => {
+      await switchChain('testnet');
+      return window.ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC721',
+          options: {
+            address: POKERHAND_INFT_ADDRESS,
+            tokenId: String(tokenId),
+          },
+        },
+      });
+    };
+
+    const result = await withTimeout(importRequest(), timeoutMs, METAMASK_IMPORT_TIMEOUT);
+    if (result === METAMASK_IMPORT_TIMEOUT) {
+      console.warn('[NFT] MetaMask auto-import timed out');
+      return false;
+    }
+    return result;
+  } catch (err) {
+    console.warn('[NFT] MetaMask auto-import failed:', err.message);
+    return false;
+  }
+};
+
+const requestINFTImportToMetaMask = async (tokenId) => {
   if (!window.ethereum || !tokenId) return false;
   try {
     await switchChain('testnet');
@@ -79,6 +133,42 @@ const getMetaMaskImportCopy = (tokenId) => {
   return _lang === 'zh'
     ? `如果 MetaMask 没有弹出确认，请手动导入 NFT。合约: ${POKERHAND_INFT_ADDRESS}，Token ID: ${tokenId}`
     : `If MetaMask did not show a confirmation, import the NFT manually. Contract: ${POKERHAND_INFT_ADDRESS}, Token ID: ${tokenId}`;
+};
+
+const getConnectedSocket = async (fallbackSocket, timeoutMs = 5000) => {
+  const activeSocket =
+    (typeof window !== 'undefined' && window.socket && window.socket.connected)
+      ? window.socket
+      : fallbackSocket;
+
+  if (!activeSocket) return null;
+  if (activeSocket.connected) return activeSocket;
+
+  try {
+    if (typeof activeSocket.connect === 'function') {
+      activeSocket.connect();
+    }
+  } catch (err) {
+    console.warn('[NFT] Socket connect attempt failed:', err.message);
+  }
+
+  return await new Promise((resolve) => {
+    const timeoutId = setTimeout(() => {
+      if (typeof activeSocket.off === 'function') {
+        activeSocket.off('connect', onConnect);
+      }
+      resolve(activeSocket.connected ? activeSocket : null);
+    }, timeoutMs);
+
+    function onConnect() {
+      clearTimeout(timeoutId);
+      resolve(activeSocket);
+    }
+
+    if (typeof activeSocket.once === 'function') {
+      activeSocket.once('connect', onConnect);
+    }
+  });
 };
 
 // NFT Achievement types mapping
@@ -140,6 +230,7 @@ const TournamentTableGame = ({ tournamentId }) => {
   const prevTournamentEnded = useRef(false);
   const balancePollTimerRef = useRef(null);
   const balanceSyncInFlightRef = useRef(false);
+  const latestGameScreenshotRef = useRef(null);
 
   // Track previous turn state to only reset bet when turn changes
   const prevTurnRef = useRef(null);
@@ -148,6 +239,124 @@ const TournamentTableGame = ({ tournamentId }) => {
   // Detect if player is using 0G (EVM address with 0x prefix)
   const isZeroGPlayer = walletAddress?.startsWith('0x');
   const tournamentBuyIn = tournament?.buyIn || 100000000;
+
+  const waitForPaint = useCallback(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }), []);
+
+  const waitForFinalAchievementRender = useCallback(async (achievement, timeoutMs = 5000) => {
+    const expectedBoardLength = achievement?.gameState?.board?.length || achievement?.board?.length || 0;
+    const finalStateRequired = !!achievement?.gameState?.showFinalHand || !!achievement?.gameState?.handOver;
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const tableElement = document.querySelector('[data-nft-capture="tournament-table"]');
+      const boardImages = tableElement?.querySelectorAll('img[alt]') || [];
+      const hasExpectedBoard = expectedBoardLength === 0 || boardImages.length >= expectedBoardLength;
+      const hasWinMessage = !achievement?.gameState?.winMessages?.length ||
+        achievement.gameState.winMessages.some((message) => document.body.innerText.includes(message));
+
+      if (!finalStateRequired || (hasExpectedBoard && hasWinMessage)) {
+        await waitForPaint();
+        return true;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 120));
+    }
+
+    console.warn('[TournamentTable] Timed out waiting for final achievement render');
+    return false;
+  }, [waitForPaint]);
+
+  const captureGameScreenshot = useCallback(async (source = 'manual') => {
+    await waitForPaint();
+    console.log(`[TournamentTable] Capturing game screenshot (${source})...`);
+
+    const gameElement =
+      document.querySelector('.play-area') ||
+      document.querySelector('[data-nft-capture="tournament-table"]') ||
+      document.querySelector('[class*="PokerTableWrapper"]');
+
+    if (!gameElement) {
+      console.warn('[TournamentTable] No suitable game element found for screenshot');
+      return null;
+    }
+
+    const rect = gameElement.getBoundingClientRect();
+    const elementWidth = Math.round(rect.width || gameElement.offsetWidth || 0);
+    const elementHeight = Math.round(rect.height || gameElement.offsetHeight || 0);
+    console.log('[TournamentTable] Screenshot element dimensions:', elementWidth, 'x', elementHeight);
+
+    if (elementWidth < 100 || elementHeight < 100) {
+      console.warn('[TournamentTable] Screenshot element too small');
+      return null;
+    }
+
+    try {
+      const canvas = await html2canvas(gameElement, {
+        backgroundColor: '#0a0a0f',
+        scale: Math.min(window.devicePixelRatio || 1, 1.5),
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+        imageTimeout: 8000,
+        width: Math.min(elementWidth, 1920),
+        height: Math.min(elementHeight, 1080),
+        windowWidth: elementWidth,
+        windowHeight: elementHeight,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const clonedElement =
+            clonedDoc.querySelector('.play-area') ||
+            clonedDoc.querySelector('[data-nft-capture="tournament-table"]') ||
+            clonedDoc.querySelector('[class*="PokerTableWrapper"]');
+          if (clonedElement) {
+            clonedElement.style.backgroundColor = '#0a0a0f';
+            clonedElement.style.boxShadow = 'none';
+            clonedElement.style.filter = 'none';
+            clonedElement.style.overflow = 'hidden';
+          }
+
+          const style = clonedDoc.createElement('style');
+          style.textContent = `
+            .play-area::before,
+            .play-area::after {
+              display: none !important;
+              content: none !important;
+            }
+            * {
+              backdrop-filter: none !important;
+              -webkit-backdrop-filter: none !important;
+            }
+          `;
+          clonedDoc.head.appendChild(style);
+        }
+      });
+
+      const screenshot = canvasToCompressedImage(canvas);
+      if (!screenshot || screenshot.length < 1000) {
+        console.warn('[TournamentTable] Screenshot canvas produced empty image');
+        return null;
+      }
+      console.log('[TournamentTable] Screenshot captured successfully, size:', screenshot.length);
+      return screenshot;
+    } catch (err) {
+      console.warn('[TournamentTable] Screenshot capture failed:', err?.message || err);
+      return null;
+    }
+  }, [waitForPaint]);
+
+  useEffect(() => {
+    if (!currentTable || tournamentEnded) return;
+
+    const timer = setTimeout(async () => {
+      const screenshot = await captureGameScreenshot('cache');
+      if (screenshot) latestGameScreenshotRef.current = screenshot;
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [currentTable, tournamentEnded, captureGameScreenshot]);
 
   // Fetch GameBalance from contract
   const fetchGameBalance = useCallback(async () => {
@@ -290,82 +499,9 @@ const TournamentTableGame = ({ tournamentId }) => {
       const handCards = nftAchievement.hand?.map(formatCard).join(' ') || '';
       const boardCards = nftAchievement.board?.map(formatCard).join(' ') || '';
 
-      // === CAPTURE SCREENSHOT BEFORE SHOWING POPUP ===
-      // Use async IIFE to capture screenshot before showing popup
       (async () => {
-        let screenshotBase64 = null;
-        try {
-          console.log('[TournamentTable] Capturing screenshot BEFORE showing popup...');
-          
-          // Find the best element to capture - prefer specific game containers
-          const gameElement = document.querySelector('.play-area') || 
-                              document.querySelector('[class*="PokerTableWrapper"]') ||
-                              document.querySelector('[class*="Container"]');
-          
-          if (!gameElement) {
-            console.warn('[TournamentTable] No suitable game element found for screenshot');
-          }
-          
-          // Get the element dimensions for logging
-          const elementWidth = gameElement?.offsetWidth || 0;
-          const elementHeight = gameElement?.offsetHeight || 0;
-          console.log('[TournamentTable] Element dimensions:', elementWidth, 'x', elementHeight);
-          
-          const canvas = await html2canvas(gameElement, {
-            backgroundColor: '#0a0a0f',
-            scale: 1.0,
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            // Limit the canvas size to reasonable dimensions
-            width: Math.min(elementWidth, 1920),
-            height: Math.min(elementHeight, 1080),
-            windowWidth: elementWidth,
-            windowHeight: elementHeight,
-            x: 0,
-            y: 0,
-            scrollX: 0,
-            scrollY: 0,
-            // Use onclone to fix styles before rendering
-            onclone: (clonedDoc) => {
-              const clonedElement = clonedDoc.querySelector('.play-area') || 
-                                    clonedDoc.querySelector('[class*="PokerTableWrapper"]') ||
-                                    clonedDoc.querySelector('[class*="Container"]');
-              if (clonedElement) {
-                // Remove pseudo-element effects by setting explicit background
-                clonedElement.style.background = 'linear-gradient(180deg, #0a0a12 0%, #1a1a2e 50%, #0a0a0f 100%)';
-                clonedElement.style.backgroundImage = 'none';
-                // Remove any shadow effects
-                clonedElement.style.boxShadow = 'none';
-                clonedElement.style.filter = 'none';
-                // Ensure proper sizing
-                clonedElement.style.overflow = 'hidden';
-              }
-              
-              // Add style to hide pseudo-elements
-              const style = clonedDoc.createElement('style');
-              style.textContent = `
-                .play-area::before,
-                .play-area::after {
-                  display: none !important;
-                  content: none !important;
-                }
-              `;
-              clonedDoc.head.appendChild(style);
-              
-              // Remove backdrop-filter from all elements (not supported by html2canvas)
-              clonedDoc.querySelectorAll('[style*="backdrop"], [style*="filter"]').forEach(el => {
-                el.style.backdropFilter = 'none';
-                el.style.webkitBackdropFilter = 'none';
-                el.style.filter = 'none';
-              });
-            }
-          });
-          screenshotBase64 = canvas.toDataURL('image/png').split(',')[1];
-          console.log('[TournamentTable] Screenshot captured successfully, size:', screenshotBase64.length);
-        } catch (err) {
-          console.warn('[TournamentTable] Screenshot capture failed:', err);
-        }
+        await waitForFinalAchievementRender(nftAchievement);
+        const screenshotBase64 = await captureGameScreenshot('final-achievement');
 
         // Show popup after screenshot is captured
         Swal.fire({
@@ -390,13 +526,13 @@ const TournamentTableGame = ({ tournamentId }) => {
           color: '#fff',
         }).then(async (result) => {
           if (result.isConfirmed) {
-            // Screenshot already captured before popup was shown
+            // Screenshot already captured from the final hand state before popup was shown.
             if (!screenshotBase64) {
               await Swal.fire({
                 title: _lang === 'zh' ? '截图失败' : 'Screenshot Failed',
                 text: _lang === 'zh'
-                  ? '没有捕获到真实游戏画面，已取消铸造。请保持游戏桌面可见后重试。'
-                  : 'No real game screenshot was captured, so minting was cancelled. Keep the game table visible and try again.',
+                  ? '没有捕获到完整的最终游戏画面，已取消铸造。请保持结算后的游戏桌面可见后重试。'
+                  : 'No complete final game screenshot was captured, so minting was cancelled. Keep the completed game table visible and try again.',
                 icon: 'error',
                 background: '#1a1a2e',
                 color: '#fff',
@@ -404,33 +540,56 @@ const TournamentTableGame = ({ tournamentId }) => {
               return;
             }
             
-            // Mint NFT via socket
-            const socket = require('../socket').default;
+            // Mint NFT via socket. Register listeners before emitting, because the
+            // server can return SC_NFT_MINT_READY very quickly in 0G server-mint mode.
+            const mintSocket = await getConnectedSocket(socket);
             const achievementOwner = nftAchievement.playerAddress || walletAddress;
-            socket.emit('CS_NFT_PREPARE_MINT', {
-            walletAddress: achievementOwner,
-            achievementType: nftAchievement.achievementType,
-            gameSessionId: nftAchievement.gameId,
-            handData: { 
-              cards: nftAchievement.cards,
-              hand: nftAchievement.hand,
-              board: nftAchievement.board
-            },
-            screenshot: screenshotBase64
-          });
-          
-          // Show minting in progress
-          Swal.fire({
-            title: _lang === 'zh' ? '铸造中...' : 'Minting...',
-            html: '<p>' + (_lang === 'zh' ? '正在铸造您的 NFT...' : 'Minting your NFT...') + '</p>',
-            allowOutsideClick: false,
-            didOpen: () => {
-              Swal.showLoading();
+            if (!mintSocket || !mintSocket.connected) {
+              await Swal.fire({
+                title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+                text: _lang === 'zh'
+                  ? 'Socket 未连接，无法发送铸造请求。请刷新页面后重试。'
+                  : 'Socket is not connected, so the mint request could not be sent. Refresh and try again.',
+                icon: 'error',
+              });
+              return;
             }
-          });
-          
-          // Listen for mint result
-          socket.once('SC_NFT_MINT_READY', async (data) => {
+
+            const mintPayload = {
+              walletAddress: achievementOwner,
+              achievementType: nftAchievement.achievementType,
+              gameSessionId: nftAchievement.gameId,
+              handData: {
+                cards: nftAchievement.cards,
+                hand: nftAchievement.hand,
+                board: nftAchievement.board
+              },
+              screenshot: screenshotBase64
+            };
+
+            let mintCompleted = false;
+            let mintTimeoutId = null;
+            let handleMintReady;
+            let handleMintError;
+            let handleMintDisconnect;
+            const cleanupMintListeners = () => {
+              if (mintTimeoutId) {
+                clearTimeout(mintTimeoutId);
+                mintTimeoutId = null;
+              }
+              if (handleMintReady) mintSocket.off('SC_NFT_MINT_READY', handleMintReady);
+              if (handleMintError) mintSocket.off('SC_NFT_MINT_ERROR', handleMintError);
+              if (handleMintDisconnect) mintSocket.off('disconnect', handleMintDisconnect);
+            };
+            const finishMintRequest = () => {
+              if (mintCompleted) return false;
+              mintCompleted = true;
+              cleanupMintListeners();
+              return true;
+            };
+
+            handleMintReady = async (data) => {
+              if (!finishMintRequest()) return;
             try {
               const { signature, onchainContractAddress } = data;
 
@@ -442,8 +601,8 @@ const TournamentTableGame = ({ tournamentId }) => {
                 });
                 const serverTx = data.txHash || data.onchainResult?.txHash;
                 const mintedTokenId = data.onchainTokenId || data.onchainResult?.onchainTokenId || data.onchainResult?.tokenId || data.tokenId;
-                const imported = await importINFTToMetaMask(mintedTokenId);
-                Swal.fire({
+	                const imported = await importINFTToMetaMask(mintedTokenId);
+	                Swal.fire({
                   title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
                   html: `
                     <div style="text-align:center">
@@ -463,12 +622,11 @@ const TournamentTableGame = ({ tournamentId }) => {
                   denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
                   cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
                 }).then(async (result) => {
-                  if (!imported && result.isConfirmed && mintedTokenId) {
-                    await importINFTToMetaMask(mintedTokenId);
+	                  if (!imported && result.isConfirmed && mintedTokenId) {
+	                    await requestINFTImportToMetaMask(mintedTokenId);
                     return;
                   }
                   if ((imported && result.isConfirmed) || result.isDenied) {
-                    setIsLeaving(true);
                     navigate('/nft');
                   }
                 });
@@ -576,7 +734,7 @@ const TournamentTableGame = ({ tournamentId }) => {
                   } catch (dbErr) {
                     console.error('[NFT] Failed to update database:', dbErr);
                   }
-                  const imported = await importINFTToMetaMask(mintedTokenId);
+	                  const imported = await importINFTToMetaMask(mintedTokenId);
 
                   Swal.fire({
                     title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
@@ -597,12 +755,11 @@ const TournamentTableGame = ({ tournamentId }) => {
                     denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
                     cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
                   }).then(async (result) => {
-                    if (!imported && result.isConfirmed && mintedTokenId) {
-                      await importINFTToMetaMask(mintedTokenId);
+	                    if (!imported && result.isConfirmed && mintedTokenId) {
+	                      await requestINFTImportToMetaMask(mintedTokenId);
                       return;
                     }
                     if ((imported && result.isConfirmed) || result.isDenied) {
-                      setIsLeaving(true);
                       navigate('/nft');
                     }
                   });
@@ -719,8 +876,6 @@ const TournamentTableGame = ({ tournamentId }) => {
                 cancelButtonColor: '#28a745',
               }).then((result) => {
                 if (result.isConfirmed) {
-                  // User clicked "查看收藏" - set leaving flag before navigating
-                  setIsLeaving(true);
                   navigate('/nft');
                 }
                 // If cancelled (返回游戏), just close the popup and continue playing
@@ -735,22 +890,68 @@ const TournamentTableGame = ({ tournamentId }) => {
                 icon: 'error',
               });
             }
-          });
-          
-          socket.once('SC_NFT_MINT_ERROR', (data) => {
-            Swal.fire({
-              title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
-              text: data.error || (_lang === 'zh' ? '未知错误' : 'Unknown error'),
-              icon: 'error',
-            });
-          });
-        }
-      }); // end of Swal.then()
+	          };
+
+	          handleMintError = (data = {}) => {
+	            if (!finishMintRequest()) return;
+	            Swal.fire({
+	              title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+	              text: data.error || (_lang === 'zh' ? '未知错误' : 'Unknown error'),
+	              icon: 'error',
+	            });
+	          };
+
+	          handleMintDisconnect = (reason) => {
+	            if (!finishMintRequest()) return;
+	            Swal.fire({
+	              title: _lang === 'zh' ? '铸造失败' : 'Mint Failed',
+	              text: _lang === 'zh'
+	                ? `Socket 连接在发送铸造请求时断开: ${reason || 'unknown'}`
+	                : `Socket disconnected while sending the mint request: ${reason || 'unknown'}`,
+	              icon: 'error',
+	            });
+	          };
+
+	          mintSocket.once('SC_NFT_MINT_READY', handleMintReady);
+	          mintSocket.once('SC_NFT_MINT_ERROR', handleMintError);
+	          mintSocket.once('disconnect', handleMintDisconnect);
+	          mintTimeoutId = setTimeout(() => {
+	            if (!finishMintRequest()) return;
+	            Swal.fire({
+	              title: _lang === 'zh' ? '铸造超时' : 'Mint Timeout',
+	              text: _lang === 'zh'
+	                ? '服务器在 120 秒内没有返回铸造结果。请检查后台日志或稍后重试。'
+	                : 'The server did not return a mint result within 120 seconds. Check server logs or try again later.',
+	              icon: 'error',
+	            });
+	          }, 120000);
+
+	          // Show minting in progress
+	          Swal.fire({
+	            title: _lang === 'zh' ? '铸造中...' : 'Minting...',
+	            html: '<p>' + (_lang === 'zh' ? '正在铸造您的 NFT...' : 'Minting your NFT...') + '</p>',
+	            allowOutsideClick: false,
+	            didOpen: () => {
+	              Swal.showLoading();
+	            }
+	          });
+
+	          console.log('[NFT] Preparing mint request:', {
+	            achievementOwner,
+	            achievementType: nftAchievement.achievementType,
+	            gameId: nftAchievement.gameId,
+	            hasScreenshot: !!screenshotBase64,
+	            socketId: mintSocket.id,
+	            socketConnected: mintSocket.connected
+	          });
+	          mintSocket.emit('CS_NFT_PREPARE_MINT', mintPayload);
+	        }
+	      }); // end of Swal.then()
     })(); // end of async IIFE
     
     setNftAchievement(null);
   }
-  }, [nftAchievement, setNftAchievement, walletAddress, navigate]);
+  }, [captureGameScreenshot, navigate, nftAchievement, setNftAchievement, waitForFinalAchievementRender, walletAddress]);
 
   // Update bet amount only when turn starts or hand changes
   useEffect(() => {
@@ -1083,6 +1284,7 @@ const TournamentTableGame = ({ tournamentId }) => {
       <RotateDevicePrompt />
       <Container
         fullHeight
+        data-nft-capture="tournament-table"
         style={{
           backgroundImage: `url(${background})`,
           backgroundRepeat: 'no-repeat',

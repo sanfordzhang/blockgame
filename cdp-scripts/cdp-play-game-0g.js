@@ -18,8 +18,13 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 
 // ============ Config ============
-const API_URL = 'http://127.0.0.1:7778';
-const BASE_URL = 'http://127.0.0.1:3001';
+const API_URL = process.env.API_URL || 'http://43.163.114.175:7778';
+const BASE_URL = process.env.BASE_URL || 'http://43.163.114.175:3001';
+const SOCKET_URL = process.env.SOCKET_URL || (() => {
+    const parsed = new URL(API_URL);
+    const protocol = parsed.protocol === 'https:' ? 'wss' : 'ws';
+    return `${protocol}://${parsed.host}`;
+})();
 
 // 浏览器玩家 (0G custody balance + delegate 已准备好)
 const PLAYER = {
@@ -28,10 +33,16 @@ const PLAYER = {
 
 // 0G 机器人钱包
 const BOT = {
-    address: '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
-    privateKey: '[REMOVED BOT KEY - SET BOT_PRIVATE_KEY ENV VAR]',
-    addressLower: '0x1dad15c006c3e6db2e115bcd8b12a40ce87cd341'
+    address: process.env.BOT_ADDRESS || '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
+    privateKey: process.env.BOT_PRIVATE_KEY,
+    get addressLower() {
+        return this.address.toLowerCase();
+    }
 };
+
+if (!BOT.privateKey) {
+    throw new Error('BOT_PRIVATE_KEY is required to run cdp-play-game-0g.js');
+}
 
 // 0G 链配置
 const ZEROG_CHAIN_ID_HEX = '0x40da';   // 16602 in hex (0G Galileo testnet)
@@ -45,6 +56,24 @@ const withTimeout = (promise, ms, label) => Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))
 ]);
+
+function activateChromeApp() {
+    if (process.platform !== 'darwin') return;
+    try {
+        execSync(`osascript -e 'tell application "Google Chrome" to activate'`, { stdio: 'ignore' });
+    } catch (_) {}
+}
+
+async function bringPageToFront(client) {
+    try {
+        await withTimeout(client.Page.bringToFront(), 5000, 'Page.bringToFront');
+    } catch (e) {
+        log(`[CDP] ${e.message}`);
+    }
+
+    activateChromeApp();
+    await sleep(300);
+}
 
 // ============ HTTP 工具 ============
 function httpPost(url, data, walletAddress) {
@@ -88,7 +117,7 @@ async function startBot(tournamentId) {
     log(`[Bot] Starting 0G bot with address: ${BOT.address}`);
 
     return new Promise((resolve) => {
-        const ws = new WebSocket(`ws://127.0.0.1:7778/socket.io/?EIO=4&transport=websocket`);
+        const ws = new WebSocket(`${SOCKET_URL}/socket.io/?EIO=4&transport=websocket`);
 
         ws.on('open', () => {
             log('[Bot] WebSocket connected, sending ping...');
@@ -210,7 +239,7 @@ function handleBotTurn(ws, state, bs) {
 async function connectCDP(urlPattern) {
     for (let i = 0; i < 30; i++) {
         try {
-            if (process.env.CDP_REUSE_TAB !== 'true') {
+            if (process.env.CDP_REUSE_TAB === 'false') {
                 const freshPage = await withTimeout(
                     CDP.New({ url: `${BASE_URL}/` }),
                     10000,
@@ -222,6 +251,7 @@ async function connectCDP(urlPattern) {
                 await withTimeout(c.Page.enable(), 5000, 'Page.enable').catch(e => log(`[CDP] ${e.message}`));
                 await withTimeout(c.Runtime.enable(), 5000, 'Runtime.enable').catch(e => log(`[CDP] ${e.message}`));
                 await withTimeout(c.Log.enable(), 5000, 'Log.enable').catch(e => log(`[CDP] ${e.message}`));
+                await bringPageToFront(c);
 
                 let consoleLogs = [];
                 c.on('Log.entryAdded', ({ entry }) => {
@@ -282,6 +312,7 @@ async function connectCDP(urlPattern) {
                 await withTimeout(c.Page.enable(), 5000, 'Page.enable').catch(e => log(`[CDP] ${e.message}`));
                 await withTimeout(c.Runtime.enable(), 5000, 'Runtime.enable').catch(e => log(`[CDP] ${e.message}`));
                 await withTimeout(c.Log.enable(), 5000, 'Log.enable').catch(e => log(`[CDP] ${e.message}`));
+                await bringPageToFront(c);
 
                 let consoleLogs = [];
                 c.on('Log.entryAdded', ({ entry }) => {
@@ -616,11 +647,76 @@ async function runTest() {
     // ========== Step 7: 游戏循环 - 自动操作 ==========
     log('[Step 7] Starting game action loop...\n');
 
-    let nftMinted = false;
+    let nftMintRequested = false;
+    let nftAchievementSeen = false;
+    let nftMintSucceeded = false;
     let fairnessVerified = false;
     let gameEnded = false;
     let totalActions = 0;
     const MAX_ROUNDS = 80;  // 最大轮次
+
+    const waitForAchievementMintFlow = async (label = 'post-end') => {
+        const deadline = Date.now() + 30000;
+        let lastScreenshotAt = 0;
+
+        while (Date.now() < deadline) {
+            const mintState = await eval_(`({
+                title: document.querySelector('.swal2-title')?.textContent || '',
+                html: document.querySelector('.swal2-html-container')?.innerText || '',
+                body: document.body.innerText.substring(0, 1600),
+                buttons: Array.from(document.querySelectorAll('button')).map(b => b.textContent.trim()).filter(Boolean).slice(0, 30)
+            })`);
+
+            const mintText = `${mintState?.title || ''} ${mintState?.html || ''} ${mintState?.body || ''}`;
+            const mintButtons = mintState?.buttons || [];
+
+            if (/铸造成功|Mint Successful|mint successful|成功|上链铸造成功/i.test(mintText)) {
+                nftMintSucceeded = true;
+                log(`[${label}] ✅ Mint success detected from page state`);
+                await screenshot('nft-mint-success');
+                return true;
+            }
+
+            if (/铸造失败|Mint Failed|mint failed|失败|超时|Timeout|timeout|error|Error/i.test(mintText)) {
+                log(`[${label}] ❌ Mint failure or timeout detected from page state`);
+                await screenshot('nft-mint-failed');
+                return false;
+            }
+
+            if (!nftMintRequested && (
+                /铸造 NFT|Mint NFT|Mint INFT|生成NFT|Regenerate/i.test(mintText) ||
+                mintButtons.some(b => /铸造 NFT|Mint NFT|Mint INFT|生成NFT|Regenerate/i.test(b))
+            )) {
+                const clickResult = await eval_(`(function() {
+                    const allButtons = Array.from(document.querySelectorAll('button'));
+                    const target = allButtons.find(btn => /铸造 NFT|Mint NFT|Mint INFT|生成NFT|Regenerate/i.test(btn.textContent.trim()));
+                    if (target) {
+                        target.click();
+                        return 'clicked:' + target.textContent.trim();
+                    }
+                    const confirmBtn = document.querySelector('.swal2-confirm');
+                    if (confirmBtn) {
+                        confirmBtn.click();
+                        return 'clicked:swal-confirm';
+                    }
+                    return 'not-found';
+                })()`);
+
+                log(`[${label}] Mint click: ${clickResult}`);
+                nftMintRequested = true;
+                await screenshot(`nft-mint-clicked-${label}`);
+            }
+
+            if (Date.now() - lastScreenshotAt > 10000) {
+                await screenshot(`nft-mint-wait-${label}-${Math.floor((Date.now() - deadline + 30000) / 1000)}s`);
+                lastScreenshotAt = Date.now();
+            }
+
+            await sleep(1000);
+        }
+
+        return false;
+    };
 
     for (let round = 1; round <= MAX_ROUNDS; round++) {
         await sleep(1200);
@@ -631,11 +727,15 @@ async function runTest() {
                 btns: Array.from(document.querySelectorAll('button:not([disabled])'))
                     .map(b => ({ text: b.textContent.trim(), disabled: b.disabled })),
                 url: location.href,
-                title: document.title
+                title: document.title,
+                swalTitle: document.querySelector('.swal2-title')?.textContent || '',
+                swalHtml: document.querySelector('.swal2-html-container')?.innerText || '',
+                bodyText: document.body.innerText.substring(0, 1600)
             })`);
 
 	            const btns = (state?.btns || []).map(b => b.text).filter(Boolean);
-	            const pageText = await eval_('document.body.innerText.substring(0, 1200)');
+	            const pageText = state?.bodyText || '';
+                const modalText = `${state?.swalTitle || ''} ${state?.swalHtml || ''}`;
 
             // 过滤出游戏操作按钮
             const gameBtns = btns.filter(b =>
@@ -650,7 +750,13 @@ async function runTest() {
             }
 
             // ---- 检测 NFT Mint 按钮 ----
-	            if (btns.some(b => /铸造|Mint.*NFT|Mint INFT|生成NFT|Regenerate/i.test(b))) {
+            if (/成就解锁|Achievement Unlocked|恭喜|稀有牌型成就|点击下方按钮铸造/i.test(pageText + ' ' + modalText) && !nftAchievementSeen) {
+                nftAchievementSeen = true;
+                log(`\n🎉 NFT achievement modal detected in page state\n`);
+                await screenshot('nft-achievement-modal');
+            }
+
+            if (btns.some(b => /铸造|Mint.*NFT|Mint INFT|生成NFT|Regenerate/i.test(b))) {
 	                log(`\n🎉🎉🎉 NFT MINT BUTTON DETECTED! Clicking now... 🎉🎉🎉\n`);
 	                await screenshot('nft-button-found-before-click');
 
@@ -667,14 +773,103 @@ async function runTest() {
                 })()`);
 
 	                log(`  Mint click: ${mintClicked}`);
-	                nftMinted = true;
-	                gameEnded = true;
+                nftMintRequested = true;
 
-                // 等待 NFT minting 完成
-                await sleep(10000);  // NFT mint 可能需要较长时间
-                await screenshot('nft-after-mint-click');
+                // 等待 NFT minting 完成或失败
+                const mintDeadline = Date.now() + 150000;
+                let lastMintScreenshotAt = 0;
+                while (Date.now() < mintDeadline) {
+                    await sleep(3000);
+                    const mintState = await eval_(`({
+                        title: document.querySelector('.swal2-title')?.textContent || '',
+                        html: document.querySelector('.swal2-html-container')?.innerText || '',
+                        body: document.body.innerText.substring(0, 1200)
+                    })`);
+                    const mintText = `${mintState?.title || ''} ${mintState?.html || ''} ${mintState?.body || ''}`;
+                    log(`[Mint wait] title="${(mintState?.title || '').substring(0, 80)}" html="${(mintState?.html || '').substring(0, 120)}"`);
 
-                break;  // NFT 完成后退出循环
+                    if (/铸造成功|Mint Successful|mint successful|成功|上链铸造成功/i.test(mintText)) {
+                        nftMintSucceeded = true;
+                        log('✅ Mint success detected from page state');
+                        await screenshot('nft-mint-success');
+                        break;
+                    }
+
+                    if (/铸造失败|Mint Failed|mint failed|失败|超时|Timeout|timeout|error|Error/i.test(mintText)) {
+                        log('❌ Mint failure or timeout detected from page state');
+                        await screenshot('nft-mint-failed');
+                        break;
+                    }
+
+                    if (Date.now() - lastMintScreenshotAt > 10000) {
+                        await screenshot(`nft-mint-wait-${Math.floor((Date.now() - mintDeadline + 150000) / 1000)}s`);
+                        lastMintScreenshotAt = Date.now();
+                    }
+                }
+
+                if (!nftMintSucceeded) {
+                    await screenshot('nft-mint-not-complete');
+                }
+
+                gameEnded = true;
+                break;  // NFT flow complete, exit loop
+            }
+
+            if (!nftMintRequested && nftAchievementSeen && /铸造 NFT|Mint NFT/i.test(pageText + ' ' + modalText)) {
+                log('\n🎯 Clicking mint from detected achievement modal...\n');
+                const clickMint = await eval_(`(function() {
+                    const clickers = Array.from(document.querySelectorAll('button'));
+                    const target = clickers.find(b => /铸造 NFT|Mint NFT/i.test(b.textContent.trim()));
+                    if (target) {
+                        target.click();
+                        return 'clicked:' + target.textContent.trim();
+                    }
+                    const swalBtn = document.querySelector('.swal2-confirm');
+                    if (swalBtn) {
+                        swalBtn.click();
+                        return 'clicked:swal-confirm';
+                    }
+                    return 'not-found';
+                })()`);
+                log(`  Mint click from modal: ${clickMint}`);
+                nftMintRequested = true;
+                const mintDeadline = Date.now() + 150000;
+                let lastMintScreenshotAt = 0;
+                while (Date.now() < mintDeadline) {
+                    await sleep(3000);
+                    const mintState = await eval_(`({
+                        title: document.querySelector('.swal2-title')?.textContent || '',
+                        html: document.querySelector('.swal2-html-container')?.innerText || '',
+                        body: document.body.innerText.substring(0, 1200)
+                    })`);
+                    const mintText = `${mintState?.title || ''} ${mintState?.html || ''} ${mintState?.body || ''}`;
+                    log(`[Mint wait] title="${(mintState?.title || '').substring(0, 80)}" html="${(mintState?.html || '').substring(0, 120)}"`);
+
+                    if (/铸造成功|Mint Successful|mint successful|成功|上链铸造成功/i.test(mintText)) {
+                        nftMintSucceeded = true;
+                        log('✅ Mint success detected from page state');
+                        await screenshot('nft-mint-success');
+                        break;
+                    }
+
+                    if (/铸造失败|Mint Failed|mint failed|失败|超时|Timeout|timeout|error|Error/i.test(mintText)) {
+                        log('❌ Mint failure or timeout detected from page state');
+                        await screenshot('nft-mint-failed');
+                        break;
+                    }
+
+                    if (Date.now() - lastMintScreenshotAt > 10000) {
+                        await screenshot(`nft-mint-wait-${Math.floor((Date.now() - mintDeadline + 150000) / 1000)}s`);
+                        lastMintScreenshotAt = Date.now();
+                    }
+                }
+
+                if (!nftMintSucceeded) {
+                    await screenshot('nft-mint-not-complete');
+                }
+
+                gameEnded = true;
+                break;
             }
 
             // ---- 检测 Fairness Verify 按钮 ----
@@ -753,8 +948,9 @@ async function runTest() {
 	                log(`  No game buttons. Preview: ${preview.substring(0, 100)}`);
 	                await screenshot(`no-buttons-round-${round}`);
 
-	                if (/Back to Tournaments|Tournament Ended|Champion|Winner|Mint.*NFT|铸造/i.test(preview)) {
-	                    log('  Tournament end state detected');
+	                if (/Back to Tournaments|Tournament Ended|Champion|Winner|Mint.*NFT|铸造|成就解锁|Achievement Unlocked/i.test(preview + ' ' + modalText)) {
+	                    log('  Tournament end state detected, waiting for NFT modal/mint flow...');
+	                    await waitForAchievementMintFlow(`post-end-round-${round}`);
 	                    gameEnded = true;
 	                    break;
 	                }
@@ -762,6 +958,7 @@ async function runTest() {
 	                // 如果长时间无按钮，可能游戏已结束
 	                if (round > 55) {
 	                    log('  No game actions remained after extended polling');
+	                    await waitForAchievementMintFlow(`late-round-${round}`);
 	                    gameEnded = true;
 	                    break;
 	                }
@@ -785,7 +982,8 @@ async function runTest() {
     log('========================================');
     log(`  Total rounds:       ${MAX_ROUNDS} (max)`);
     log(`  Actions performed:  ${totalActions}`);
-    log(`  NFT Mint detected:  ${nftMinted ? '✅ YES' : '⚠️ NOT DETECTED'}`);
+    log(`  NFT Mint requested: ${nftMintRequested ? '✅ YES' : '⚠️ NOT DETECTED'}`);
+    log(`  NFT Mint success:   ${nftMintSucceeded ? '✅ YES' : '❌ NO'}`);
     log(`  Fairness verified:  ${fairnessVerified ? '✅ YES' : 'ℹ️ Not triggered'}`);
     log(`  Game ended:         ${gameEnded ? 'YES' : 'timeout'}`);
 
@@ -881,7 +1079,7 @@ async function runTest() {
     log(`  Player address:   ${PLAYER.address}`);
     log(`  Bot address:      ${BOT.address}`);
     log(`  Game mode:        Mock (Straight Flush)`);
-    log(`  NFT flow:         ${nftMinted ? 'PASS ✅' : 'MANUAL CHECK ⚠️'}`);
+    log(`  NFT flow:         ${nftMintSucceeded ? 'PASS ✅' : 'MANUAL CHECK ⚠️'}`);
     log(`  Fairness:         ${fairnessVerified ? 'PASS ✅' : 'SKIPPED'}`);
     log('======================================================\n');
 
@@ -889,7 +1087,7 @@ async function runTest() {
     await client.close().catch(() => {});
 
     // 不因 NFT 未检测而报错（可能需要手动交互）
-    process.exit(nftMinted ? 0 : 0);
+    process.exit(0);
 }
 
 // ============ 执行入口 ============

@@ -350,7 +350,8 @@ const server = app.listen(config.PORT, () => {
 
 //  Handle real-time poker game logic with socket.io
 const io = socketio(server, {
-    cors: socketCorsOptions
+    cors: socketCorsOptions,
+    maxHttpBufferSize: parseInt(process.env.SOCKET_MAX_HTTP_BUFFER_SIZE || '5242880', 10)
 });
 
 io.on("connect", (socket) => gameSocket.init(socket, io));

@@ -115,6 +115,8 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
   const isLeavingRef = useRef(false);
   const pollTimerRef = useRef(null);
   const gameStatePollTimerRef = useRef(null);
+  const nftAchievementRef = useRef(null);
+  const nftFlowHoldUntilRef = useRef(0);
 
   // Keep refs in sync
   useEffect(() => {
@@ -133,8 +135,19 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
     isLeavingRef.current = isLeaving;
   }, [isLeaving]);
 
+  useEffect(() => {
+    nftAchievementRef.current = nftAchievement;
+    if (nftAchievement) {
+      nftFlowHoldUntilRef.current = Date.now() + 180000;
+    }
+  }, [nftAchievement]);
+
+  const shouldHoldTerminalStateForNft = useCallback(() => {
+    return !!nftAchievementRef.current || Date.now() < nftFlowHoldUntilRef.current;
+  }, []);
+
   const applyLiveState = useCallback((state) => {
-    if (!state || tournamentEndedRef.current || state?.isTournamentActive === false) return;
+    if (!state || ((tournamentEndedRef.current || state?.isTournamentActive === false) && !state?.showFinalHand)) return;
 
     const table = convertToTableFormat(state, tournamentId, walletAddress);
     setCurrentTable(table);
@@ -189,6 +202,11 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
         }
 
         if (tournamentRecord.status === 'COMPLETED' || tournamentRecord.status === 'CANCELLED') {
+          if (shouldHoldTerminalStateForNft()) {
+            console.log('[TournamentGameContext] Holding terminal tournament poll while NFT flow is active');
+            return;
+          }
+
           const rankings = (tournamentRecord.rankings || []).map((ranking, index) => {
             if (ranking && typeof ranking === 'object') return ranking;
             return {
@@ -221,7 +239,7 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
       if (gameStatePollTimerRef.current) clearInterval(gameStatePollTimerRef.current);
       gameStatePollTimerRef.current = null;
     };
-  }, [tournamentId, walletAddress, applyLiveState]);
+  }, [tournamentId, walletAddress, applyLiveState, shouldHoldTerminalStateForNft]);
 
   // Socket event handlers
   useEffect(() => {
@@ -296,7 +314,11 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
 
     // Game state update - convert tournament state to table format
     socket.on('tournament_game_state', (state) => {
-      if (tournamentEndedRef.current || state?.isTournamentActive === false) {
+      if ((tournamentEndedRef.current || state?.isTournamentActive === false) && !state?.showFinalHand) {
+        if (shouldHoldTerminalStateForNft()) {
+          console.log('[TournamentGameContext] Holding terminal game state while NFT flow is active');
+          return;
+        }
         console.log('[TournamentGameContext] Ignoring/clearing terminal tournament state');
         setCurrentTable(null);
         setSeatId(null);
@@ -371,6 +393,11 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
       console.log('[TournamentGameContext] CHIP Rewards:', data.chipRewards);
       console.log('[TournamentGameContext] Setting tournamentEnded to true');
 
+      if (shouldHoldTerminalStateForNft()) {
+        console.log('[TournamentGameContext] Holding tournament end screen while NFT flow is active');
+        return;
+      }
+
       const rankingsWithPrizes = (data.rankings || []).map((ranking, index) => {
         if (ranking && typeof ranking === 'object') return ranking;
         const address = ranking;
@@ -414,6 +441,13 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
     // NFT Achievement earned
     socket.on(SC_NFT_ACHIEVEMENT_EARNED, (data) => {
       console.log('[TournamentGameContext] 🎉 NFT Achievement earned:', data);
+      nftAchievementRef.current = data;
+      nftFlowHoldUntilRef.current = Date.now() + 180000;
+      if (data?.gameState) {
+        tournamentEndedRef.current = false;
+        setTournamentEnded(false);
+        applyLiveState(data.gameState);
+      }
       setNftAchievement(data);
     });
 
