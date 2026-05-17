@@ -11,7 +11,7 @@ const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3001';
 const API_URL = process.env.API_URL || 'http://127.0.0.1:7778';
 
 // 第二个钱包地址和私钥
-const PLAYER2_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const PLAYER2_PRIVATE_KEY = _players.PLAYER2.privateKey;
 const PLAYER2_ADDRESS = 'TJvYqDV3DyaFbA3mJFhE9LbHdK9ZQXxW5p'; // 从私钥派生的地址（示例）
 
 async function sleep(ms) {

@@ -1,9 +1,8 @@
 /**
  * 锦标赛UI端到端测试（通过Chrome CDP）
  * 使用两个玩家的私钥，测试完整的UI交互流程
- * 
- * 玩家1私钥: [REMOVED PRIVATE KEY - SEE .env FOR CONFIG]
- * 玩家2私钥: [REMOVED PRIVATE KEY - SEE .env FOR CONFIG]
+ *
+ * 玩家私钥通过环境变量 PLAYER1_PRIVATE_KEY / PLAYER2_PRIVATE_KEY 设置
  */
 
 const CDP = require('chrome-remote-interface');
@@ -14,8 +13,8 @@ const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3001';
 const API_URL = process.env.API_URL || 'http://127.0.0.1:7778';
 
 // 两个玩家的私钥
-const PLAYER1_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
-const PLAYER2_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const _testCfg = require('../../tests/test-config'); const _players = _testCfg.getPlayerConfig(); const PLAYER1_PRIVATE_KEY = _players.PLAYER1.privateKey;
+const PLAYER2_PRIVATE_KEY = _players.PLAYER2.privateKey;
 
 const PLAYER1 = { name: 'Player1', privateKey: PLAYER1_PRIVATE_KEY, address: null };
 const PLAYER2 = { name: 'Player2', privateKey: PLAYER2_PRIVATE_KEY, address: null };

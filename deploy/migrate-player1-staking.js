@@ -9,7 +9,7 @@ const CHIP_TOKEN_ADDRESS = 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n';
 const OLD_STAKING = 'TLQUifq6SDHz2rNBLTzJ2kEqsbhQXMfRCs';
 const NEW_STAKING = 'TBz2FDnQtfAqUfjeZhcTTKhuC15SHqXmdc';
 
-const PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const PRIVATE_KEY = process.env.PLAYER1_PRIVATE_KEY || '';
 
 const tronWeb = new TronWeb({
     fullHost: 'https://nile.trongrid.io',

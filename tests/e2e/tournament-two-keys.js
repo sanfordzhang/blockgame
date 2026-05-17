@@ -1,7 +1,6 @@
 /**
  * 锦标赛双人游戏端对端测试（使用私钥，无需浏览器钱包）
- * 玩家1私钥: [REMOVED PRIVATE KEY - SEE .env FOR CONFIG]
- * 玩家2私钥: [REMOVED PRIVATE KEY - SEE .env FOR CONFIG]
+ * 玩家私钥通过环境变量 PLAYER1_PRIVATE_KEY / PLAYER2_PRIVATE_KEY 设置
  */
 
 const fetch = require('node-fetch');
@@ -9,8 +8,8 @@ const fetch = require('node-fetch');
 const API_URL = process.env.API_URL || 'http://127.0.0.1:7778';
 
 // 两个玩家的私钥
-const PLAYER1_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
-const PLAYER2_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const _testCfg = require('../../tests/test-config'); const _players = _testCfg.getPlayerConfig(); const PLAYER1_PRIVATE_KEY = _players.PLAYER1.privateKey;
+const PLAYER2_PRIVATE_KEY = _players.PLAYER2.privateKey;
 
 const PLAYER1 = { name: 'Player1', privateKey: PLAYER1_PRIVATE_KEY, address: null };
 const PLAYER2 = { name: 'Player2', privateKey: PLAYER2_PRIVATE_KEY, address: null };

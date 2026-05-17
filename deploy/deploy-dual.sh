@@ -9,7 +9,7 @@ set -euo pipefail
 
 SERVER_HOST="43.163.114.175"
 SERVER_USER="ubuntu"
-SERVER_PASS="QWer!@34"
+SERVER_PASS="${SSH_PASS:-}"
 SERVER="$SERVER_USER@$SERVER_HOST"
 APP_DIR="/home/ubuntu/game-core"
 LOCAL_DIR="/Users/yingfengzhang/1JackSource/blockchain/game-core"

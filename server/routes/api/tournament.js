@@ -112,7 +112,7 @@ router.get('/:tournamentId', async (req, res) => {
  * @route POST /api/tournament/create
  * @desc Create a new tournament (admin only, but allows test mode)
  */
-router.post('/create', optionalAuth, async (req, res) => {
+router.post('/create', authMiddleware, async (req, res) => {
     try {
         const { configId, walletAddress, mockGame, chainType } = req.body;
         const creatorAddress = req.user?.walletAddress || walletAddress || 'test-mode';
@@ -143,7 +143,7 @@ router.post('/create', optionalAuth, async (req, res) => {
  * @route POST /api/tournament/:tournamentId/join
  * @desc Join a tournament
  */
-router.post('/:tournamentId/join', optionalAuth, async (req, res) => {
+router.post('/:tournamentId/join', authMiddleware, async (req, res) => {
     try {
         const { tournamentId } = req.params;
         // Use authenticated user's wallet address or provided address (test mode)
@@ -198,7 +198,7 @@ router.post('/:tournamentId/start', async (req, res) => {
  * @route POST /api/tournament/:tournamentId/finish
  * @desc Finish a tournament with rankings
  */
-router.post('/:tournamentId/finish', async (req, res) => {
+router.post('/:tournamentId/finish', authMiddleware, async (req, res) => {
     try {
         const { tournamentId } = req.params;
         const { rankings } = req.body;
@@ -227,7 +227,7 @@ router.get('/:tournamentId/players', async (req, res) => {
  * @route POST /api/tournament/:tournamentId/claim
  * @desc Claim tournament prize
  */
-router.post('/:tournamentId/claim', optionalAuth, async (req, res) => {
+router.post('/:tournamentId/claim', authMiddleware, async (req, res) => {
     try {
         const { tournamentId } = req.params;
         // Use authenticated user's wallet address or provided address (test mode)

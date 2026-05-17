@@ -20,12 +20,12 @@ const CDP_PORT = 9222;
 // 测试玩家
 const PLAYER1 = {
     address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: PLAYER1_PRIVATE_KEY
 };
 
 const PLAYER2 = {
     address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: PLAYER2_PRIVATE_KEY
 };
 
 // 顺子测试数据

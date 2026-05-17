@@ -9,7 +9,7 @@ const fetch = require('node-fetch');
 const API_URL = process.env.API_URL || 'http://127.0.0.1:7778';
 
 // 玩家1：使用私钥
-const PLAYER1_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const _testCfg = require('../../tests/test-config'); const _players = _testCfg.getPlayerConfig(); const PLAYER1_PRIVATE_KEY = _players.PLAYER1.privateKey;
 const PLAYER1 = {
     name: 'Player1',
     privateKey: PLAYER1_PRIVATE_KEY,
@@ -17,7 +17,7 @@ const PLAYER1 = {
 };
 
 // 玩家2：使用私钥
-const PLAYER2_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const PLAYER2_PRIVATE_KEY = _players.PLAYER2.privateKey;
 const PLAYER2 = {
     name: 'Player2',
     privateKey: PLAYER2_PRIVATE_KEY,

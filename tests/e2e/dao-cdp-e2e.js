@@ -19,7 +19,7 @@ const SCREENSHOT_DIR = path.join(__dirname, 'screenshots', 'dao');
 
 const PLAYER1 = {
     address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: PLAYER1_PRIVATE_KEY
 };
 
 let screenshotCount = 0;

@@ -89,7 +89,7 @@ router.get('/vip-status/:walletAddress', async (req, res) => {
  * @route POST /api/chip/transfer
  * @desc Transfer CHIP tokens in database (game internal)
  */
-router.post('/transfer', async (req, res) => {
+router.post('/transfer', authMiddleware, async (req, res) => {
     try {
         const { from, to, amount } = req.body;
         const walletAddress = from || req.headers['x-wallet-address'];
@@ -140,7 +140,7 @@ router.get('/onchain/balance/:walletAddress', async (req, res) => {
  * @route POST /api/chip/onchain/transfer
  * @desc Prepare on-chain transfer data for frontend to sign
  */
-router.post('/onchain/transfer', async (req, res) => {
+router.post('/onchain/transfer', authMiddleware, async (req, res) => {
     try {
         const { to, amount } = req.body;
         
@@ -166,7 +166,7 @@ router.post('/onchain/transfer', async (req, res) => {
  * @desc Withdraw CHIP from game balance to blockchain wallet
  * This will deduct from database and transfer real tokens to user's wallet
  */
-router.post('/withdraw', async (req, res) => {
+router.post('/withdraw', authMiddleware, async (req, res) => {
     try {
         const { amount } = req.body;
         const walletAddress = req.headers['x-wallet-address'];
@@ -251,7 +251,7 @@ router.get('/rewards/:walletAddress', async (req, res) => {
  * @route POST /api/chip/claim-rewards
  * @desc Claim pending CHIP rewards
  */
-router.post('/claim-rewards', async (req, res) => {
+router.post('/claim-rewards', authMiddleware, async (req, res) => {
     try {
         const walletAddress = req.headers['x-wallet-address'];
         const { amount } = req.body;
@@ -304,7 +304,7 @@ router.get('/transactions/:walletAddress', async (req, res) => {
  * @route POST /api/chip/test/create-transactions
  * @desc Create test transactions for testing (testnet only)
  */
-router.post('/test/create-transactions', async (req, res) => {
+router.post('/test/create-transactions', authMiddleware, async (req, res) => {
     try {
         const { walletAddress } = req.body;
         
@@ -361,7 +361,7 @@ router.post('/test/create-transactions', async (req, res) => {
  * @route POST /api/chip/deposit-to-game
  * @desc Transfer CHIP from On-Chain Balance to Game Balance
  */
-router.post('/deposit-to-game', async (req, res) => {
+router.post('/deposit-to-game', authMiddleware, async (req, res) => {
     try {
         const { walletAddress, amount } = req.body;
         

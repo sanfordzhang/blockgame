@@ -278,15 +278,15 @@ Playwright 配置已设置为连接现有 Chrome 实例（CDP 端口 9222）。
 PLAYER1.address = 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv';
 PLAYER2.address = 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4';
 
-// 测试玩家
+// 测试玩家（私钥从环境变量读取，不要硬编码）
 const PLAYER1 = {
     address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: process.env.PLAYER1_PRIVATE_KEY || ''
 };
 
 const PLAYER2 = {
     address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: process.env.PLAYER2_PRIVATE_KEY || ''
 };
 
 ## 文件新建存放规则

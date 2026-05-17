@@ -190,7 +190,7 @@ router.post('/proposals/:proposalId/vote', authMiddleware, async (req, res) => {
  * @route POST /api/dao/proposals/:proposalId/execute
  * @desc Execute a passed proposal
  */
-router.post('/proposals/:proposalId/execute', async (req, res) => {
+router.post('/proposals/:proposalId/execute', authMiddleware, async (req, res) => {
     try {
         const { proposalId } = req.params;
         const result = await DAOService.executeProposal(proposalId);

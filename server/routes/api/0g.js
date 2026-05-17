@@ -5,6 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { authMiddleware } = require('../../middleware/auth');
 
 function init0GController() {
     try {
@@ -97,7 +98,7 @@ router.get('/storage/:rootHash', (req, res) => {
 
 // ============ INFT Operations ============
 
-router.post('/mint-inft', async (req, res) => {
+router.post('/mint-inft', authMiddleware, async (req, res) => {
     const ctrl = getController();
     if (ctrl && ctrl.mintINFT) {
         return ctrl.mintINFT(req, res);
@@ -227,7 +228,7 @@ router.get('/balance/:walletAddress', async (req, res) => {
  * @route POST /api/0g/unlock
  * @desc Try to release an active 0G table session back to custody balance.
  */
-router.post('/unlock', async (req, res) => {
+router.post('/unlock', authMiddleware, async (req, res) => {
     try {
         const { getZeroGService } = require('../../blockchain/blockchainFactory');
         const ZeroGContractService = require('../../blockchain/ZeroGContractService');

@@ -23,7 +23,7 @@ const BASE_URL = 'http://127.0.0.1:3001';
 
 const PLAYER1 = {
     address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: PLAYER1_PRIVATE_KEY
 };
 
 // TronLink 签名按钮坐标（逻辑坐标）

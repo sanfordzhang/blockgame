@@ -11,7 +11,7 @@ const API_BASE = 'http://43.163.114.175:7778';
 const PLAYER1 = { address: '0x8808ff950b9bfddde445fd099262e80cee858eb5' };
 const PLAYER2 = {
   address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
-  privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+  privateKey: PLAYER2_PRIVATE_KEY
 };
 
 // Mouse positions from CODEBUDDY.md

@@ -12,8 +12,8 @@ const { io } = require('socket.io-client');
 const API_URL = process.env.API_URL || 'http://127.0.0.1:7778';
 
 // 玩家私钥
-const PLAYER1_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
-const PLAYER2_PRIVATE_KEY = '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]';
+const _testCfg = require('../../tests/test-config'); const _players = _testCfg.getPlayerConfig(); const PLAYER1_PRIVATE_KEY = _players.PLAYER1.privateKey;
+const PLAYER2_PRIVATE_KEY = _players.PLAYER2.privateKey;
 
 // 测试结果
 const results = { passed: [], failed: [], errors: [] };

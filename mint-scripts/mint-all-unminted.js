@@ -10,7 +10,7 @@ require('dotenv').config({ path: '.env.testnet' });
 
 const PLAYER1 = {
     address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-    privateKey: '[REMOVED PRIVATE KEY - SEE .env FOR CONFIG]'
+    privateKey: PLAYER1_PRIVATE_KEY
 };
 
 const CONTRACT = process.env.NFT_CONTRACT_ONCHAIN;
