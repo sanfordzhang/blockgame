@@ -9,6 +9,46 @@ const config = require('../config');
 // Use ethers6 for v6 API (parseEther, Contract, etc.)
 const ethers = require('ethers6');
 
+const FALLBACK_POKER_GAME_ABI = [
+    'event Deposited(address indexed player, uint256 amount)',
+    'event Withdrawn(address indexed player, uint256 amount)',
+    'event Settled(uint256 indexed handId, address[] winners, uint256[] amounts, uint256 totalPot, uint256 rake, bytes32 stateHash)',
+    'event JoinedTableFor(address indexed player, uint256 indexed tableId, uint256 buyIn, address indexed operator)',
+    'event LeftTableFor(address indexed player, uint256 indexed tableId, uint256 finalStack, address indexed operator)',
+    'event TournamentSettled(uint256 indexed tournamentId, address[] players, uint256[] payouts, uint256 rake, bytes32 stateHash)',
+    'function deposit() payable',
+    'function withdraw(uint256 amount)',
+    'function settle(uint256 handId, address[] winners, uint256[] amounts, uint256 totalPot, uint256 rake, bytes32 stateHash)',
+    'function joinTableFor(address player, uint256 tableId, uint256 buyIn)',
+    'function leaveTableFor(address player, uint256 tableId, uint256 finalStack)',
+    'function leaveTableSession(address player, uint256 finalStack)',
+    'function settleTournament(uint256 tournamentId, address[] players, uint256[] payouts, uint256 rake, bytes32 stateHash)',
+    'function authorizeDelegate(address delegate)',
+    'function delegates(address player) view returns (address)',
+    'function isDelegateFor(address player, address delegate) view returns (bool)',
+    'function getCustodyBalance(address player) view returns (uint256)',
+    'function getLockedBalance(address player) view returns (uint256)',
+    'function getPlayerInfo(address player) view returns (uint256 balance, uint256 lockedAmount, bool isRegistered)',
+    'function getTableSession(uint256 tableId, address player) view returns (uint256 buyIn, bool active)',
+    'function getHandStateHash(uint256 handId) view returns (bytes32)'
+];
+
+const FALLBACK_INFT_ABI = [
+    'event PokerHandMinted(uint256 indexed tokenId, string handType, address indexed to, string storageRootHash)',
+    'event EncryptedTransferEvent(uint256 indexed tokenId, address indexed from, address indexed to)',
+    'event Cloned(uint256 indexed originalTokenId, uint256 indexed newTokenId, address indexed owner)',
+    'event AgentBound(uint256 indexed tokenId, address indexed agentAddress)',
+    'function mint(address to, string handType, string storageRootHash, string metadataURI) returns (uint256)',
+    'function mintWithCards(address to, uint256 typeId, string[] cards, string storageRootHash, string metadataURI) returns (uint256)',
+    'function getPokerData(uint256 tokenId) view returns (string handType, string storageRootHash, string metadataURI, uint256 timestamp, address aiAgent, bool isEncrypted)',
+    'function encryptedTransfer(address to, bytes encryptedMetadata)',
+    'function clone(address owner) returns (uint256)',
+    'function bindAgent(address agent)',
+    'function balanceOf(address owner) view returns (uint256)',
+    'function ownerOf(uint256 tokenId) view returns (address)',
+    'function tokenURI(uint256 tokenId) view returns (string)'
+];
+
 class ZeroGContractService {
     constructor() {
         this.zeroGService = null;
@@ -100,10 +140,12 @@ class ZeroGContractService {
             }
 
             if (!this.pokerGameAbi) {
-                console.warn('[ZeroGContractService] ⚠️ PokerGame0G ABI not found in any of:', searchPaths);
+                this.pokerGameAbi = FALLBACK_POKER_GAME_ABI;
+                console.warn('[ZeroGContractService] ⚠️ PokerGame0G ABI artifact not found; using built-in fallback ABI');
             }
             if (!this.inftAbi) {
-                console.warn('[ZeroGContractService] ⚠️ PokerHandINFT ABI not found in any of:', searchPaths);
+                this.inftAbi = FALLBACK_INFT_ABI;
+                console.warn('[ZeroGContractService] ⚠️ PokerHandINFT ABI artifact not found; using built-in fallback ABI');
             }
             if (this.pokerGameAbi || this.inftAbi) {
                 console.log('[ZeroGContractService] ABI loading complete');
