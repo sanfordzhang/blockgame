@@ -94,6 +94,26 @@ class AIService {
     };
   }
 
+  getStatus() {
+    return {
+      running: Boolean(this.worker && this.workerReady),
+      starting: Boolean(this.workerStartPromise),
+      pid: this.worker?.pid || null,
+      uptime: process.uptime(),
+      activePlayers: this.aiPlayers.size,
+      totalHandsPlayed: Array.from(this.aiPlayers.values()).reduce((sum, player) => sum + (player.handsPlayed || 0), 0),
+      totalDecisionsMade: Array.from(this.aiPlayers.values()).reduce((sum, player) => {
+        const stats = player.stats || {};
+        return sum + (stats.folds || 0) + (stats.raises || 0) + (stats.calls || 0) + (stats.checks || 0);
+      }, 0),
+      errors: this.restartAttempts,
+      restartCount: this.restartAttempts,
+      modelLoaded: Boolean(this.worker && this.workerReady),
+      pythonPath: this.pythonPath,
+      enginePath: this.enginePath
+    };
+  }
+
   async getAIDecision(playerId, gameState, timeout = 8000) {
     const difficulty = this.getDifficulty(playerId);
     // Give more time for NFSP model (hard/expert) on first load

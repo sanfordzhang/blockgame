@@ -392,7 +392,7 @@ class ZeroGController {
      * GET /api/0g/ai-status - AI system monitoring
      */
     async getAIStatus(req, res) {
-        const aiService = require('../services/AIService');
+        const aiService = require('../services/ai/AIService');
         res.json(aiService.getStatus());
     }
 
