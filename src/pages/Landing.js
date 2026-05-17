@@ -217,12 +217,43 @@ const Landing = () => {
             console.warn('[Landing] Failed to verify 0G session:', verifyErr.message);
           }
         } else if (savedType === 'tron' && savedAddress) {
-          // TRON: just restore the state (no silent verification possible for TronLink)
-          setLocalWalletAddress(savedAddress);
-          setWalletAddress(savedAddress);
-          setLocalWalletType('tron');
-          setWalletType('tron');
-          console.log('[Landing] TRON connection restored from localStorage');
+          // TRON: verify TronLink is still connected before restoring (aligns with 0G eth_accounts check)
+          try {
+            const tronReady = window.tronLink && window.tronLink.ready;
+            const tronWeb = window.tronWeb || window.tronLink?.tronWeb;
+            if (!tronReady || !tronWeb) {
+              console.log('[Landing-RESTORE] TronLink not ready/installed, clearing stale TRON wallet state');
+              localStorage.removeItem('wallet_type');
+              localStorage.removeItem('wallet_address');
+              setLocalWalletAddress('');
+              setWalletAddress('');
+              setLocalWalletType('');
+              setWalletType('');
+            } else {
+              const currentAddress = tronWeb.defaultAddress
+                ? tronWeb.defaultAddress.base58
+                : null;
+              if (!currentAddress || currentAddress.toLowerCase() !== savedAddress.toLowerCase()) {
+                console.log('[Landing-RESTORE] TronLink address mismatch or disconnected, clearing stale state. Current:', currentAddress, 'Expected:', savedAddress);
+                localStorage.removeItem('wallet_type');
+                localStorage.removeItem('wallet_address');
+                setLocalWalletAddress('');
+                setWalletAddress('');
+                setLocalWalletType('');
+                setWalletType('');
+              } else {
+                setLocalWalletAddress(savedAddress);
+                setWalletAddress(savedAddress);
+                setLocalWalletType('tron');
+                setWalletType('tron');
+                console.log('[Landing] TRON connection restored from localStorage (verified)');
+              }
+            }
+          } catch (tronVerifyErr) {
+            console.warn('[Landing-RESTORE] Failed to verify TRON session:', tronVerifyErr.message);
+            localStorage.removeItem('wallet_type');
+            localStorage.removeItem('wallet_address');
+          }
         }
       } catch (e) {
         console.warn('[Landing] Failed to restore wallet:', e.message);

@@ -1395,7 +1395,22 @@ module.exports = {
                         if (pendingZeroGBaseBalanceWei < pendingZeroGBuyInWei) {
                             throw new Error(`Insufficient balance. You need ${formatZeroGWei(pendingZeroGBuyInWei)} 0G but only have ${formatZeroGWei(pendingZeroGBaseBalanceWei)} 0G.`);
                         }
-                    } else if (playerBalance < buyIn) {
+                    } else {
+                        // TRON player: perform fresh on-chain balance check to prevent stale cache bypass
+                        try {
+                            const tronContractInfo = await contractService.getPlayerInfo(walletAddress);
+                            const chainBalanceSun = Number(tronContractInfo.balance || 0n);
+                            console.log(`[TournamentService] TRON fresh chain balance: ${walletAddress.substring(0, 10)}... = ${(chainBalanceSun / 1e6).toFixed(2)} TRX`);
+                            // Use the minimum of stale playerBalance and fresh chain balance as authoritative
+                            if (chainBalanceSun < playerBalance) {
+                                console.log(`[TournamentService] TRON: Fresh chain balance (${(chainBalanceSun/1e6).toFixed(2)} TRX) lower than cached (${(playerBalance/1e6).toFixed(2)} TRX), using chain value`);
+                                playerBalance = chainBalanceSun;
+                            }
+                        } catch (chainCheckErr) {
+                            console.warn(`[TournamentService] TRON fresh balance check failed (allowing cached):`, chainCheckErr.message);
+                        }
+
+                        if (playerBalance < buyIn) {
                         throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
                     }
 
@@ -1403,30 +1418,45 @@ module.exports = {
                         isZeroGPlayer ? `${formatZeroGWei(pendingZeroGBaseBalanceWei)} 0G >= ${formatZeroGWei(pendingZeroGBuyInWei)} 0G` : `${playerBalance / 1e6} TRX >= ${buyIn / 1e6} TRX`
                     }`);
 
-                    // Lock buyIn on chain - MANDATORY for on-chain settlement
+                    // Lock buyIn on chain - skip for mockGame mode (E2E testing)
                     // For 0G/EVM addresses, use ZeroG contract; for TRON addresses, use TRON contract
                     const tableId = getTournamentChainTableId(tournamentId);
-                    try {
-                        if (isZeroGPlayer) {
-                            const zgContractService = getZeroGContractService();
-                            console.log(`[TournamentService] 0G mode: Locking buy-in on-chain via joinTableFor tableId=${tableId}, buyIn=${pendingZeroGBuyInWei}`);
-                            const receipt = await zgContractService.joinTableFor(walletAddress, tableId, pendingZeroGBuyInWei);
+                    const isMockGame = existingTournament.mockGame === true ||
+                        String(existingTournament.mockGame) === 'true';
+
+                    if (isMockGame) {
+                        console.log(`[TournamentService] Test mode: ⏭️ SKIPPING on-chain buy-in lock (mockGame=${existingTournament.mockGame})`);
+                        if (isZeroGPlayer && pendingZeroGBuyInWei) {
                             zeroGChainLock = {
                                 tableId,
                                 buyInWei: pendingZeroGBuyInWei.toString(),
-                                txHash: receipt?.hash || receipt?.transactionHash || null,
+                                txHash: `mock-${Date.now()}`,
                                 released: false
                             };
-                            console.log(`[TournamentService] Test mode: ✅ Locked ${formatZeroGWei(pendingZeroGBuyInWei)} 0G buyIn on 0G chain, tx=${receipt?.hash || receipt?.transactionHash || 'confirmed'}`);
-                        } else {
-                            // TRON player: call joinTableFor on BridgeGameV2
-                            await contractService.joinTableFor(walletAddress, Number(String(tableId).substring(0, 10)), buyIn);
-                            console.log(`[TournamentService] Test mode: ✅ Locked ${buyIn/1e6} TRX buyIn on chain`);
                         }
-                    } catch (lockErr) {
-                        const currency = isZeroGPlayer ? '0G' : 'TRX';
-                        console.error(`[TournamentService] Test mode: ❌ Failed to lock ${buyIn/(isZeroGPlayer?1e18:1e6)} ${currency} buyIn on chain:`, lockErr.message);
-                        throw new Error(`On-chain lock failed (${lockErr.message}). Please ensure you have sufficient ${currency} balance.`);
+                    } else {
+                        try {
+                            if (isZeroGPlayer) {
+                                const zgContractService = getZeroGContractService();
+                                console.log(`[TournamentService] 0G mode: Locking buy-in on-chain via joinTableFor tableId=${tableId}, buyIn=${pendingZeroGBuyInWei}`);
+                                const receipt = await zgContractService.joinTableFor(walletAddress, tableId, pendingZeroGBuyInWei);
+                                zeroGChainLock = {
+                                    tableId,
+                                    buyInWei: pendingZeroGBuyInWei.toString(),
+                                    txHash: receipt?.hash || receipt?.transactionHash || null,
+                                    released: false
+                                };
+                                console.log(`[TournamentService] Test mode: ✅ Locked ${formatZeroGWei(pendingZeroGBuyInWei)} 0G buyIn on 0G chain, tx=${receipt?.hash || receipt?.transactionHash || 'confirmed'}`);
+                            } else {
+                                // TRON player: call joinTableFor on BridgeGameV2
+                                await contractService.joinTableFor(walletAddress, Number(String(tableId).substring(0, 10)), buyIn);
+                                console.log(`[TournamentService] Test mode: ✅ Locked ${buyIn/1e6} TRX buyIn on chain`);
+                            }
+                        } catch (lockErr) {
+                            const currency = isZeroGPlayer ? '0G' : 'TRX';
+                            console.error(`[TournamentService] Test mode: ❌ Failed to lock ${buyIn/(isZeroGPlayer?1e18:1e6)} ${currency} buyIn on chain:`, lockErr.message);
+                            throw new Error(`On-chain lock failed (${lockErr.message}). Please ensure you have sufficient ${currency} balance.`);
+                        }
                     }
                 }
             } catch (e) {
@@ -1485,28 +1515,38 @@ module.exports = {
 
             if (isZeroGPlayer && pendingZeroGBuyInWei !== null) {
                 const gameFlowIntegration = require('./GameFlowIntegration');
-                const updatedBalance = gameFlowIntegration.applyLocalZeroGBalance(
-                    walletAddress,
-                    -pendingZeroGBuyInWei,
-                    pendingZeroGBaseBalanceWei || 0n,
-                    {
-                        tournamentId,
-                        reason: 'tournament_buy_in',
-                        lastBuyInWei: pendingZeroGBuyInWei.toString()
-                    }
-                );
-
-                console.log(`[TournamentService] 0G local game balance debited: ${walletAddress.substring(0, 10)}... -${formatZeroGWei(pendingZeroGBuyInWei)} 0G, new=${formatZeroGWei(updatedBalance.rawBalanceWei)} 0G`);
-
-                if (testModeSocketIO && socketId) {
-                    testModeSocketIO.to(socketId).emit('SC_BALANCE_SYNCED', {
+                try {
+                    const updatedBalance = gameFlowIntegration.applyLocalZeroGBalance(
                         walletAddress,
-                        balance: updatedBalance.rawBalanceWei,
-                        available: updatedBalance.rawBalanceWei,
-                        locked: 0,
-                        chain: '0G',
-                        reason: 'tournament_buy_in'
-                    });
+                        -pendingZeroGBuyInWei,
+                        pendingZeroGBaseBalanceWei || 0n,
+                        {
+                            tournamentId,
+                            reason: 'tournament_buy_in',
+                            lastBuyInWei: pendingZeroGBuyInWei.toString()
+                        }
+                    );
+
+                    console.log(`[TournamentService] 0G local game balance debited: ${walletAddress.substring(0, 10)}... -${formatZeroGWei(pendingZeroGBuyInWei)} 0G, new=${formatZeroGWei(updatedBalance.rawBalanceWei)} 0G`);
+
+                    if (testModeSocketIO && socketId) {
+                        testModeSocketIO.to(socketId).emit('SC_BALANCE_SYNCED', {
+                            walletAddress,
+                            balance: updatedBalance.rawBalanceWei,
+                            available: updatedBalance.rawBalanceWei,
+                            locked: 0,
+                            chain: '0G',
+                            reason: 'tournament_buy_in'
+                        });
+                    }
+                } catch (balanceErr) {
+                    // In mockGame mode, tolerate insufficient local balance (no real funds at stake)
+                    if (existingTournament.mockGame === true || String(existingTournament.mockGame) === 'true') {
+                        console.warn(`[TournamentService] Test mode: ⚠️ Local 0G balance debit SKIPPED (mockGame=true): ${balanceErr.message}`);
+                        console.warn(`[TournamentService] Test mode: Simulating ${formatZeroGWei(pendingZeroGBuyInWei)} 0G buy-in debit for mock tournament`);
+                    } else {
+                        throw balanceErr;
+                    }
                 }
             }
 
