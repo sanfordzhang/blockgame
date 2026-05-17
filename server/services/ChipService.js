@@ -174,6 +174,30 @@ class ChipService {
 
         return { isVip: false, isSuperVip: false, discount: 0, level: 'BRONZE' };
     }
+
+    /**
+     * Calculate VIP discount on rake for a player
+     * @param {string} playerAddress - Player wallet address
+     * @param {number} rake - Original rake amount in sun (1 TRX = 1e6 sun)
+     * @returns {Promise<number>} Discount amount in sun
+     */
+    async calculateVipDiscount(playerAddress, rake) {
+        try {
+            const balance = await this.getBalance(playerAddress);
+            const vipStatus = this.getVipStatus(balance);
+
+            if (!vipStatus.isVip || !vipStatus.discount || rake <= 0) {
+                return 0;
+            }
+
+            // Discount = rake * discount% / 100
+            const discount = Math.floor(rake * vipStatus.discount / 100);
+            return discount;
+        } catch (error) {
+            console.error('[ChipService] Calculate VIP discount error:', error.message);
+            return 0;
+        }
+    }
     
     // ============ Staking (On-chain only) ============
     
@@ -545,6 +569,10 @@ module.exports = {
     getVIPStatus: (balance) => {
         if (!chipServiceInstance) return { isVip: false, isSuperVip: false, discount: 0, level: 'BRONZE' };
         return chipServiceInstance.getVipStatus(balance);
+    },
+    calculateVipDiscount: async (playerAddress, rake) => {
+        if (!chipServiceInstance) return 0;
+        return chipServiceInstance.calculateVipDiscount(playerAddress, rake);
     },
     getVipStatusByStaking: async (address) => {
         if (!chipServiceInstance) return { level: 'BRONZE', discount: 0, chipRewardRate: 1.0, stakedAmount: 0 };

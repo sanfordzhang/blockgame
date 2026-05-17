@@ -180,10 +180,10 @@ class PriceOracleService {
      * 预估交易输出（本地计算）
      */
     estimateAmountOut(amountIn, isTRXToCHIP) {
-        const { reserveTRX, reserveCHIP } = this.priceCache;
-        
-        const reserveIn = BigInt(isTRXToCHIP ? reserveTRX : reserveCHIP);
-        const reserveOut = BigInt(isTRXToCHIP ? reserveCHIP : reserveTRX);
+        const { reserve0, reserve1 } = this.priceCache;
+
+        const reserveIn = BigInt(isTRXToCHIP ? reserve0 : reserve1);
+        const reserveOut = BigInt(isTRXToCHIP ? reserve1 : reserve0);
         const amountInBN = BigInt(amountIn);
         
         if (reserveIn === 0n || reserveOut === 0n) return '0';
