@@ -31,10 +31,10 @@ const PLAYER = {
     address: '0x8808ff950b9bfddde445fd099262e80cee858eb5'
 };
 
-// 0G 机器人钱包
+// 0G 机器人钱包（私钥必须通过环境变量 BOT_PRIVATE_KEY 传入）
 const BOT = {
     address: process.env.BOT_ADDRESS || '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
-    privateKey: process.env.BOT_PRIVATE_KEY || '[REMOVED BOT KEY - SET BOT_PRIVATE_KEY ENV VAR]',
+    privateKey: process.env.BOT_PRIVATE_KEY || '',
     get addressLower() {
         return this.address.toLowerCase();
     }

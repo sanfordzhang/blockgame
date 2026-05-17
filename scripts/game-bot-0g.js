@@ -22,8 +22,8 @@ const io = require('socket.io-client');
 // ============ 0G 机器人配置 ============
 const BOT_CONFIG = {
     name: 'Bot_0G_Alice',
-    address: '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
-    privateKey: '[REMOVED BOT KEY - SET BOT_PRIVATE_KEY ENV VAR]',
+    address: process.env.BOT_ADDRESS || '0x1DaD15c006C3e6dB2e115Bcd8b12A40CE87CD341',
+    privateKey: process.env.BOT_PRIVATE_KEY || '',
     // 小写地址用于匹配 seat.player
     addressLower: '0x1dad15c006c3e6db2e115bcd8b12a40ce87cd341',
     serverUrl: process.env.BOT_SERVER_URL || 'http://127.0.0.1:7778',
