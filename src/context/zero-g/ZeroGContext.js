@@ -21,8 +21,8 @@ const CHAIN_CONFIGS = {
         chainId: '0x4115', // 16661 in hex (0G Mainnet)
         chainName: '0G Mainnet',
         nativeCurrency: { name: '0G Token', symbol: '0G', decimals: 18 },
-        rpcUrls: ['https://rpc.0g.ai'],
-        blockExplorerUrls: ['https://evm-explorer.0g.ai']
+        rpcUrls: ['https://evmrpc.0g.ai'],
+        blockExplorerUrls: ['https://chainscan.0g.ai']
     }
 };
 
@@ -104,11 +104,14 @@ export const ZeroGProvider = ({ children }) => {
     /**
      * Switch to 0G network if not already on it
      */
-    const switchTo0GNetwork = useCallback(async (network = 'testnet') => {
+    const switchTo0GNetwork = useCallback(async (network) => {
         if (!hasEvmWallet()) return;
 
+        // Default to build-time network (REACT_APP_NETWORK), fallback testnet
+        const targetNetwork = network || process.env.REACT_APP_NETWORK || 'testnet';
+
         try {
-            const config = CHAIN_CONFIGS[network];
+            const config = CHAIN_CONFIGS[targetNetwork];
             
             try {
                 await window.ethereum.request({

@@ -96,6 +96,7 @@ const Landing = () => {
   const [lockedBalance, setLockedBalance] = useState(0);
   const [walletBalance, setWalletBalanceRaw] = useState(0);
   const holdUntilRef = useRef(0); // optimistic hold: skip wallet balance updates until this timestamp
+  const lastBalanceOpTimeRef = useRef(0); // skip chipsAmount overwrite after deposit/withdraw until polling confirms
 
   // Wrapper: update contractBalance AND sync to Navbar chipsAmount (right-top corner)
   const setContractBalance = useCallback((val) => {
@@ -143,6 +144,14 @@ const Landing = () => {
   const [zeroGServerAddress, setZeroGServerAddress] = useState(null);
   // Track which wallet type is connected: 'tron' | 'zerog' | null
   const [localWalletType, setLocalWalletType] = useState(null);
+  // Auto-detect network from port: 3001 → testnet, 3000 → mainnet
+  const getNetworkFromPort = useCallback(() => {
+    const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '3000');
+    if (port === '3000' || port === '443') return 'mainnet';
+    if (port === '3001') return 'testnet';
+    return process.env.REACT_APP_NETWORK || 'testnet';
+  }, []);
+  const [selected0GNetwork, setSelected0GNetwork] = useState(getNetworkFromPort);
 
   const applyZeroGGameBalance = useCallback((info, source = 'zerog') => {
     const available = parseFloat(normalizeBalanceValue(info?.balance || info?.available || '0')) || 0;
@@ -186,6 +195,11 @@ const Landing = () => {
         if (savedType === 'zerog' && savedAddress && window.ethereum) {
           console.log('[Landing-RESTORE] Entering 0G restore branch...');
           console.log('[Landing] Restoring 0G connection from localStorage:', savedAddress);
+
+          // Use port-based detection for consistent network selection
+          const portBasedNetwork = getNetworkFromPort();
+          setSelected0GNetwork(portBasedNetwork);
+          console.log('[Landing-RESTORE] Network by port:', portBasedNetwork);
 
           // Silently verify session is still valid (eth_accounts does NOT trigger popup)
           try {
@@ -287,53 +301,82 @@ const Landing = () => {
   }, []);
 
   // Check registration status and balances when wallet address changes
+  // Retries up to 5 times with 2s delays to handle slow TronLink initialization
   useEffect(() => {
+    if (!walletAddress) return;
+    let cancelled = false;
+    let attempt = 0;
+    const MAX_ATTEMPTS = 5;
+
     const checkRegistration = async () => {
-      if (walletAddress) {
-        try {
-          // For 0G/EVM mode, skip TRON-specific checks (registration handled differently)
-          // Check both localWalletType state AND address format (0x = EVM) for race condition safety
-          const isEvmAddress = walletAddress.toLowerCase().startsWith('0x');
-          if (localWalletType === 'zerog' || isEvmAddress) {
-            const { getBalance: get0GBalance } = await loadZeroG();
-            const bal = await get0GBalance(walletAddress);
-            setIsRegistered(true);
-            setWalletBalance(parseFloat(bal));
+      try {
+        // For 0G/EVM mode, skip TRON-specific checks (registration handled differently)
+        // Check both localWalletType state AND address format (0x = EVM) for race condition safety
+        const isEvmAddress = walletAddress.toLowerCase().startsWith('0x');
+        if (localWalletType === 'zerog' || isEvmAddress) {
+          const { getBalance: get0GBalance } = await loadZeroG();
+          const bal = await get0GBalance(walletAddress);
+          setIsRegistered(true);
+          setWalletBalance(parseFloat(bal));
 
-            // Fetch 0G game balance from PokerGame0G contract (custody + active-table locked)
-            try {
-              const { getGameBalance } = await loadZeroG();
-              const gameBal = await getGameBalance(walletAddress);
-              applyZeroGGameBalance(gameBal, 'checkReg');
-            } catch (e) {
-              console.warn('[Landing] Failed to fetch 0G game balance:', e.message);
-            }
-            return;
+          // Fetch 0G game balance from PokerGame0G contract (custody + active-table locked)
+          try {
+            const { getGameBalance } = await loadZeroG();
+            const gameBal = await getGameBalance(walletAddress);
+            applyZeroGGameBalance(gameBal, 'checkReg');
+          } catch (e) {
+            console.warn('[Landing] Failed to fetch 0G game balance:', e.message);
           }
+          return;
+        }
 
-          const registered = await isPlayerRegistered(walletAddress);
-          setIsRegistered(registered);
+        // Wait for TronLink to be ready before calling contract
+        const tronWeb = window.tronLink?.tronWeb || window.tronWeb;
+        if (!tronWeb || !tronWeb.ready || !tronWeb.defaultAddress?.base58) {
+          attempt++;
+          console.log(`[Landing] TronLink not ready yet (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in 2s...`);
+          if (attempt < MAX_ATTEMPTS && !cancelled) {
+            setTimeout(checkRegistration, 2000);
+          } else {
+            console.warn('[Landing] TronLink not ready after max attempts, skipping registration check');
+          }
+          return;
+        }
 
-          // Get balances
-          if (registered) {
-            const balance = await getPlayerBalance(walletAddress);
+        const registered = await isPlayerRegistered(walletAddress);
+        if (cancelled) return;
+        setIsRegistered(registered);
+
+        // Get balances
+        if (registered) {
+          const balance = await getPlayerBalance(walletAddress);
+          if (!cancelled) {
             setContractBalance(balance.balance);
             setLockedBalance(balance.locked || 0);
           }
+        }
 
-          const trxBalance = await getTrxBalance(walletAddress);
-          setWalletBalance(trxBalance);
-        } catch (err) {
+        const trxBalance = await getTrxBalance(walletAddress);
+        if (!cancelled) setWalletBalance(trxBalance);
+      } catch (err) {
+        if (!cancelled) {
           console.error('Error checking registration:', err);
+          // Retry on error (likely TronLink not fully initialized)
+          attempt++;
+          if (attempt < MAX_ATTEMPTS) {
+            setTimeout(checkRegistration, 2000);
+          }
         }
       }
     };
     checkRegistration();
+    return () => { cancelled = true; };
   }, [walletAddress, localWalletType, applyZeroGGameBalance]);
 
   // Sync contractBalance from GlobalState.chipsAmount when returning from game
   // GameState.js updates chipsAmount via SC_BALANCE_SYNCED during gameplay
   // This ensures Landing always shows the latest balance after games end
+  // Guard: skip overwrite within 15s of a deposit/withdraw to let polling set the real value
   useEffect(() => {
     if (chipsAmount !== null && chipsAmount !== undefined) {
       if (localWalletType === 'zerog' && walletAddress) {
@@ -343,11 +386,26 @@ const Landing = () => {
           .catch(() => {});
         return;
       }
+      const timeSinceLastOp = Date.now() - lastBalanceOpTimeRef.current;
+      if (timeSinceLastOp < 15000) {
+        console.log('[Landing] Skipping chipsAmount sync: recent deposit/withdraw in progress (', Math.round(timeSinceLastOp/1000), 's ago)');
+        return;
+      }
+      // Defensive: only accept numeric chipsAmount values
+      // If chipsAmount is an object (e.g., [object Object]), skip to prevent overwriting real balance with garbage
+      if (typeof chipsAmount === 'object' || typeof chipsAmount === 'function' ||
+          (typeof chipsAmount === 'string' && isNaN(Number(chipsAmount)))) {
+        console.warn('[Landing] Skipping chipsAmount sync: invalid type', { type: typeof chipsAmount, value: String(chipsAmount).substring(0, 200) });
+        return;
+      }
       const normalized = parseFloat(normalizeBalanceValue(chipsAmount));
       console.log('[Landing] Syncing contractBalance from chipsAmount:', { chipsAmount, normalized, current: contractBalance });
-      setContractBalance(normalized);
+      // Only update if we got a reasonable value (> 0) or if current is 0 (initial state)
+      if (normalized > 0 || contractBalance === 0) {
+        setContractBalance(normalized);
+      }
     }
-  }, [chipsAmount, localWalletType, walletAddress, applyZeroGGameBalance]);
+  }, [chipsAmount, localWalletType, walletAddress, applyZeroGGameBalance, contractBalance]);
 
   // On mount and when wallet changes, ALWAYS re-fetch 0G game balance from contract
   // This ensures the most accurate balance is shown (not relying solely on socket sync)
@@ -363,7 +421,8 @@ const Landing = () => {
   // Update default deposit amount based on chain type
   useEffect(() => {
     if (localWalletType === 'zerog') {
-      setDepositAmount('0.1'); // ⚠️ TESTNET: faucet limit=0.1/day → PRODUCTION: change back to ~60 (market rate)
+      // Mainnet: reasonable deposit amount; Testnet: faucet-limited
+      setDepositAmount(process.env.REACT_APP_NETWORK === 'mainnet' ? '10' : '0.1');
     } else {
       setDepositAmount('100');
     }
@@ -601,7 +660,7 @@ const Landing = () => {
         // ====== 0G Deposit Path ======
         // Ensure we're on the correct 0G chain (fixes "invalid chain id for signer" error)
         try { const { ensureCorrectChain } = await loadZeroG();
-          await ensureCorrectChain('testnet'); } catch (chainErr) {
+          await ensureCorrectChain(); } catch (chainErr) {
           setError(chainErr.message);
           setDepositing(false);
           return;
@@ -638,6 +697,7 @@ const Landing = () => {
         // amountEth is already in 0G tokens, add directly
         setContractBalance(prev => prev + amountEth);
         setWalletBalanceForce(prev => Math.max(0, prev - amountEth));
+        lastBalanceOpTimeRef.current = Date.now(); // guard chipsAmount overwrite
       } else {
         // ====== TRON Deposit Path ======
         const amount = parseTrx(depositAmount);
@@ -653,6 +713,7 @@ const Landing = () => {
         holdWalletBalance(60000);
         setContractBalance(prev => prev + amount);
         setWalletBalanceForce(prev => Math.max(0, prev - amount));
+        lastBalanceOpTimeRef.current = Date.now(); // guard chipsAmount overwrite
       }
 
       // Poll balance until confirmed
@@ -735,6 +796,7 @@ const Landing = () => {
         holdWalletBalance(60000);
         setContractBalance(0);
         setWalletBalanceForce(prev => prev + amount);
+        lastBalanceOpTimeRef.current = Date.now(); // guard chipsAmount overwrite
 
       // === TRON Withdraw Path ===
       } else {
@@ -776,6 +838,7 @@ const Landing = () => {
         holdWalletBalance(60000);
         setContractBalance(0);
         setWalletBalanceForce(prev => prev + amount);
+        lastBalanceOpTimeRef.current = Date.now(); // guard chipsAmount overwrite
       }
 
       // Poll contract balance until confirmed (UI already shows correct value)
@@ -991,7 +1054,7 @@ const Landing = () => {
         // ====== 0G Authorization Path ======
         // Ensure we're on the correct 0G chain
         try { const { ensureCorrectChain } = await loadZeroG();
-          await ensureCorrectChain('testnet'); } catch (chainErr) {
+          await ensureCorrectChain(); } catch (chainErr) {
           setError(chainErr.message);
           setAuthorizing(false);
           return;
@@ -1256,18 +1319,19 @@ const Landing = () => {
                     const { connectWallet: connectZeroGWallet, switchChain } = await loadZeroG();
                     const result = await connectZeroGWallet();
                     if (result?.address) {
-                      // Auto-switch to 0G Testnet network
+                      // Use selected network (testnet or mainnet)
+                      const targetNetwork = selected0GNetwork || process.env.REACT_APP_NETWORK || 'testnet';
                       try {
-                        await switchChain('testnet');
-                        console.log('[Landing] Switched to 0G Testnet');
+                        await switchChain(targetNetwork);
+                        console.log(`[Landing] Switched to 0G ${targetNetwork}`);
                       } catch (switchErr) {
                         console.warn('[Landing] Failed to auto-switch 0G network:', switchErr.message);
 
                         // If chain not added, provide helpful guidance
                         if (switchErr.code === 4902 || switchErr.message?.includes('add')) {
-                          setError('0G network not found in wallet. Please add it manually:\nNetwork Name: 0G Testnet\nRPC URL: https://evmrpc-galileo.0g.ai\nChain ID: 16602\nSymbol: 0G');
+                          setError(`0G ${targetNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'} not found in wallet. Please add it manually:\n\nNetwork Name: 0G ${targetNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}\nRPC URL: ${targetNetwork === 'mainnet' ? 'https://evmrpc.0g.ai' : 'https://evmrpc-galileo.0g.ai'}\nChain ID: ${targetNetwork === 'mainnet' ? '16661' : '16602'}\nSymbol: 0G`);
                         } else {
-                          setError(`Failed to switch to 0G network: ${switchErr.message}`);
+                          setError(`Failed to switch to 0G ${targetNetwork}: ${switchErr.message}`);
                         }
                       }
                       setLocalWalletAddress(result.address);
@@ -1278,7 +1342,8 @@ const Landing = () => {
                       // Persist connection state so it survives page refresh
                       localStorage.setItem('wallet_type', 'zerog');
                       localStorage.setItem('wallet_address', result.address);
-                      console.log('[Landing] 0G connection saved to localStorage');
+                      localStorage.setItem('zerog_network', targetNetwork);
+                      console.log('[Landing] 0G connection saved to localStorage, network:', targetNetwork);
                     }
                   } catch (e) {
                     if (e.code === 4001) {
@@ -1294,6 +1359,18 @@ const Landing = () => {
               >
                 0G / EVM
               </Button>
+            </div>
+            {/* Auto-detected 0G Network indicator */}
+            <div style={{
+              textAlign: 'center',
+              marginTop: '0.5rem',
+              padding: '0.3rem 1rem',
+              background: selected0GNetwork === 'mainnet' ? '#fff3e0' : '#e8f5e9',
+              borderRadius: '6px',
+              fontSize: '0.85rem',
+              color: selected0GNetwork === 'mainnet' ? '#e65100' : '#2e7d32'
+            }}>
+              {selected0GNetwork === 'mainnet' ? '0G Mainnet (16661)' : '0G Testnet (16602)'}
             </div>
           </>
           ) : (

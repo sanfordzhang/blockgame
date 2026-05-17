@@ -1,0 +1,24 @@
+{
+  "network": "zerogMainnet",
+  "chainId": 16661,
+  "deployer": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc",
+  "deployedAt": "2026-05-17T14:10:04.334Z",
+  "rpcUrl": "https://evmrpc.0g.ai",
+  "contracts": {
+    "PokerGame0G": {
+      "address": "0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc",
+      "txHash": "0x8cc5c6918194503f31664963ae2de9d02f4f2ad5459e5a2858473c853ec921fc",
+      "abiHash": "6a5d6e936b841804"
+    },
+    "PokerHandINFT": {
+      "address": "0xc6F5495D411405630dF5d5ad32225d7F51dC1645",
+      "txHash": "0xe5ec164721fc0b936489213046b713ffdd09047eca1a7c1482bdda979d51befa",
+      "abiHash": "a93201f0bcbf2960"
+    }
+  },
+  "roles": {
+    "ADMIN": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc",
+    "OPERATOR": "0x99085cC35625b9992bCB60Ae4c269740B6a1D4dc",
+    "MINTER": "0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc"
+  }
+}

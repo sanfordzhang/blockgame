@@ -37,7 +37,7 @@ module.exports = {
       gasMultiplier: 1.2
     },
     zerogMainnet: {
-      url: process.env.ZEROG_MAINNET_RPC_URL || "https://rpc.0g.ai",
+      url: process.env.ZEROG_MAINNET_RPC_URL || "https://evmrpc.0g.ai",
       chainId: 16661,
       accounts: process.env.ZEROG_MAINNET_PRIVATE_KEY ? [process.env.ZEROG_MAINNET_PRIVATE_KEY] : [],
       gasPrice: 1000000000,

@@ -182,7 +182,7 @@ class ZeroGService {
                 inftAddress: process.env.ZEROG_INFT_ADDRESS || config.ZEROG_INFT_ADDRESS || ''
             },
             mainnet: {
-                rpcUrl: process.env.ZEROG_MAINNET_RPC_URL || 'https://rpc.0g.ai',
+                rpcUrl: process.env.ZEROG_MAINNET_RPC_URL || 'https://evmrpc.0g.ai',
                 privateKey: process.env.ZEROG_MAINNET_PRIVATE_KEY || config.ZEROG_PRIVATE_KEY || '',
                 chainId: 16661,
                 pokerGameAddress: process.env.ZEROG_MAINNET_POKERGAME_ADDRESS || '',

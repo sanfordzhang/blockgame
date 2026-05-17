@@ -102,10 +102,12 @@ const WebSocketProvider = ({ children }) => {
       console.error('Socket reconnection error:', error.message)
     })
 
-    socket.on(SC_RECEIVE_LOBBY_INFO, ({ tables, players, socketId, amount }) => {
+    socket.on(SC_RECEIVE_LOBBY_INFO, ({ tables, players, socketId }) => {
       console.log(SC_RECEIVE_LOBBY_INFO, tables, players, socketId)
       setSocketId(socketId)
-      setChipsAmount(amount)
+      // NOTE: Don't set chipsAmount here — SC_BALANCE_SYNCED handles balance separately
+      // to provide proper walletAddress + balance + locked breakdown.
+      // The old 'amount' field was raw SUN without context and caused race conditions.
       setTables(tables)
       setPlayers(players)
     })

@@ -1235,6 +1235,39 @@ const TournamentTableGame = ({ tournamentId }) => {
     );
   }
 
+  // Player left / eliminated mid-tournament (multi-player: tournament continues without us)
+  if (isLeaving && !tournamentEnded) {
+    const browserLang = navigator.language || 'en';
+    return (
+      <Container fullHeight flexDirection="column" padding="6rem 2rem 2rem 2rem" alignItems="center" justifyContent="center">
+        <Heading as="h2" textCentered color="#ff9800" style={{ fontSize: '2rem' }}>
+          {browserLang === 'zh' ? '已退出锦标赛' : 'Left Tournament'}
+        </Heading>
+        <Text textCentered marginTop="1.5rem" color="#fff" style={{ fontSize: '1.1rem' }}>
+          Tournament #{tournamentId}
+        </Text>
+        <div style={{
+          margin: '3rem auto',
+          padding: '1.5rem 2.5rem',
+          background: 'rgba(255,152,0,0.12)',
+          borderRadius: '16px',
+          border: '1px solid rgba(255,152,0,0.35)',
+          textAlign: 'center',
+          maxWidth: '420px'
+        }}>
+          <Text textCentered color="#ccc" style={{ lineHeight: 1.7, fontSize: '0.95rem' }}>
+            {browserLang === 'zh'
+              ? '您已退出本次锦标赛。锦标赛仍在进行中，祝其他玩家好运！'
+              : 'You have left this tournament. The tournament continues — good luck to the remaining players!'}
+          </Text>
+        </div>
+        <Button primary onClick={() => navigate('/tournament')} style={{ marginTop: '2rem', padding: '0.75rem 2.5rem', fontSize: '1rem' }}>
+          {browserLang === 'zh' ? '返回锦标赛列表' : 'Back to Tournaments'}
+        </Button>
+      </Container>
+    );
+  }
+
   // Waiting room state
   if (tournament && tournament.status === 'WAITING') {
     const players = tournament.players || [];

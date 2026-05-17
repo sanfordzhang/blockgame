@@ -186,11 +186,22 @@ class EventListener {
         console.log(`[EventListener] ✅ DEPOSIT EVENT: ${player} deposited ${amountNum} SUN (${amountNum/1000000} TRX)`);
         console.log(`[EventListener] Event details:`, JSON.stringify(event.result, null, 2));
 
-        if (global.io) {
-            global.io.to(player).emit('balance:updated', {
-                type: 'deposit',
-                amount: amountNum
-            });
+        // Sync balance from contract after deposit confirmed on-chain
+        if (global.gameFlowIntegration && player) {
+            const tronPlayer = this.tronService.hexToAddress(player);
+            global.gameFlowIntegration.syncPlayerBalance(tronPlayer).then(balance => {
+                console.log(`[EventListener] Balance synced after Deposited: ${balance.balance/1e6} TRX`);
+                if (global.io) {
+                    const playerSocket = `${tronPlayer}`;
+                    global.io.to(playerSocket).emit('SC_BALANCE_SYNCED', {
+                        walletAddress: tronPlayer,
+                        balance: balance.balance,
+                        locked: balance.lockedAmount || 0,
+                        available: balance.balance,
+                        reason: 'deposit_confirmed'
+                    });
+                }
+            }).catch(e => console.warn('[EventListener] Failed to sync after Deposited:', e.message));
         }
     }
 
@@ -200,11 +211,22 @@ class EventListener {
         const amountNum = typeof amount === 'object' && amount.toNumber ? amount.toNumber() : parseInt(amount);
         console.log(`[EventListener] Withdrawal: ${player} withdrew ${amountNum} SUN`);
 
-        if (global.io) {
-            global.io.to(player).emit('balance:updated', {
-                type: 'withdraw',
-                amount: amountNum
-            });
+        // Sync balance from contract after withdrawal confirmed on-chain
+        if (global.gameFlowIntegration && player) {
+            const tronPlayer = this.tronService.hexToAddress(player);
+            global.gameFlowIntegration.syncPlayerBalance(tronPlayer).then(balance => {
+                console.log(`[EventListener] Balance synced after Withdrawn: ${balance.balance/1e6} TRX`);
+                if (global.io) {
+                    const playerSocket = `${tronPlayer}`;
+                    global.io.to(playerSocket).emit('SC_BALANCE_SYNCED', {
+                        walletAddress: tronPlayer,
+                        balance: balance.balance,
+                        locked: balance.lockedAmount || 0,
+                        available: balance.balance,
+                        reason: 'withdraw_confirmed'
+                    });
+                }
+            }).catch(e => console.warn('[EventListener] Failed to sync after Withdrawn:', e.message));
         }
     }
 

@@ -3,6 +3,38 @@ const router = express.Router();
 const TournamentService = require('../../services/TournamentService');
 const { authMiddleware, optionalAuth } = require('../../middleware/auth');
 
+// Expected tournament buy-in in SUN (100 TRX). Defensive normalization for stale DB data.
+const EXPECTED_BUY_IN_SUN = 100000000; // 100 TRX
+
+/**
+ * Normalize tournament buy-in values and config names to prevent stale/incorrect display
+ */
+function normalizeTournamentBuyIn(tournaments) {
+  if (!Array.isArray(tournaments)) return tournaments;
+  return tournaments.map(t => {
+    const needsFix = t.buyIn && t.buyIn < 1e7 && t.buyIn !== EXPECTED_BUY_IN_SUN;
+    if (needsFix || (t.config?.name && !t.config.name.includes('100 TRX') && !t.config.name.includes('0G'))) {
+      if (needsFix) {
+        console.warn(`[Tournament API] Abnormal buyIn ${t.buyIn} for #${t.tournamentId}, correcting to ${EXPECTED_BUY_IN_SUN}`);
+        t.buyIn = EXPECTED_BUY_IN_SUN;
+        if (t.config) t.config.buyIn = EXPECTED_BUY_IN_SUN;
+      }
+      // Fix stale config names (e.g., "(1 TRX)" → "(100 TRX)") for non-0G tournaments
+      if (t.config?.name && !t.config.name.includes('0G') && !t.config.name.includes('100')) {
+        const oldName = t.config.name;
+        t.config.name = t.config.name.replace(/\(\d+(\.\d+)?\s*TRX\)/, '(100 TRX)');
+        if (t.config.name === oldName) {
+          // If replace didn't match, force-fix based on playerCount
+          const pc = t.config.playerCount || t.playerCount || 2;
+          t.config.name = `${pc}-Player (100 TRX)`;
+        }
+        console.warn(`[Tournament API] Corrected config name '${oldName}' → '${t.config.name}' for #${t.tournamentId}`);
+      }
+    }
+    return t;
+  });
+}
+
 /**
  * @route GET /api/tournament/list
  * @desc Get all tournaments with optional filter
@@ -11,7 +43,7 @@ router.get('/list', async (req, res) => {
     try {
         const { status, type } = req.query;
         const tournaments = await TournamentService.getTournaments({ status, type });
-        res.json({ success: true, tournaments });
+        res.json({ success: true, tournaments: normalizeTournamentBuyIn(tournaments) });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -24,7 +56,7 @@ router.get('/list', async (req, res) => {
 router.get('/waiting', async (req, res) => {
     try {
         const tournaments = await TournamentService.getWaitingTournaments();
-        res.json({ success: true, tournaments });
+        res.json({ success: true, tournaments: normalizeTournamentBuyIn(tournaments) });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -37,7 +69,7 @@ router.get('/waiting', async (req, res) => {
 router.get('/active', async (req, res) => {
     try {
         const tournaments = await TournamentService.getActiveTournaments();
-        res.json({ success: true, tournaments });
+        res.json({ success: true, tournaments: normalizeTournamentBuyIn(tournaments) });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

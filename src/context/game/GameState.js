@@ -40,9 +40,14 @@ const loadZeroG = () => import('../../utils/zeroGInteract')
 
 const normalizeBalance = (val) => {
   if (!val) return '0'
+  // If already a reasonable display number (< 100k), pass through as-is
+  if (typeof val === 'number' && val >= 0 && val <= 999999) return val.toString()
   const num = typeof val === 'string' ? parseFloat(val) : val
   if (!isFinite(num)) return '0'
-  if (num > 10000 && !(num > 0 && num < 10)) return (num / 1e18).toString()
+  // TRON SUN values are ~1e6-1e11; 0G wei values are ~1e15-1e24.
+  // Use 1e6 (SUN→TRX) for mid-range values, 1e18 (wei→token) for very large ones.
+  if (num > 1e12) return (num / 1e18).toString()   // 0G/EVM: wei → token
+  if (num > 10000) return (num / 1e6).toString()     // TRON: SUN → TRX
   return num.toString()
 }
 

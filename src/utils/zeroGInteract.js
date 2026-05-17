@@ -11,7 +11,20 @@ const CHAIN_IDS = {
     MAINNET: '0x4115'    // 16661 (0G Mainnet)
 };
 
+function safeConsole(method, ...args) {
+    try {
+        const logger = console && console[method];
+        if (typeof logger === 'function') logger.apply(console, args);
+    } catch (e) {
+        // Browser extensions can monkey-patch console and throw; wallet flow must continue.
+    }
+}
+
 export function getPokerGame0GAddress() {
+    // Use mainnet-specific env var when building for mainnet
+    if (process.env.REACT_APP_NETWORK === 'mainnet') {
+        return process.env.REACT_APP_ZEROG_POKERGAME_ADDRESS_MAINNET || process.env.REACT_APP_ZEROG_POKERGAME_ADDRESS || '';
+    }
     return process.env.REACT_APP_ZEROG_POKERGAME_ADDRESS || '0xc4975D55aD2607B14616E97B9a8E5622778eF5aE';
 }
 
@@ -49,7 +62,7 @@ export async function connectWallet() {
     }
 
     if (_isPending()) {
-        console.warn('[zeroG] Request already pending, waiting for existing...');
+        safeConsole('warn', '[zeroG] Request already pending, waiting for existing...');
         try { return await _pendingRequest; } catch { /* fall through */ }
     }
 
@@ -72,11 +85,14 @@ export function disconnectWallet() {
  * Switch to 0G network with robust error handling (with deduplication guard)
  * @param {'testnet'|'mainnet'} network
  */
-export async function switchChain(network = 'testnet') {
+export async function switchChain(network) {
     if (!hasEvmWallet()) throw new Error('No wallet');
 
+    // Default to build-time network (mainnet or testnet)
+    const targetNetwork = network || process.env.REACT_APP_NETWORK || 'testnet';
+
     if (_isPending()) {
-        console.warn('[zeroG] Switch chain request already pending, waiting...');
+        safeConsole('warn', '[zeroG] Switch chain request already pending, waiting...');
         try { return await _pendingRequest; } catch { /* fall through */ }
     }
 
@@ -92,12 +108,12 @@ export async function switchChain(network = 'testnet') {
             chainId: CHAIN_IDS.MAINNET,
             chainName: '0G Mainnet',
             nativeCurrency: { name: '0G Token', symbol: '0G', decimals: 18 },
-            rpcUrls: ['https://rpc.0g.ai'],
-            blockExplorerUrls: ['https://evm-explorer.0g.ai']
+            rpcUrls: ['https://evmrpc.0g.ai'],
+            blockExplorerUrls: ['https://chainscan.0g.ai']
         }
     };
 
-    const cfg = configs[network];
+    const cfg = configs[targetNetwork];
     const targetChainId = parseInt(cfg.chainId, 16);
 
     const p = (async () => {
@@ -105,11 +121,11 @@ export async function switchChain(network = 'testnet') {
         try {
             const currentCid = await window.ethereum.request({ method: 'eth_chainId' });
             if (parseInt(currentCid, 16) === targetChainId) {
-                console.log('[zeroG] Already on', cfg.chainName);
+                safeConsole('log', '[zeroG] Already on', cfg.chainName);
                 return;
             }
         } catch (e) {
-            console.warn('[zeroG] Chain check failed:', e.message);
+            safeConsole('warn', '[zeroG] Chain check failed:', e.message);
         }
 
         try {
@@ -118,10 +134,10 @@ export async function switchChain(network = 'testnet') {
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: cfg.chainId }]
             });
-            console.log('[zeroG] Successfully switched to', cfg.chainName);
+            safeConsole('log', '[zeroG] Successfully switched to', cfg.chainName);
             return;
         } catch (switchError) {
-            console.warn('[zeroG] switch error:', switchError.code, switchError.message);
+            safeConsole('warn', '[zeroG] switch error:', switchError.code, switchError.message);
             
             // Step 2: Chain not added yet (code 4902)
             if (switchError.code === 4902) {
@@ -133,12 +149,12 @@ export async function switchChain(network = 'testnet') {
                         rpcUrls: cfg.rpcUrls,
                         blockExplorerUrls: cfg.blockExplorerUrls
                     }];
-                    console.log('[zeroG] Adding chain...', cfg.chainName, addParams[0]);
+                    safeConsole('log', '[zeroG] Adding chain...', cfg.chainName, addParams[0]);
                     await window.ethereum.request({
                         method: 'wallet_addEthereumChain',
                         params: addParams
                     });
-                    console.log('[zeroG] Chain added successfully');
+                    safeConsole('log', '[zeroG] Chain added successfully');
                     
                     // After adding, switch again
                     await window.ethereum.request({
@@ -147,7 +163,7 @@ export async function switchChain(network = 'testnet') {
                     });
                     return;
                 } catch (addError) {
-                    console.error('[zeroG] Add chain error:', addError.code, addError.message);
+                    safeConsole('error', '[zeroG] Add chain error:', addError.code, addError.message);
                     throw new Error(`Failed to add ${cfg.chainName}: ${addError.message}`);
                 }
             }
@@ -227,7 +243,7 @@ export async function withdrawFromContract(amountEth) {
     const amountWei = ethers.utils.parseEther(amountEth.toString());
     const data = iface.encodeFunctionData('withdraw', [amountWei]);
 
-    console.log(`[zeroG] Withdrawing ${amountEth} 0G (${amountWei.toString()} wei)`);
+    safeConsole('log', `[zeroG] Withdrawing ${amountEth} 0G (${amountWei.toString()} wei)`);
 
     return sendTransaction({
         to: CONTRACT_ADDRESS,
@@ -247,11 +263,14 @@ export async function getBalance(address) {
     const addr = address || (hasEvmWallet() ? (await window.ethereum.request({ method: 'eth_accounts' }))[0] : null);
     if (!addr) return '0';
 
-    // Use direct RPC call to 0G Testnet to get real 0G balance
-    const OG_RPC_URLS = [
-        'https://evmrpc-galileo.0g.ai',   // testnet primary
-        'https://rpc.0g.ai'                // mainnet fallback
-    ];
+    // Use direct RPC call to get real 0G balance (respects build-time network)
+    const isMainnet = process.env.REACT_APP_NETWORK === 'mainnet';
+    const OG_RPC_URLS = isMainnet
+        ? ['https://evmrpc.0g.ai']   // mainnet
+        : [
+            'https://evmrpc-galileo.0g.ai',   // testnet primary
+            'https://evmrpc.0g.ai'               // testnet fallback
+          ];
 
     for (const rpcUrl of OG_RPC_URLS) {
         try {
@@ -269,11 +288,11 @@ export async function getBalance(address) {
             if (data.result) {
                 const balWei = parseInt(data.result, 16);
                 const bal = (balWei / 1e18).toString();
-                console.log(`[zeroG] Balance via ${rpcUrl}: ${bal} 0G`);
+                safeConsole('log', `[zeroG] Balance via ${rpcUrl}: ${bal} 0G`);
                 return bal;
             }
         } catch (e) {
-            console.warn(`[zeroG] Failed ${rpcUrl}:`, e.message);
+            safeConsole('warn', `[zeroG] Failed ${rpcUrl}:`, e.message);
         }
     }
 
@@ -289,7 +308,7 @@ export async function getBalance(address) {
                 return (parseInt(bal, 16) / 1e18).toString();
             }
         } catch (e) {
-            console.warn('[zeroG] Wallet fallback failed:', e.message);
+            safeConsole('warn', '[zeroG] Wallet fallback failed:', e.message);
         }
     }
 
@@ -331,12 +350,12 @@ export async function getGameBalance(address) {
                     rawLockedBalance: data.rawLockedBalance || '0',
                     rawTotalBalance: data.rawTotalBalance || '0'
                 };
-                console.log('[zeroG] Game balance via API:', info);
+                safeConsole('log', '[zeroG] Game balance via API:', info);
                 return info;
             }
         }
     } catch (e) {
-        console.warn('[zeroG] API game balance fetch failed, trying RPC:', e.message);
+        safeConsole('warn', '[zeroG] API game balance fetch failed, trying RPC:', e.message);
     }
 
     // Fallback: direct RPC call to PokerGame0G contract
@@ -347,10 +366,9 @@ export async function getGameBalance(address) {
         const iface = new ethers.utils.Interface(ABI);
         const data = iface.encodeFunctionData('getPlayerInfo', [address]);
 
-        for (const rpcUrl of [
-            'https://evmrpc-galileo.0g.ai',
-            'https://rpc.0g.ai'
-        ]) {
+        for (const rpcUrl of (process.env.REACT_APP_NETWORK === 'mainnet'
+            ? ['https://evmrpc.0g.ai']
+            : ['https://evmrpc-galileo.0g.ai', 'https://evmrpc.0g.ai'])) {
             try {
                 const response = await fetch(rpcUrl, {
                     method: 'POST',
@@ -376,13 +394,13 @@ export async function getGameBalance(address) {
                         rawLockedBalance,
                         rawTotalBalance
                     };
-                    console.log(`[zeroG] Game balance via ${rpcUrl}:`, info);
+                    safeConsole('log', `[zeroG] Game balance via ${rpcUrl}:`, info);
                     return info;
                 }
             } catch (e) { /* try next RPC */ }
         }
     } catch (e) {
-        console.error('[zeroG] RPC game balance failed:', e.message);
+        safeConsole('error', '[zeroG] RPC game balance failed:', e.message);
     }
 
     return zero;
@@ -396,7 +414,7 @@ export async function getGameBalance(address) {
  */
 export async function getCustodyBalance(address) {
     const info = await getGameBalance(address);
-    console.log('[zeroG] Custody balance:', info.balance);
+    safeConsole('log', '[zeroG] Custody balance:', info.balance);
     return info.balance;
 }
 
@@ -425,7 +443,7 @@ export async function leaveTableSession(stackWei, tableId = 1) {
     if (!hasEvmWallet()) throw new Error('No wallet');
 
     // Ensure we're on the correct 0G chain
-    try { await ensureCorrectChain('testnet'); } catch (e) {
+    try { await ensureCorrectChain(); } catch (e) {
         throw new Error(`Failed to switch to 0G network: ${e.message}`);
     }
 
@@ -434,7 +452,7 @@ export async function leaveTableSession(stackWei, tableId = 1) {
     const iface = new ethers.utils.Interface(ABI);
     const data = iface.encodeFunctionData('leaveTableSession', [tableId.toString(), stackWei.toString()]);
 
-    console.log(`[zeroG] Leaving table session, stack: ${stackWei} wei`);
+    safeConsole('log', `[zeroG] Leaving table session, stack: ${stackWei} wei`);
 
     const txHash = await window.ethereum.request({
         method: 'eth_sendTransaction',
@@ -507,31 +525,32 @@ export async function isOn0GNetwork() {
  * @param {'testnet'|'mainnet'} [network='testnet']
  * @throws {Error} If not on correct chain and switch fails
  */
-export async function ensureCorrectChain(network = 'testnet') {
+export async function ensureCorrectChain(network) {
     if (!hasEvmWallet()) throw new Error('No wallet');
 
-    const expectedCid = parseInt(CHAIN_IDS[network.toUpperCase()], 16);
+    const targetNetwork = network || process.env.REACT_APP_NETWORK || 'testnet';
+    const expectedCid = parseInt(CHAIN_IDS[targetNetwork.toUpperCase()], 16);
     const actualCid = await getChainId();
 
     if (actualCid === expectedCid) return; // Already correct
 
-    console.warn(`[zeroG] Chain mismatch! Expected ${expectedCid} (0${network}), got ${actualCid}. Switching...`);
+    safeConsole('warn', `[zeroG] Chain mismatch! Expected ${expectedCid} (${targetNetwork}), got ${actualCid}. Switching...`);
 
     // Try to auto-switch
     try {
-        await switchChain(network);
+        await switchChain(targetNetwork);
         // Verify after switch
         const newCid = await getChainId();
         if (newCid !== expectedCid) {
             throw new Error(
-                `Failed to switch to ${network} network. ` +
-                `Current chain: ${newCid}, Expected: ${expectedCid} (${network === 'testnet' ? '0x40DA' : '0x4115'}). ` +
-                `Please manually switch your wallet to 0G ${network === 'testnet' ? 'Testnet' : 'Mainnet'} first.`
+                `Failed to switch to ${targetNetwork} network. ` +
+                `Current chain: ${newCid}, Expected: ${expectedCid} (${targetNetwork === 'testnet' ? '0x40DA' : '0x4115'}). ` +
+                `Please manually switch your wallet to 0G ${targetNetwork === 'testnet' ? 'Testnet' : 'Mainnet'} first.`
             );
         }
     } catch (err) {
         throw new Error(
-            `Cannot proceed — wrong chain. Wallet is on chain ${actualCid}, need ${expectedCid} (0G ${network}). ` +
+            `Cannot proceed — wrong chain. Wallet is on chain ${actualCid}, need ${expectedCid} (0G ${targetNetwork}). ` +
             `Switch error: ${err.message}`
         );
     }

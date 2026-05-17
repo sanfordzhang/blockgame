@@ -541,7 +541,16 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
         return;
       }
 
-      if (forceNavigate || !ack?.tournamentEnded) {
+      // For multi-player: tournament continues without us. Don't navigate immediately --
+      // let TournamentTable.js show an "eliminated / left" intermediate screen.
+      // The user can manually navigate back from there.
+      // For forced navigation (e.g. explicit user request) or when tournament ended,
+      // proceed with normal flow.
+      if (!ack?.tournamentEnded && !forceNavigate) {
+        // Stay on page -- setIsLeaving(true) already triggers eliminated-screen render in TournamentTable
+        return;
+      }
+      if (forceNavigate) {
         navigate('/tournament');
         return;
       }

@@ -101,6 +101,8 @@ run_ssh "set -e; cd $APP_DIR && \
     REACT_APP_MAINNET_CONTRACT_ADDRESS=THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd \
     REACT_APP_TESTNET_CONTRACT_ADDRESS=TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c \
     REACT_APP_NFT_CONTRACT_ONCHAIN=TZ44KG9TPtWzFWKHy4SJxHFmzwbgTZU9fc \
+    REACT_APP_ZEROG_POKERGAME_ADDRESS_MAINNET=0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc \
+    REACT_APP_ZEROG_INFT_ADDRESS_MAINNET=0xc6F5495D411405630dF5d5ad32225d7F51dC1645 \
     npx react-app-rewired --openssl-legacy-provider build > /tmp/game-core-build-mainnet.log 2>&1 \
     && tail -8 /tmp/game-core-build-mainnet.log \
     && mv build build-mainnet-next \

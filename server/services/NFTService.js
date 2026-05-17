@@ -669,9 +669,9 @@ module.exports = {
             return { rank: c.slice(0, -1), suit: c.slice(-1) };
         });
         
-        // Save to database
+        // Save to database (preserve TRON base58 casing, only lowercase EVM/0x addresses)
         const claim = new NFTClaim({
-            playerAddress: walletAddress.toLowerCase(),
+            playerAddress: walletAddress?.startsWith('0x') ? walletAddress.toLowerCase() : walletAddress,
             achievementTypeId,
             achievementType: achievementTypeName,
             rarity: rarityMap[achievementTypeName] || 'COMMON',
@@ -850,8 +850,33 @@ module.exports = {
             callerHex = tronWeb.address.toHex(walletAddress);
             if (callerHex.startsWith('41')) callerHex = '0x' + callerHex.slice(2);
         } catch (hexErr) {
-            console.error('[NFTService] ERROR: Invalid wallet address for hex conversion:', walletAddress, hexErr.message);
-            throw new Error('Invalid wallet address: ' + walletAddress);
+            // TRON addresses are base58-encoded and case-sensitive; lowercasing corrupts them.
+            // Attempt recovery: if address looks like a mangled TRON address (starts with T/t), try
+            // restoring proper casing via the hex round-trip.
+            console.warn('[NFTService] Address hex conversion failed for:', walletAddress, '- attempting case recovery...');
+            try {
+                // Try common casing fixes: first letter uppercase, rest as-is or all uppercase
+                const attempts = [
+                    walletAddress.charAt(0).toUpperCase() + walletAddress.slice(1),
+                    walletAddress.toUpperCase(),
+                ];
+                let recovered = false;
+                for (const attempt of attempts) {
+                    try {
+                        callerHex = tronWeb.address.toHex(attempt);
+                        if (callerHex.startsWith('41')) callerHex = '0x' + callerHex.slice(2);
+                        console.log(`[NFTService] Recovered address from '${walletAddress}' -> '${attempt}'`);
+                        recovered = true;
+                        break;
+                    } catch (_e) { /* continue */ }
+                }
+                if (!recovered) {
+                    throw new Error(hexErr.message);
+                }
+            } catch (recoveryErr) {
+                console.error('[NFTService] ERROR: Invalid wallet address for hex conversion:', walletAddress, recoveryErr.message);
+                throw new Error('Invalid wallet address: ' + walletAddress);
+            }
         }
 
         let hash, sig;
