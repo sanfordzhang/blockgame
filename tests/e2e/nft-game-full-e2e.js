@@ -23,12 +23,20 @@ const CONFIG = {
     cdpPort: 9222,
     player1: {
         address: 'TU8rhtpFQUsgpbe9sXQAfG8bdxF52GgSMv',
-        privateKey: process.env.PLAYER1_PRIVATE_KEY || 'c8e7c89c6b8e3b7d5a4e3c2b1a0f9e8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a3e2d1'
+        privateKey: process.env.PLAYER1_PRIVATE_KEY || ''
     },
     player2: {
         address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
-        privateKey: process.env.PLAYER2_PRIVATE_KEY || 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+        privateKey: process.env.PLAYER2_PRIVATE_KEY || ''
     }
+
+// 启动检查：确保测试私钥已配置
+if (!CONFIG.player1.privateKey || !CONFIG.player2.privateKey) {
+    console.error('❌ Missing test private keys!');
+    console.error('   Set PLAYER1_PRIVATE_KEY and PLAYER2_PRIVATE_KEY env vars');
+    console.error('   Or create .env.test-keys file with these values');
+    process.exit(1);
+}
 };
 
 // 测试结果

@@ -1411,7 +1411,8 @@ module.exports = {
                         }
 
                         if (playerBalance < buyIn) {
-                        throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
+                            throw new Error(`Insufficient balance. You need ${buyIn / 1e6} TRX but only have ${(playerBalance / 1e6).toFixed(2)} TRX.`);
+                        }
                     }
 
                     console.log(`[TournamentService] Test mode: Player ${walletAddress.substring(0, 10)}... has ${

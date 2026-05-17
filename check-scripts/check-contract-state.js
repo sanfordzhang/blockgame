@@ -1,7 +1,16 @@
 const { TronWeb } = require('tronweb');
+require('dotenv').config({ path: '.env.test-keys' });
+
+const privateKey = process.env.CHECK_CONTRACT_PRIVATE_KEY || '';
+if (!privateKey) {
+  console.error('❌ CHECK_CONTRACT_PRIVATE_KEY not set');
+  console.error('   Usage: CHECK_CONTRACT_PRIVATE_KEY=xxx node check-contract-state.js');
+  process.exit(1);
+}
+
 const tw = new TronWeb({
   fullHost: 'https://nile.trongrid.io',
-  privateKey: 'b185b511ad8314b5cf787108676581223ce354321428f6efb46ef2370c882905'
+  privateKey
 });
 async function check() {
     const contract = await tw.contract().at('TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c');
