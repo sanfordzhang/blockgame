@@ -232,28 +232,26 @@ const Landing = () => {
     checkWallets();
   }, []);
 
-  // Preload game assets — ONLY after page is fully rendered and user has been idle.
+  // Preload game assets after the first paint so entering the game does not
+  // fetch card/table resources for the first time on the game screen.
   // Uses a two-stage approach:
-  //   Stage 1: Wait 4 seconds for Landing UI + wallet data to fully render
+  //   Stage 1: Wait briefly for Landing UI to render
   //   Stage 2: Use requestIdleCallback to prefetch at lowest priority
-  // This ensures game resource preloading NEVER blocks or slows down the Landing experience.
   useEffect(() => {
     const startPreload = () => {
-      console.log('[Landing] Starting delayed game asset prefetch...');
+      console.log('[Landing] Starting game asset prefetch...');
       
       if ('requestIdleCallback' in window) {
-        // Browser will run this only when main thread is idle
         requestIdleCallback(
           () => preloadGameAssets(),
-          { timeout: 8000 } // fallback if browser never goes idle
+          { timeout: 2500 }
         );
       } else {
-        setTimeout(() => preloadGameAssets(), 2000);
+        setTimeout(() => preloadGameAssets(), 500);
       }
     };
 
-    // Delay: wait for Landing to be fully interactive (wallet connected, balances shown)
-    const timer = setTimeout(startPreload, 4000);
+    const timer = setTimeout(startPreload, 1200);
     return () => clearTimeout(timer);
   }, []);
 

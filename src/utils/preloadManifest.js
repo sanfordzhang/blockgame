@@ -22,12 +22,16 @@ import bigBlindImage from '../assets/game/big_blind.png';
 
 // Cards
 import cardBackImage from '../assets/game/card_back.png';
+import cardImages from '../components/game/cards';
 
 // Branding / avatar UI
 import avatarImage from '../assets/game/avatar.png';
 import circleImage from '../assets/game/circle.png';
 import brandingImage from '../assets/game/branding_outline.png';
 import chipGreenImage from '../assets/game/gglab_green.png';
+import seatUserImages from '../components/game/userImages';
+import loadingBackgroundImage from '../assets/game/loading-background.jpg';
+import rotateDeviceImage from '../assets/game/rotate.gif';
 
 // Player avatars (6 seats) — these are referenced by PokerTable.js
 // Note: player1~6.png exist in src/assets/game/
@@ -56,6 +60,10 @@ export const GAME_ASSETS = [
   player4Image,
   player5Image,
   player6Image,
+  loadingBackgroundImage,
+  rotateDeviceImage,
+  ...Object.values(cardImages),
+  ...seatUserImages.filter(Boolean),
 ];
 
 export default GAME_ASSETS;

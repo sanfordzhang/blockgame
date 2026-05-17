@@ -114,7 +114,7 @@ router.get('/:tournamentId', async (req, res) => {
  */
 router.post('/create', optionalAuth, async (req, res) => {
     try {
-        const { configId, walletAddress, mockGame } = req.body;
+        const { configId, walletAddress, mockGame, chainType } = req.body;
         const creatorAddress = req.user?.walletAddress || walletAddress || 'test-mode';
         const mockGameEnabled = process.env.TOURNAMENT_MOCK_GAME_ENABLED === 'true';
         const mockGameRequested = mockGame === true || mockGame === 'true';
@@ -127,6 +127,7 @@ router.post('/create', optionalAuth, async (req, res) => {
         const tournament = await TournamentService.createTournament({ 
             configId, 
             creatorAddress,
+            chainType,
             mockGame: effectiveMockGame
         });
         console.log(

@@ -244,7 +244,7 @@ const TournamentTableGame = ({ tournamentId }) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   }), []);
 
-  const waitForFinalAchievementRender = useCallback(async (achievement, timeoutMs = 5000) => {
+  const waitForFinalAchievementRender = useCallback(async (achievement, timeoutMs = 1800) => {
     const expectedBoardLength = achievement?.gameState?.board?.length || achievement?.board?.length || 0;
     const finalStateRequired = !!achievement?.gameState?.showFinalHand || !!achievement?.gameState?.handOver;
     const start = Date.now();
@@ -261,7 +261,7 @@ const TournamentTableGame = ({ tournamentId }) => {
         return true;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 120));
+      await new Promise(resolve => setTimeout(resolve, 80));
     }
 
     console.warn('[TournamentTable] Timed out waiting for final achievement render');
@@ -501,9 +501,21 @@ const TournamentTableGame = ({ tournamentId }) => {
 
       (async () => {
         await waitForFinalAchievementRender(nftAchievement);
-        const screenshotBase64 = await captureGameScreenshot('final-achievement');
+        let screenshotReady = false;
+        const screenshotPromise = captureGameScreenshot('final-achievement')
+          .then((screenshot) => {
+            if (screenshot) latestGameScreenshotRef.current = screenshot;
+            return screenshot;
+          })
+          .catch((err) => {
+            console.warn('[TournamentTable] Final achievement screenshot failed:', err?.message || err);
+            return null;
+          })
+          .finally(() => {
+            screenshotReady = true;
+          });
 
-        // Show popup after screenshot is captured
+        // Show the achievement popup immediately while the final screenshot is captured in parallel.
         Swal.fire({
           title: _lang === 'zh' ? '🎉 成就解锁！' : '🎉 Achievement Unlocked!',
           html: `
@@ -526,7 +538,19 @@ const TournamentTableGame = ({ tournamentId }) => {
           color: '#fff',
         }).then(async (result) => {
           if (result.isConfirmed) {
-            // Screenshot already captured from the final hand state before popup was shown.
+            if (!screenshotReady) {
+              Swal.fire({
+                title: _lang === 'zh' ? '准备截图...' : 'Preparing Screenshot...',
+                html: '<p>' + (_lang === 'zh' ? '正在保存最终牌局画面...' : 'Saving the final hand view...') + '</p>',
+                allowOutsideClick: false,
+                didOpen: () => {
+                  Swal.showLoading();
+                }
+              });
+            }
+
+            // Screenshot capture starts before the popup, from the final hand state.
+            const screenshotBase64 = await screenshotPromise;
             if (!screenshotBase64) {
               await Swal.fire({
                 title: _lang === 'zh' ? '截图失败' : 'Screenshot Failed',

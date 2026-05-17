@@ -332,11 +332,33 @@ const Tournament = () => {
     zeroGConnected,
   ]);
 
+  const formatCurrencyAmount = useCallback((amount) => {
+    const value = Number(amount || 0) / currencyDivisor;
+    if (!Number.isFinite(value)) return '0';
+    const decimals = isZeroG ? 4 : 0;
+    return value.toFixed(decimals).replace(/\.?0+$/, '') || '0';
+  }, [currencyDivisor, isZeroG]);
+
+  const formatBuyIn = useCallback((buyIn) => (
+    `${formatCurrencyAmount(buyIn)} ${currencySymbol}`
+  ), [currencySymbol, formatCurrencyAmount]);
+
+  const formatConfigName = useCallback((config = {}) => {
+    const playerCount = config.playerCount || 2;
+    return `${t('players')(playerCount)} (${formatBuyIn(config.buyIn)})`;
+  }, [formatBuyIn, t]);
+
+  const formatTournamentName = useCallback((tournament = {}) => {
+    const playerCount = tournament.config?.playerCount || tournament.playerCount || 2;
+    const buyIn = tournament.buyIn || tournament.config?.buyIn || 0;
+    return `${t('players')(playerCount)} (${formatBuyIn(buyIn)})`;
+  }, [formatBuyIn, t]);
+
   // 默认测试配置（当合约未配置时使用）
   const DEFAULT_CONFIGS = [
-    { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, name: t('players')(6) + ' (100 ' + currencySymbol + ')' },
-    { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, name: t('players')(4) + ' (100 ' + currencySymbol + ')' },
-    { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, name: t('players')(2) + ' (100 ' + currencySymbol + ')' },
+    { id: 1, playerCount: 6, buyIn: 100000000, rakeRate: 500, name: formatConfigName({ playerCount: 6, buyIn: 100000000 }) },
+    { id: 2, playerCount: 4, buyIn: 100000000, rakeRate: 500, name: formatConfigName({ playerCount: 4, buyIn: 100000000 }) },
+    { id: 3, playerCount: 2, buyIn: 100000000, rakeRate: 500, name: formatConfigName({ playerCount: 2, buyIn: 100000000 }) },
   ];
 
   useEffect(() => {
@@ -399,6 +421,7 @@ const Tournament = () => {
         body: JSON.stringify({ 
           configId, 
           walletAddress,
+          chainType: isZeroG ? '0g' : 'tron',
           mockGame: MOCK_GAME_ENABLED && mockGame
         })
       });
@@ -498,7 +521,7 @@ const Tournament = () => {
     openModal(
       () => (
         <Container flexDirection="column" gap="1rem">
-          <Text>Buy-in: {(buyIn / currencyDivisor).toFixed(isZeroG ? 2 : 0)} {currencySymbol}</Text>
+          <Text>Buy-in: {formatBuyIn(buyIn)}</Text>
           <Text>Are you sure you want to join this tournament?</Text>
         </Container>
       ),
@@ -511,7 +534,7 @@ const Tournament = () => {
   const formatPrizePool = (tournament) => {
     const totalPot = tournament.buyIn * tournament.playerCount;
     const afterRake = totalPot * (1 - tournament.rakeRate / 10000);
-    return `${(afterRake / currencyDivisor).toFixed(isZeroG ? 2 : 0)} ${currencySymbol}`;
+    return `${formatCurrencyAmount(afterRake)} ${currencySymbol}`;
   };
 
   // View tournament rankings (for completed tournaments)
@@ -558,7 +581,7 @@ const Tournament = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                       {playerInfo?.prizeAmount > 0 && (
                         <span style={{ color: '#ffd700' }}>
-                          {(playerInfo.prizeAmount / currencyDivisor).toLocaleString()} {currencySymbol}
+                          {formatCurrencyAmount(playerInfo.prizeAmount)} {currencySymbol}
                         </span>
                       )}
                       {chipReward > 0 && (
@@ -574,7 +597,7 @@ const Tournament = () => {
             {rakeAmount > 0 && (
               <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px' }}>
                 <Text size="0.8rem" color="textSecondary" textCentered>
-                  Rake: {(rakeAmount / currencyDivisor).toFixed(isZeroG ? 4 : 1)} {currencySymbol} (5%)
+                  Rake: {formatCurrencyAmount(rakeAmount)} {currencySymbol} (5%)
                 </Text>
               </div>
             )}
@@ -637,7 +660,7 @@ const Tournament = () => {
               disabled={creating}
               data-testid={`create-tournament-btn-${config.id}`}
             >
-              {creating ? t('creating') : t('players')(config.playerCount) + ' (' + (config.buyIn / currencyDivisor).toFixed(isZeroG ? 2 : 0) + ' ' + currencySymbol + ')'}
+              {creating ? t('creating') : formatConfigName(config)}
             </CreateButton>
           ))}
         </CreateButtons>
@@ -683,14 +706,14 @@ const Tournament = () => {
               data-testid={`tournament-card-${tournament.tournamentId}`}
             >
               <Container flexDirection="row" justifyContent="space-between" alignItems="center">
-                <Heading as="h3">{tournament.config?.name || `Tournament #${tournament.tournamentId}`}</Heading>
+                <Heading as="h3">{formatTournamentName(tournament)}</Heading>
                 <StatusBadge status={tournament.status}>{tournament.status}</StatusBadge>
               </Container>
               
               <Container flexDirection="row" justifyContent="space-between" marginTop="1rem">
                 <div>
                   <Text size="0.8rem" color="textSecondary">Buy-in</Text>
-                  <BuyInAmount>{(tournament.buyIn / currencyDivisor).toFixed(isZeroG ? 2 : 0)} {currencySymbol}</BuyInAmount>
+                  <BuyInAmount>{formatBuyIn(tournament.buyIn)}</BuyInAmount>
                 </div>
                 <div>
                   <Text size="0.8rem" color="textSecondary">Prize Pool</Text>

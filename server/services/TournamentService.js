@@ -49,14 +49,16 @@ class TournamentService {
      */
     async createTournament(configOrId, creatorAddress = null) {
         // 支持对象参数或数字ID
-        let configId, mockGame;
+        let configId, mockGame, chainType;
         if (typeof configOrId === 'object') {
             configId = configOrId.configId;
             creatorAddress = configOrId.creatorAddress || creatorAddress;
             mockGame = configOrId.mockGame || false;
+            chainType = configOrId.chainType || configOrId.walletType || null;
         } else {
             configId = configOrId;
             mockGame = false;
+            chainType = null;
         }
         
         // Default configs for test mode
@@ -91,6 +93,7 @@ class TournamentService {
         
         // Get config from defaults or contract
         const defaultConfig = DEFAULT_CONFIGS[configId] || DEFAULT_CONFIGS[1];
+        const isZeroGTournament = chainType === '0g' || chainType === 'zerog' || isZeroGAddress(creatorAddress);
         
         // Create database record
         const TournamentModel = require('../models/Tournament');
@@ -109,7 +112,7 @@ class TournamentService {
                 prizeDistribution: defaultConfig.prizeDistribution,
                 tournamentType: 'SNG',
                 startMode: 'INSTANT',
-                name: `${defaultConfig.playerCount}-Player (${defaultConfig.buyIn/1e6} TRX)`
+                name: formatTournamentConfigName(defaultConfig, isZeroGTournament)
             },
             buyIn: defaultConfig.buyIn,
             playerCount: defaultConfig.playerCount,
@@ -844,6 +847,17 @@ function isZeroGAddress(address) {
     return typeof address === 'string' && address.startsWith('0x');
 }
 
+function formatTournamentAmount(amountSun, isZeroG) {
+    const value = Number(amountSun || 0) / (isZeroG ? 1e9 : 1e6);
+    if (!Number.isFinite(value)) return '0';
+    return value.toFixed(isZeroG ? 4 : 0).replace(/\.?0+$/, '') || '0';
+}
+
+function formatTournamentConfigName(config, isZeroG) {
+    const symbol = isZeroG ? '0G' : 'TRX';
+    return `${config.playerCount}-Player (${formatTournamentAmount(config.buyIn, isZeroG)} ${symbol})`;
+}
+
 function sunToZeroGWei(amountSun) {
     return BigInt(Math.max(0, Math.trunc(Number(amountSun || 0)))) * ZERO_G_WEI_PER_SUN;
 }
@@ -1228,6 +1242,9 @@ module.exports = {
                 : { playerCount: 6, buyIn: 100000000, rakeRate: 500, initialChips: 10000000, prizeDistribution: [5000, 3000, 2000] }; // 50%/30%/20%
             
             const tournamentId = Date.now().toString();
+            const isZeroGTournament = data.chainType === '0g' ||
+                data.chainType === 'zerog' ||
+                isZeroGAddress(data.creatorAddress);
             const tournament = new TournamentModel({
                 tournamentId,
                 configId: data.configId || 1,
@@ -1238,7 +1255,7 @@ module.exports = {
                     ...config,
                     tournamentType: 'SNG',
                     startMode: 'INSTANT',
-                    name: `${config.playerCount}-Player (${config.buyIn/1e6} TRX)`
+                    name: formatTournamentConfigName(config, isZeroGTournament)
                 },
                 buyIn: config.buyIn,
                 playerCount: config.playerCount,

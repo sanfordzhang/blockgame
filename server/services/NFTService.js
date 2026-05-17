@@ -7,6 +7,23 @@ const crypto = require('crypto');
 const NFTClaim = require('../models/NFTClaim');
 const { generateMetadata } = require('../../utils/metadata-generator');
 
+function getZeroGContractServiceForNFT() {
+    if (global.zeroGContractService) {
+        return global.zeroGContractService;
+    }
+
+    const { getZeroGService } = require('../blockchain/blockchainFactory');
+    const ZeroGContractService = require('../blockchain/ZeroGContractService');
+    const zgService = getZeroGService();
+    if (!zgService || !zgService.initialized || !zgService.wallet) {
+        throw new Error('0G service not initialized');
+    }
+
+    const zgContractService = new ZeroGContractService();
+    zgContractService.init(zgService, process.env.ZEROG_NETWORK || 'testnet');
+    return zgContractService;
+}
+
 class NFTService {
     constructor(config) {
         this.tronWeb = config.tronWeb;
@@ -687,20 +704,15 @@ module.exports = {
         if (blockchainMode === '0g' || blockchainMode === 'both') {
             let pendingZeroGMintTxHash = null;
             try {
-                const ethers6 = require('ethers6');
-                const { getZeroGService } = require('../blockchain/blockchainFactory');
-                const zgService = getZeroGService();
+                const zgContractService = getZeroGContractServiceForNFT();
+                const inftContract = zgContractService?.inftContract;
                 
-                if (zgService && zgService.initialized && zgService.wallet) {
+                if (inftContract && zgContractService?.zeroGService?.wallet) {
                     console.log(`[NFTService] 🎰 0G On-Chain Mint: ${zeroGHandTypeName} → ${walletAddress.substring(0, 10)}...`);
                     
-                    const abiPath = require('path').resolve(
-                        __dirname, '../../artifacts/contracts/0g/PokerHandINFT.sol/PokerHandINFT.json'
-                    );
-                    const abi = JSON.parse(require('fs').readFileSync(abiPath, 'utf8')).abi;
-                    const inftAddr = process.env.ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
-                    const inftContract = new ethers6.Contract(inftAddr, abi, zgService.wallet);
-                    
+                    const inftAddr = zgContractService.inftAddress ||
+                        process.env.ZEROG_INFT_ADDRESS ||
+                        '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
                     const recipient = walletAddress.startsWith('0x') ? walletAddress : ('0x' + walletAddress);
                     const mintArgs = [
                         recipient,
@@ -726,7 +738,13 @@ module.exports = {
                     console.log(`[NFTService] 0G mint submitted tx=${tx.hash}; waiting for confirmation...`);
 
                     const receipt = await withOperationTimeout(
-                        tx.wait(),
+                        typeof zgContractService._waitForTransaction === 'function'
+                            ? zgContractService._waitForTransaction(tx, {
+                                label: 'mintINFT',
+                                attempts: Math.max(3, Math.ceil(onchainMintTimeoutMs / 2500)),
+                                delayMs: 2500
+                            })
+                            : tx.wait(),
                         onchainMintTimeoutMs,
                         `0G mint transaction confirmation timed out after ${onchainMintTimeoutMs}ms: ${tx.hash}`
                     );
@@ -736,20 +754,21 @@ module.exports = {
                         })
                         .find((event) => event && event.name === 'PokerHandMinted');
                     const actualTokenId = (mintEvent?.args?.tokenId ?? tokenId).toString();
+                    const receiptHash = receipt.hash || receipt.transactionHash || tx.hash;
                     
                     onchainResult = {
                         success: true,
                         chain: '0G',
-                        txHash: receipt.hash,
-                        blockNumber: receipt.blockNumber.toString(),
+                        txHash: receiptHash,
+                        blockNumber: receipt.blockNumber ? receipt.blockNumber.toString() : null,
                         tokenId: actualTokenId,
                         onchainTokenId: actualTokenId,
                         contractAddress: inftAddr
                     };
-                    console.log(`[NFTService] ✅ 0G Mint SUCCESS! tx=${receipt.hash} tokenId=#${actualTokenId}`);
+                    console.log(`[NFTService] ✅ 0G Mint SUCCESS! tx=${receiptHash} tokenId=#${actualTokenId}`);
                     
                     // Update DB claim with on-chain data
-                    claim.txHash = receipt.hash;
+                    claim.txHash = receiptHash;
                     claim.onchainTokenId = parseInt(actualTokenId);
                     claim.mintedAt = new Date();
                     claim.chain = '0G';

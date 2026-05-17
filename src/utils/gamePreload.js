@@ -10,6 +10,25 @@
  */
 
 /**
+ * Preload game route bundles so React.lazy() has them cached before navigation.
+ */
+export const preloadGameBundles = () => {
+  console.log('[Preload] Starting game bundle preload...');
+  return Promise.allSettled([
+    import('../pages/Play'),
+    import('../pages/TournamentTable'),
+    import('../pages/TournamentWaitingRoom'),
+  ]).then((results) => {
+    const failed = results.filter((result) => result.status === 'rejected');
+    if (failed.length) {
+      console.warn(`[Preload] Game bundle preload completed with ${failed.length} failures`);
+    } else {
+      console.log('[Preload] Game bundles ready');
+    }
+  });
+};
+
+/**
  * Prefetch all game images into browser cache.
  * - Does NOT block: returns Promise.resolve() immediately
  * - Manifest chunk loads lazily (separate JS file, ~2KB)
@@ -18,22 +37,21 @@
 export const preloadGameAssets = () => {
   const t0 = performance.now();
   console.log('[Preload] Starting image preloading...');
+  preloadGameBundles();
 
   // Dynamic import → webpack creates a separate chunk for this.
   // The chunk contains all image URLs resolved by webpack at build time.
   import('./preloadManifest').then(({ GAME_ASSETS }) => {
     let loaded = 0;
     let failed = 0;
-    const total = GAME_ASSETS.length;
+    const assets = Array.from(new Set(
+      GAME_ASSETS.filter((url) => url && typeof url === 'string')
+    ));
+    const total = assets.length;
 
     console.log(`[Preload] Manifest loaded: ${total} images to prefetch`);
 
-    GAME_ASSETS.forEach((url) => {
-      if (!url || typeof url !== 'string') {
-        failed++;
-        return;
-      }
-
+    assets.forEach((url) => {
       const img = new window.Image();
       img.onload = () => {
         loaded++;
@@ -67,7 +85,10 @@ export const preloadGameAssets = () => {
 export const emergencyPreload = async () => {
   console.log('[Preload] Emergency: eager-loading Play bundle...');
   try {
-    await /* webpackMode: "eager" */ import('../pages/Play');
+    await Promise.allSettled([
+      import('../pages/Play'),
+      import('./preloadManifest'),
+    ]);
     console.log('[Preload] Emergency: Play bundle ready');
   } catch (e) {
     console.warn('[Preload] Emergency preload failed:', e);

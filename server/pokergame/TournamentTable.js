@@ -266,12 +266,6 @@ class TournamentTable extends Table {
             return;
         }
 
-        if (this.mockGame && this.handsPlayed >= 1) {
-            console.log(`[TournamentTable] Mock game complete after first hand, ending tournament by stack`);
-            this.endTournamentByStack('mock_game_complete');
-            return;
-        }
-        
         // Check time limit
         if (this.isTimeLimitReached()) {
             console.log(`[TournamentTable] Time limit reached, ending tournament`);
