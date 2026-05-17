@@ -24,6 +24,7 @@ ai_venv/
 .DS_Store
 .env
 .env.*
+.env.test-keys
 !.env.template
 *.log
 *.bak

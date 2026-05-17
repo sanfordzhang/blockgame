@@ -46,7 +46,15 @@ function isAllowedOrigin(origin) {
 
     if (LOCAL_ORIGIN_HOSTS.has(normalizedHost)) return true;
     if (isPrivateNetworkHost(normalizedHost)) return true;
-    if (normalizedHost.endsWith('.trycloudflare.com')) return true;
+
+    // Only allow Cloudflare Tunnel origins when explicitly configured
+    const allowedTunnelHosts = process.env.CORS_TUNNEL_HOSTS || '';
+    if (allowedTunnelHosts && normalizedHost.endsWith('.trycloudflare.com')) {
+      const allowedList = allowedTunnelHosts.split(',').map(h => h.trim().toLowerCase());
+      if (allowedList.includes(normalizedHost) || allowedList.includes('*')) {
+        return true;
+      }
+    }
 
     // Allow requests from the server's own public IP / hostname
     // This supports production deployments where frontend and backend are on the same server
