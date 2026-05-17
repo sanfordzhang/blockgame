@@ -184,7 +184,13 @@ const GameState = ({ children }) => {
           /buy-?in|insufficient|insufficient funds|余额不足|required/i.test(rawMessage)
 
         if (isJoinOrBalanceIssue) {
-          addMessage(_lang === 'zh' ? `余额不足，无法开始牌局：${rawMessage}` : `Insufficient balance to start hand: ${rawMessage}`)
+          const depositHint = _lang === 'zh'
+            ? '余额不足，请先 Deposit 到 Game Balance 后再加入游戏。'
+            : 'Insufficient balance. Please deposit to your Game Balance before joining.';
+          if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+            window.alert(depositHint);
+          }
+          addMessage(`${depositHint}${rawMessage ? ` ${rawMessage}` : ''}`)
           navigate('/')
           return
         }

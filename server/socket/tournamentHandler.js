@@ -415,29 +415,55 @@ function initTournamentHandlers(socket, io) {
     /**
      * Leave tournament room - player actively leaves the tournament
      */
-    socket.on('CS_TOURNAMENT_ROOM_LEAVE', ({ tournamentId }) => {
-        const walletAddress = socketWalletMap.get(socket.id);
-        console.log(`[TournamentHandler] Player leaving tournament: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
-        
-        socket.explicitTournamentLeave = true;
+    socket.on('CS_TOURNAMENT_ROOM_LEAVE', async ({ tournamentId, walletAddress: payloadWalletAddress }, ack) => {
+        try {
+            const walletAddress = socketWalletMap.get(socket.id) || socket.walletAddress || payloadWalletAddress || null;
+            console.log(`[TournamentHandler] Player leaving tournament: tournamentId=${tournamentId}, wallet=${walletAddress?.substring(0, 10)}...`);
 
-        // Keep socket reference before leaving room (to send end event later)
-        const leavingSocket = socket;
-        
-        leaveTournamentRoom(socket, tournamentId);
-        
-        // Handle player leaving in active game (same as disconnect)
-        if (tournamentId) {
-            console.log(`[TournamentHandler] Calling TournamentService.handleDisconnect for tournament ${tournamentId}`);
-            const result = TournamentService.handleDisconnect?.(socket.id, walletAddress);
-            console.log(`[TournamentHandler] handleDisconnect result:`, result);
-            
-            // If tournament ended due to this player leaving, send end event directly to them
-            if (result && result.tournamentEnded) {
-                console.log(`[TournamentHandler] Tournament ended by player leaving, sending end event to leaving player`);
-                // The leaving player will receive SC_TOURNAMENT_ENDED from _handleTournamentEnd
-                // But since they left the room, we need to send it directly
-                // Note: _handleTournamentEnd handles this already via the eliminated players loop
+            socket.explicitTournamentLeave = true;
+
+            leaveTournamentRoom(socket, tournamentId);
+
+            // Handle player leaving in active game (same as disconnect)
+            let result = null;
+            let cancelledJoin = false;
+            if (tournamentId) {
+                const tournament = TournamentService.getTournament ? await TournamentService.getTournament(tournamentId) : null;
+                if (tournament && tournament.status === 'WAITING') {
+                    console.log(`[TournamentHandler] Tournament ${tournamentId} is waiting; cancelling join instead of disconnect`);
+                    await TournamentService.cancelJoin(tournamentId, walletAddress);
+                    cancelledJoin = true;
+                } else {
+                    console.log(`[TournamentHandler] Calling TournamentService.handleDisconnect for tournament ${tournamentId}`);
+                    result = TournamentService.handleDisconnect?.(socket.id, walletAddress);
+                    console.log(`[TournamentHandler] handleDisconnect result:`, result);
+                }
+
+                // If tournament ended due to this player leaving, send end event directly to them
+                if (result && result.tournamentEnded) {
+                    console.log(`[TournamentHandler] Tournament ended by player leaving, sending end event to leaving player`);
+                    // The leaving player will receive SC_TOURNAMENT_ENDED from _handleTournamentEnd
+                    // But since they left the room, we need to send it directly
+                    // Note: _handleTournamentEnd handles this already via the eliminated players loop
+                }
+            }
+
+            if (typeof ack === 'function') {
+                ack({
+                    success: true,
+                    tournamentEnded: !!result?.tournamentEnded,
+                    cancelledJoin,
+                    tournamentId
+                });
+            }
+        } catch (error) {
+            console.error('[TournamentHandler] Leave error:', error.message);
+            if (typeof ack === 'function') {
+                ack({
+                    success: false,
+                    error: error.message || 'Failed to leave tournament',
+                    tournamentId
+                });
             }
         }
     });

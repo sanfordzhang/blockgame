@@ -5,6 +5,7 @@ import Button from '../components/buttons/Button';
 import Heading from '../components/typography/Heading';
 import Text from '../components/typography/Text';
 import globalContext from '../context/global/globalContext';
+import locaContext from '../context/localization/locaContext';
 import { getPlayerBalance } from '../utils/tronInteract';
 import { getCustodyBalance, switchChain } from '../utils/zeroGInteract';
 import { ethers } from 'ethers';
@@ -30,7 +31,7 @@ import { buildApiUrl } from '../utils/serverConfig';
 import './Play.scss';
 
 // Detect language for i18n
-const _lang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
+const browserLang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
 
 const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
 const ZEROG_WEI_PER_SUN = 1e9;
@@ -125,12 +126,12 @@ const requestINFTImportToMetaMask = async (tokenId) => {
 
 const getMetaMaskImportCopy = (tokenId) => {
   if (!tokenId) {
-    return _lang === 'zh'
+    return browserLang === 'zh'
       ? '未拿到链上 Token ID，无法自动请求 MetaMask 添加 NFT。请先在收藏页确认铸造记录。'
       : 'No on-chain Token ID was returned, so MetaMask import cannot be requested automatically. Check the collection page first.';
   }
 
-  return _lang === 'zh'
+  return browserLang === 'zh'
     ? `如果 MetaMask 没有弹出确认，请手动导入 NFT。合约: ${POKERHAND_INFT_ADDRESS}，Token ID: ${tokenId}`
     : `If MetaMask did not show a confirmation, import the NFT manually. Contract: ${POKERHAND_INFT_ADDRESS}, Token ID: ${tokenId}`;
 };
@@ -199,6 +200,8 @@ const formatAddress = (addr) => {
 const TournamentTableGame = ({ tournamentId }) => {
   const navigate = useNavigate();
   const globalCtx = useContext(globalContext);
+  const { lang: appLang } = useContext(locaContext);
+  const _lang = appLang || browserLang;
   const {
     messages,
     currentTable,
@@ -1013,7 +1016,7 @@ const TournamentTableGame = ({ tournamentId }) => {
     // The tournament will end when player leaves (only 1 player remaining)
     // Then SC_TOURNAMENT_ENDED will be received and end screen will show
     setIsLeaving(true);
-    leaveTable();
+    leaveTable({ forceNavigate: tournamentEnded });
     // Note: Don't navigate immediately - wait for tournamentEnded to become true
   };
 
@@ -1286,7 +1289,9 @@ const TournamentTableGame = ({ tournamentId }) => {
         </Text>
 
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <Button secondary onClick={handleLeave}>Leave Tournament</Button>
+          <Button secondary onClick={handleLeave} disabled={isLeaving}>
+            {isLeaving ? 'Leaving...' : 'Leave Tournament'}
+          </Button>
         </div>
       </Container>
     );

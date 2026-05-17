@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import socket from '../../socket';
 import globalContext from '../global/globalContext';
 import { SC_NFT_ACHIEVEMENT_EARNED, SC_NFT_MINT_READY } from '../../pokergame/actions';
@@ -87,6 +88,7 @@ const convertToTableFormat = (state, tournamentId, playerAddress) => {
  */
 export const TournamentGameProvider = ({ children, tournamentId, walletAddress: walletAddressProp }) => {
   const { walletAddress: contextWalletAddress } = useContext(globalContext);
+  const navigate = useNavigate();
   
   // Tournament routes carry the active player in the URL. Prefer that over
   // stale global/local wallet state from a previously connected account.
@@ -117,6 +119,7 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
   const gameStatePollTimerRef = useRef(null);
   const nftAchievementRef = useRef(null);
   const nftFlowHoldUntilRef = useRef(0);
+  const leaveNavigateTimerRef = useRef(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -309,6 +312,8 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
     // Room error
     socket.on('SC_TOURNAMENT_ROOM_ERROR', (data) => {
       console.error('[TournamentGameContext] Room error:', data);
+      setIsLeaving(false);
+      isLeavingRef.current = false;
       addMessage(`Error: ${data.error || 'Failed to join tournament'}`);
     });
 
@@ -415,6 +420,8 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
       setRakeAmount(data.rakeAmount || 0);
       setCurrentTable(null);
       setSeatId(null);
+      setIsLeaving(false);
+      isLeavingRef.current = false;
 
       if (alreadyEnded) {
         return;
@@ -473,6 +480,11 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
       if (isLeavingRef.current && !tournamentEndedRef.current) {
         socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId });
       }
+
+      if (leaveNavigateTimerRef.current) {
+        clearTimeout(leaveNavigateTimerRef.current);
+        leaveNavigateTimerRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, walletAddress]);
@@ -501,11 +513,51 @@ export const TournamentGameProvider = ({ children, tournamentId, walletAddress: 
     setMessages(prev => [...prev, message]);
   }, []);
 
-  const leaveTable = useCallback(() => {
+  const leaveTable = useCallback((options = {}) => {
+    const { forceNavigate = false } = options;
+    if (isLeavingRef.current) return;
+
     setIsLeaving(true);
-    socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId });
-    // Navigate will be handled by parent component
-  }, [tournamentId]);
+    isLeavingRef.current = true;
+
+    let settled = false;
+    const fallbackTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setIsLeaving(false);
+      isLeavingRef.current = false;
+      navigate('/tournament');
+    }, 8000);
+
+    socket.emit('CS_TOURNAMENT_ROOM_LEAVE', { tournamentId, walletAddress }, (ack = {}) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fallbackTimer);
+      setIsLeaving(false);
+      isLeavingRef.current = false;
+
+      if (ack?.error) {
+        addMessage(ack.error);
+        return;
+      }
+
+      if (forceNavigate || !ack?.tournamentEnded) {
+        navigate('/tournament');
+        return;
+      }
+
+      if (leaveNavigateTimerRef.current) {
+        clearTimeout(leaveNavigateTimerRef.current);
+      }
+
+      leaveNavigateTimerRef.current = setTimeout(() => {
+        leaveNavigateTimerRef.current = null;
+        if (!tournamentEndedRef.current) {
+          navigate('/tournament');
+        }
+      }, 3000);
+    });
+  }, [addMessage, navigate, socket, tournamentId, walletAddress]);
 
   // Stub functions (not needed for tournament but required for Seat component)
   const sitDown = useCallback(() => {

@@ -624,9 +624,34 @@ const init = (socket, io) => {
             });
             result = { hash: null, restored: true };
           } else {
+            const custodyCheckWei = BigInt(await zgContractService.getCustodyBalance(player.id) || '0');
+            const requiredBalanceWei = sunToZeroGWei(cappedBuyIn);
+            if (custodyCheckWei < requiredBalanceWei) {
+              socket.emit(SC_BLOCKCHAIN_ERROR, {
+                operation: 'joinTable',
+                reason: 'insufficient_balance',
+                message: `Insufficient 0G balance. Deposit at least ${(cappedBuyIn / 1e9).toFixed(4)} 0G before joining.`,
+                available: custodyCheckWei.toString(),
+                required: requiredBalanceWei.toString()
+              });
+              return;
+            }
             result = await zgContractService.joinTableFor(player.id, tableId, chainBuyIn);
           }
         } else {
+          const playerInfo = await contractService.getPlayerInfo(player.id);
+          const availableBalance = BigInt(playerInfo?.balance || 0);
+          const requiredBalance = BigInt(cappedBuyIn);
+          if (availableBalance < requiredBalance) {
+            socket.emit(SC_BLOCKCHAIN_ERROR, {
+              operation: 'joinTable',
+              reason: 'insufficient_balance',
+              message: `Insufficient TRX balance. Deposit at least ${(cappedBuyIn / 1e6).toFixed(2)} TRX before joining.`,
+              available: Number(availableBalance),
+              required: Number(requiredBalance)
+            });
+            return;
+          }
           result = await contractService.joinTableFor(player.id, tableId, cappedBuyIn);
         }
         console.log('[Socket] joinTableFor result:', result);
