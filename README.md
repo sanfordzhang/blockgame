@@ -42,6 +42,21 @@ Notes for judges:
 - Rare or special poker hands are naturally low-probability on mainnet, so they should not be treated as a reliable mainnet smoke-test step.
 - For special-hand, achievement, or NFT/INFT-related verification, use the testnet deployment, where the UI exposes `Simulate Special Hand` / `模拟特殊牌型` for easier validation.
 
+## Demo Video
+
+### 0G Poker Gameplay Demo (May 18, 2026)
+
+Full gameplay walkthrough on 0G Galileo Testnet — wallet connection, deposit, AI autopilot cash-game play, and INFT achievement minting:
+
+[![0G Poker Demo](https://img.shields.io/badge/▶️-Watch_Demo-blue?style=for-the-badge&logo=video)](./0G-2.mp4)
+
+<video controls width="100%" style="max-width:960px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);">
+  <source src="./0G-2.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+> **Note:** Video is included locally as `0G-2.mp4`. On GitHub, clone the repository and open `README.md` locally or use [GitHub's video rendering](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-a-permanent-link-to-a-code-snippet) if the raw MP4 is served via releases.
+
 ## Project Overview
 
 0G Poker is a full-stack Web3 Texas Hold'em application for real-time cash games and tournament mode. The current hackathon build focuses on 0G Galileo Testnet cash-game custody, delegated gameplay authorization, table balance locking, leave-table settlement, and achievement INFT flows. For judging, the project now exposes separate live mainnet and testnet deployments so each environment can be tested independently.
