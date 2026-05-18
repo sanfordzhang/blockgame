@@ -10,16 +10,27 @@ set -euo pipefail
 SERVER_HOST="${SERVER_HOST:-}"
 SERVER_USER="${SERVER_USER:-ubuntu}"
 SERVER_PASS="${SSH_PASS:-}"
+MAINNET_ENV_FILE="${MAINNET_ENV_FILE:-.env.0g}"
+TESTNET_ENV_FILE="${TESTNET_ENV_FILE:-.env.testnet}"
+SERVER="$SERVER_USER@$SERVER_HOST"
+APP_DIR="${APP_DIR:-/home/ubuntu/game-core}"
+LOCAL_DIR="${LOCAL_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+CONTROL_PATH="/tmp/game-core-deploy-${SERVER_USER}-${SERVER_HOST}-22.sock"
 
 if [ -z "$SERVER_HOST" ]; then
     echo "ERROR: SERVER_HOST is required. Example: SERVER_HOST=<server-ip-or-domain> SSH_PASS=... $0"
     exit 1
 fi
 
-SERVER="$SERVER_USER@$SERVER_HOST"
-APP_DIR="${APP_DIR:-/home/ubuntu/game-core}"
-LOCAL_DIR="${LOCAL_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
-CONTROL_PATH="/tmp/game-core-deploy-${SERVER_USER}-${SERVER_HOST}-22.sock"
+if [ -z "$SERVER_PASS" ]; then
+    echo "ERROR: SSH_PASS is required. Example: SERVER_HOST=<server-ip-or-domain> SSH_PASS=... $0"
+    exit 1
+fi
+
+if [ ! -f "$LOCAL_DIR/$MAINNET_ENV_FILE" ] || [ ! -f "$LOCAL_DIR/$TESTNET_ENV_FILE" ]; then
+    echo "ERROR: missing env files: $MAINNET_ENV_FILE and/or $TESTNET_ENV_FILE"
+    exit 1
+fi
 
 SSH_BASE_OPTS=(
     -o StrictHostKeyChecking=no
@@ -76,6 +87,9 @@ run_rsync \
     --exclude='build-*.bak.*/' \
     --exclude='build-rewired-test-backup/' \
     --exclude='.git/' \
+    --include='.env.template' \
+    --exclude='.env' \
+    --exclude='.env.*' \
     --exclude='*.log' \
     --exclude='ai_engine/models/' \
     --exclude='.claude/' \
@@ -85,13 +99,16 @@ run_rsync \
 # ---- Step 2: 上传env文件 ----
 echo ""
 echo "=== Step 2: 上传主网和测试网 env 文件 ==="
-run_rsync "$LOCAL_DIR/***REMOVED***" "$SERVER:$APP_DIR/***REMOVED***"
-run_rsync "$LOCAL_DIR/.env.testnet" "$SERVER:$APP_DIR/.env.testnet"
+run_ssh "find $APP_DIR -maxdepth 1 -type f \( -name '.env' -o -name '.env.*' \) ! -name '.env.template' ! -name '$MAINNET_ENV_FILE' ! -name '$TESTNET_ENV_FILE' -delete"
+run_rsync "$LOCAL_DIR/$MAINNET_ENV_FILE" "$SERVER:$APP_DIR/$MAINNET_ENV_FILE"
+run_rsync "$LOCAL_DIR/$TESTNET_ENV_FILE" "$SERVER:$APP_DIR/$TESTNET_ENV_FILE"
 
 # ---- Step 3: 安装依赖（只需一次）----
 echo ""
 echo "=== Step 3: 安装依赖 ==="
 run_ssh "cd $APP_DIR && npm install --legacy-peer-deps 2>&1 | tail -5"
+run_ssh "if command -v pm2 >/dev/null 2>&1; then pm2 -v; elif command -v sudo >/dev/null 2>&1; then sudo npm install -g pm2 >/dev/null && pm2 -v; else npm install -g pm2 >/dev/null && pm2 -v; fi"
+run_ssh "pm2 -v"
 
 # ---- Step 4: 构建主网前端 ----
 echo ""
@@ -181,7 +198,7 @@ function loadEnvFile(filePath) {
   }
 }
 
-const mainnetEnv = loadEnvFile('***REMOVED***');
+const mainnetEnv = loadEnvFile('.env.0g');
 const testnetEnv = loadEnvFile('.env.testnet');
 const publicHost = process.env.SERVER_HOST || process.env.PUBLIC_HOST || '';
 
@@ -215,7 +232,7 @@ module.exports = {
           NFT_PUBLIC_BASE_URL: publicOrigin(3000),
           PUBLIC_API_BASE_URL: publicOrigin(3000)
         }),
-        ENV_FILE: '***REMOVED***',
+        ENV_FILE: '.env.0g',
         NODE_ENV: 'production',
         SERVER_PORT: 7777,
         MONGODB_URI: 'mongodb://localhost:27017/bridge-poker-mainnet',
@@ -401,7 +418,24 @@ server {
 }
 NGINXEOF
 
-run_ssh "sudo nginx -t && sudo systemctl reload nginx && echo 'Nginx reloaded'"
+run_ssh "set -e; \
+    (pm2 stop game-frontend 2>/dev/null || true); \
+    if [ -f /etc/nginx/sites-available/survey-app ]; then \
+        sudo cp /etc/nginx/sites-available/survey-app /etc/nginx/sites-available/survey-app.bak.\$(date +%Y%m%d%H%M%S); \
+        sudo sed -i 's#proxy_pass http://localhost:3000;#proxy_pass http://localhost:3080;#g' /etc/nginx/sites-available/survey-app; \
+        if sudo env PATH=/usr/local/bin:/usr/bin:/bin pm2 describe survey-app >/dev/null 2>&1; then \
+            sudo env PATH=/usr/local/bin:/usr/bin:/bin PORT=3080 NODE_ENV=production pm2 restart survey-app --update-env >/dev/null || true; \
+        fi; \
+    fi; \
+    sudo ln -sf /etc/nginx/sites-available/game-core /etc/nginx/sites-enabled/game-core; \
+    for port in 3000 3001; do \
+        pids=\$(sudo lsof -tiTCP:\$port -sTCP:LISTEN 2>/dev/null || true); \
+        for pid in \$pids; do \
+            cmd=\$(ps -o comm= -p \"\$pid\" 2>/dev/null || true); \
+            if [ \"\$cmd\" != nginx ]; then sudo kill \"\$pid\" || true; fi; \
+        done; \
+    done; \
+    sudo nginx -t && sudo systemctl reload nginx && echo 'Nginx reloaded'"
 
 # ---- Step 9: 验证 ----
 echo ""
