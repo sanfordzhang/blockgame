@@ -125,6 +125,14 @@ function zeroGWeiToSun(amountWei) {
   return Number(BigInt(amountWei || 0) / ZERO_G_WEI_PER_SUN);
 }
 
+function addZeroGStackToCustody(balanceRaw, lockedRaw, stackSun) {
+  return (
+    BigInt(balanceRaw || '0') +
+    BigInt(lockedRaw || '0') +
+    sunToZeroGWei(stackSun || 0)
+  ).toString();
+}
+
 function addRawBalances(balanceRaw, lockedRaw) {
   return (BigInt(balanceRaw || '0') + BigInt(lockedRaw || '0')).toString();
 }
@@ -2044,11 +2052,13 @@ const init = (socket, io) => {
             stackAfter
           });
 
-          // Notify client about balance update (for display purposes)
-          // For 0G players, query actual custody balance from PokerGame0G contract
+          // Notify client about balance update. During an active 0G table session,
+          // custody/locked on chain do not change per hand; the visible game total
+          // must include the current table stack so wins/losses are visible before leave.
           const balanceCache = gameFlowIntegration.getPlayerBalanceCache(winner.address);
           let actualBalance = balanceCache?.rawBalanceWei || balanceCache?.balance || player.bankroll;
           let actualLocked = balanceCache?.rawLockedWei || balanceCache?.lockedAmount || 0;
+          let visibleTotal = isZeroGWinner ? addZeroGStackToCustody(actualBalance, actualLocked, stackAfter) : undefined;
 
           if (isZeroGWinner) {
             try {
@@ -2062,6 +2072,7 @@ const init = (socket, io) => {
                 ]);
                 actualBalance = BigInt(custodyRaw || '0').toString();
                 actualLocked = BigInt(lockedRaw || '0').toString();
+                visibleTotal = addZeroGStackToCustody(actualBalance, actualLocked, stackAfter);
                 console.log(`[Socket] Winner ${winner.name} 0G custody balance: ${actualBalance} wei`);
               }
             } catch (e) {
@@ -2074,7 +2085,8 @@ const init = (socket, io) => {
             balance: actualBalance,
             locked: actualLocked,
             available: actualBalance,
-            total: isZeroGWinner ? addRawBalances(actualBalance, actualLocked) : undefined,
+            total: isZeroGWinner ? visibleTotal : undefined,
+            tableStack: isZeroGWinner ? sunToZeroGWei(stackAfter).toString() : undefined,
             reason: 'game_won',
             amount: winner.amount
           });
@@ -2106,6 +2118,31 @@ const init = (socket, io) => {
       // Rule j: Session mode - don't update locked after each hand
       // Locked will be settled when player leaves table
       // Stack is already managed by the game engine (Table.js)
+      for (const stackInfo of playerStacks) {
+        if (!isZeroGAddress(stackInfo.address)) continue;
+        const playerEntry = Object.entries(players).find(
+          ([_, p]) => p.id === stackInfo.address
+        );
+        if (!playerEntry) continue;
+
+        const [socketId] = playerEntry;
+        const balanceCache = gameFlowIntegration.getPlayerBalanceCache(stackInfo.address);
+        const actualBalance = balanceCache?.rawBalanceWei || balanceCache?.balance || '0';
+        const actualLocked = balanceCache?.rawLockedWei || balanceCache?.lockedAmount || '0';
+        const visibleTotal = addZeroGStackToCustody(actualBalance, actualLocked, stackInfo.stackAfter);
+
+        io.to(socketId).emit(SC_BALANCE_SYNCED, {
+          walletAddress: stackInfo.address,
+          balance: actualBalance,
+          locked: actualLocked,
+          available: actualBalance,
+          total: visibleTotal,
+          tableStack: sunToZeroGWei(stackInfo.stackAfter).toString(),
+          stackBefore: stackInfo.stackBefore,
+          stackAfter: stackInfo.stackAfter,
+          reason: 'table_stack_updated'
+        });
+      }
 
       // Broadcast updated table state so all players see updated stacks
       broadcastToTable(table);

@@ -10,8 +10,25 @@ import { useTronLink } from '../context/tron/TronContext';
 import { useZeroG } from '../context/zero-g/ZeroGContext';
 import socket from '../socket';
 import PokerCard from '../components/game/PokerCard';
+import { buildApiUrl } from '../utils/serverConfig';
 
-const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+const is0GMainnet = process.env.REACT_APP_NETWORK === 'mainnet';
+const POKERHAND_INFT_ADDRESS = is0GMainnet
+  ? (process.env.REACT_APP_ZEROG_INFT_ADDRESS_MAINNET || process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0xc6F5495D411405630dF5d5ad32225d7F51dC1645')
+  : (process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5');
+const ZEROG_CHAIN_CONFIG = is0GMainnet
+  ? {
+      chainId: '0x4115',
+      chainName: '0G Mainnet',
+      rpcUrls: ['https://evmrpc.0g.ai'],
+      blockExplorerUrls: ['https://chainscan.0g.ai'],
+    }
+  : {
+      chainId: '0x40DA',
+      chainName: '0G Testnet',
+      rpcUrls: ['https://evmrpc-galileo.0g.ai'],
+      blockExplorerUrls: ['https://chainscan-galileo.0g.ai'],
+    };
 
 const NFTGrid = styled.div`
   display: grid;
@@ -391,7 +408,7 @@ const NFTGallery = () => {
     localStorage.setItem('testWalletAddress', addr);
   }, [setWalletAddress, setWalletType]);
 
-  const importINFTToMetaMask = useCallback(async (tokenId) => {
+  const importINFTToMetaMask = useCallback(async (tokenId, claimId) => {
     if (!window.ethereum) {
       window.alert('MetaMask is not available.');
       return;
@@ -405,18 +422,18 @@ const NFTGallery = () => {
       try {
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x40DA' }],
+          params: [{ chainId: ZEROG_CHAIN_CONFIG.chainId }],
         });
       } catch (switchError) {
         if (switchError.code !== 4902) throw switchError;
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
-            chainId: '0x40DA',
-            chainName: '0G Testnet',
+            chainId: ZEROG_CHAIN_CONFIG.chainId,
+            chainName: ZEROG_CHAIN_CONFIG.chainName,
             nativeCurrency: { name: '0G Token', symbol: '0G', decimals: 18 },
-            rpcUrls: ['https://evmrpc-galileo.0g.ai'],
-            blockExplorerUrls: ['https://chainscan-galileo.0g.ai'],
+            rpcUrls: ZEROG_CHAIN_CONFIG.rpcUrls,
+            blockExplorerUrls: ZEROG_CHAIN_CONFIG.blockExplorerUrls,
           }],
         });
       }
@@ -429,16 +446,43 @@ const NFTGallery = () => {
         return;
       }
 
-      await window.ethereum.request({
-        method: 'wallet_watchAsset',
-        params: {
-          type: 'ERC721',
-          options: {
-            address: POKERHAND_INFT_ADDRESS,
-            tokenId: String(tokenId),
+      const options = {
+        address: POKERHAND_INFT_ADDRESS,
+        tokenId: String(tokenId),
+      };
+      if (claimId) {
+        options.image = buildApiUrl(`/api/nft/preview/${claimId}`);
+      }
+
+      try {
+        if (options.image) {
+          try {
+            await fetch(options.image, { cache: 'reload' });
+          } catch (previewErr) {
+            console.warn('[NFTGallery] Preview warmup failed:', previewErr.message);
+          }
+        }
+        await window.ethereum.request({
+          method: 'wallet_watchAsset',
+          params: {
+            type: 'ERC721',
+            options,
           },
-        },
-      });
+        });
+      } catch (watchErr) {
+        if (!claimId) throw watchErr;
+        console.warn('[NFTGallery] MetaMask import with image failed, retrying minimal payload:', watchErr.message);
+        await window.ethereum.request({
+          method: 'wallet_watchAsset',
+          params: {
+            type: 'ERC721',
+            options: {
+              address: POKERHAND_INFT_ADDRESS,
+              tokenId: String(tokenId),
+            },
+          },
+        });
+      }
     } catch (err) {
       console.error('[NFTGallery] MetaMask import failed:', err);
       window.alert(err.message || 'Failed to add NFT to MetaMask.');
@@ -949,7 +993,7 @@ const NFTGallery = () => {
                     {isZeroGNFT && nft.onchainTokenId && (
                       <button
                         type="button"
-                        onClick={() => importINFTToMetaMask(nft.onchainTokenId)}
+                        onClick={() => importINFTToMetaMask(nft.onchainTokenId, nft._id)}
                         style={{
                           marginTop: '0.75rem',
                           padding: '0.45rem 0.75rem',

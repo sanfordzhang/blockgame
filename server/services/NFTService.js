@@ -4,6 +4,7 @@
  */
 
 const crypto = require('crypto');
+const sharp = require('sharp');
 const NFTClaim = require('../models/NFTClaim');
 const { generateMetadata } = require('../../utils/metadata-generator');
 
@@ -22,6 +23,61 @@ function getZeroGContractServiceForNFT() {
     const zgContractService = new ZeroGContractService();
     zgContractService.init(zgService, process.env.ZEROG_NETWORK || 'testnet');
     return zgContractService;
+}
+
+function normalizePublicBaseUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    try {
+        const url = new URL(raw);
+        if (!['http:', 'https:'].includes(url.protocol)) return '';
+        return `${url.protocol}//${url.host}`.replace(/\/$/, '');
+    } catch (err) {
+        return '';
+    }
+}
+
+function resolvePublicApiBaseUrl(preferredBaseUrl) {
+    const normalizedPreferredBaseUrl = normalizePublicBaseUrl(preferredBaseUrl);
+    if (normalizedPreferredBaseUrl) {
+        return normalizedPreferredBaseUrl;
+    }
+
+    const explicitBaseUrl = process.env.NFT_PUBLIC_BASE_URL || process.env.PUBLIC_API_BASE_URL;
+    if (explicitBaseUrl) {
+        return explicitBaseUrl.replace(/\/$/, '');
+    }
+
+    const publicHost = process.env.SERVER_HOST || process.env.PUBLIC_HOST || process.env.SERVER_HOSTNAME;
+    if (publicHost) {
+        const publicPort = process.env.PUBLIC_PORT ||
+            (process.env.ZEROG_NETWORK === 'mainnet' || String(process.env.SERVER_PORT) === '7777' ? '3000' : '3001');
+        return `http://${publicHost}:${publicPort}`.replace(/\/$/, '');
+    }
+
+    const localPort = process.env.SERVER_PORT || '7778';
+    return `http://127.0.0.1:${localPort}`;
+}
+
+async function optimizeScreenshotForNFT(base64Screenshot) {
+    const inputBuffer = Buffer.from(base64Screenshot, 'base64');
+    const outputBuffer = await sharp(inputBuffer, { failOn: 'none' })
+        .resize({
+            width: 1280,
+            height: 720,
+            fit: 'inside',
+            withoutEnlargement: true
+        })
+        .jpeg({ quality: 72, progressive: true, mozjpeg: true })
+        .toBuffer();
+
+    return {
+        screenshot: outputBuffer.toString('base64'),
+        screenshotFormat: 'jpeg',
+        inputBytes: inputBuffer.length,
+        outputBytes: outputBuffer.length
+    };
 }
 
 class NFTService {
@@ -601,8 +657,18 @@ module.exports = {
             const match = value.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,/);
             return match?.[1] || 'png';
         };
-        const screenshot = normalizeScreenshot(data?.screenshot);
-        const screenshotFormat = detectScreenshotFormat(data?.screenshot);
+        let screenshot = normalizeScreenshot(data?.screenshot);
+        let screenshotFormat = detectScreenshotFormat(data?.screenshot);
+        if (screenshot) {
+            try {
+                const optimized = await optimizeScreenshotForNFT(screenshot);
+                screenshot = optimized.screenshot;
+                screenshotFormat = optimized.screenshotFormat;
+                console.log(`[NFTService] Optimized NFT screenshot ${optimized.inputBytes}B -> ${optimized.outputBytes}B (${screenshotFormat})`);
+            } catch (optErr) {
+                console.warn('[NFTService] Screenshot optimization failed, keeping original:', optErr.message);
+            }
+        }
         
         // Get type ID from type name
         const typeIds = {
@@ -695,13 +761,9 @@ module.exports = {
 
         // ========== 0G ON-CHAIN MINT (when in 0G or both mode) ==========
         let onchainResult = null;
-        const metadataURI = `${(
-            process.env.NFT_PUBLIC_BASE_URL ||
-            process.env.PUBLIC_API_BASE_URL ||
-            'http://127.0.0.1:7778'
-        ).replace(/\/$/, '')}/api/nft/metadata/inft/${claim._id.toString()}`;
+        const metadataURI = `${resolvePublicApiBaseUrl(data?.publicBaseUrl)}/api/nft/metadata/inft/${claim._id.toString()}`;
         
-        if (blockchainMode === '0g' || blockchainMode === 'both') {
+        if (isZeroGMint) {
             let pendingZeroGMintTxHash = null;
             try {
                 const zgContractService = getZeroGContractServiceForNFT();
@@ -713,9 +775,8 @@ module.exports = {
                     const inftAddr = zgContractService.inftAddress ||
                         process.env.ZEROG_INFT_ADDRESS ||
                         '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
-                    const recipient = walletAddress.startsWith('0x') ? walletAddress : ('0x' + walletAddress);
                     const mintArgs = [
-                        recipient,
+                        walletAddress,
                         zeroGHandTypeName,
                         '0x0000000000000000000000000000000000000000000000000000000000000000',
                         metadataURI
@@ -819,7 +880,7 @@ module.exports = {
             };
         }
 
-        if (walletAddress.startsWith('0x') && (blockchainMode === '0g' || blockchainMode === 'both')) {
+        if (isZeroGMint) {
             const detail = onchainResult?.error || '0G service not available';
             const txHint = onchainResult?.txHash ? ` tx=${onchainResult.txHash}` : '';
             throw new Error(`0G on-chain mint failed: ${detail}${txHint}`);

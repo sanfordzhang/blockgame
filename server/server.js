@@ -98,18 +98,22 @@ async function initializeBlockchainServices() {
                 console.log('[Server] ℹ️ NFT_CONTRACT_ADDRESS not set, NFT blockchain integration disabled');
             }
 
-            // Initialize CHIP Token Service
-            const chipTokenAddress = process.env.CHIP_TOKEN_ADDRESS || 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n';
-            try {
-                console.log('[Server] Initializing CHIP Token Service...');
-                await initChipService(TronService.tronWeb, {
-                    chipTokenAddress: chipTokenAddress,
-                    stakingAddress: process.env.STAKING_CONTRACT_ADDRESS
-                });
-                console.log('[Server] ✅ CHIP Token Service initialized with contract:', chipTokenAddress);
-            } catch (chipError) {
-                console.error('[Server] ⚠️ CHIP Token Service initialization failed:', chipError.message);
-                console.log('[Server] Continuing without CHIP blockchain integration...');
+            // Initialize CHIP Token Service (TRON only)
+            const chipTokenAddress = process.env.CHIP_TOKEN_ADDRESS || (!isZeroGOnly ? 'TX2R1MbjvVGiNA48iuVcf7bzJGCP3q9x2n' : '');
+            if (!isZeroGOnly) {
+                try {
+                    console.log('[Server] Initializing CHIP Token Service...');
+                    await initChipService(TronService.tronWeb, {
+                        chipTokenAddress: chipTokenAddress,
+                        stakingAddress: process.env.STAKING_CONTRACT_ADDRESS
+                    });
+                    console.log('[Server] ✅ CHIP Token Service initialized with contract:', chipTokenAddress);
+                } catch (chipError) {
+                    console.error('[Server] ⚠️ CHIP Token Service initialization failed:', chipError.message);
+                    console.log('[Server] Continuing without CHIP blockchain integration...');
+                }
+            } else {
+                console.log('[Server] BLOCKCHAIN_MODE=0g, skipping TRON CHIP Token Service');
             }
 
             // Initialize and start EventListener
@@ -215,7 +219,7 @@ async function initializeBlockchainServices() {
             const ammPoolAddress = process.env.AMM_POOL_ADDRESS;
             const ammRouterAddress = process.env.AMM_ROUTER_ADDRESS;
             
-            if (ammPoolAddress && ammRouterAddress && chipTokenAddress) {
+            if (!isZeroGOnly && ammPoolAddress && ammRouterAddress && chipTokenAddress) {
                 try {
                     console.log('[Server] Initializing AMM Services...');
                     
@@ -253,6 +257,8 @@ async function initializeBlockchainServices() {
                     console.error('[Server] ⚠️ AMM Services initialization failed:', ammError.message);
                     console.log('[Server] Continuing without AMM integration...');
                 }
+            } else if (isZeroGOnly) {
+                console.log('[Server] BLOCKCHAIN_MODE=0g, skipping TRON AMM integration');
             } else {
                 console.log('[Server] ℹ️ AMM addresses not configured, AMM integration disabled');
             }

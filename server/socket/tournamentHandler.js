@@ -134,17 +134,28 @@ function initTournamentHandlers(socket, io) {
         }
     });
     
-    socket.on(CS_NFT_PREPARE_MINT, async ({ walletAddress, achievementType, gameSessionId, handData, screenshot }) => {
+    socket.on(CS_NFT_PREPARE_MINT, async ({ walletAddress, achievementType, gameSessionId, handData, screenshot, publicBaseUrl }) => {
         const timeoutMs = parseInt(process.env.NFT_PREPARE_MINT_SOCKET_TIMEOUT_MS || '90000', 10);
         const startedAt = Date.now();
         const screenshotLength = typeof screenshot === 'string' ? screenshot.length : 0;
+        const requestOrigin = socket.handshake?.headers?.origin ||
+            (() => {
+                try {
+                    const referer = socket.handshake?.headers?.referer;
+                    return referer ? new URL(referer).origin : '';
+                } catch (_) {
+                    return '';
+                }
+            })();
+        const resolvedPublicBaseUrl = requestOrigin || publicBaseUrl || '';
         console.log('[NFTHandler] CS_NFT_PREPARE_MINT received:', {
             socketId: socket.id,
             wallet: walletAddress?.substring(0, 10),
             achievementType,
             gameSessionId,
             cards: handData?.cards?.length || 0,
-            screenshotLength
+            screenshotLength,
+            publicBaseUrl: resolvedPublicBaseUrl
         });
 
         const withTimeout = (promise, ms) => {
@@ -163,7 +174,8 @@ function initTournamentHandlers(socket, io) {
                     achievementType,
                     gameSessionId,
                     handData,
-                    screenshot
+                    screenshot,
+                    publicBaseUrl: resolvedPublicBaseUrl
                 }),
                 timeoutMs
             );

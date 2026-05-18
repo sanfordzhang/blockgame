@@ -170,9 +170,13 @@ const GameState = ({ children }) => {
         // The landing page Game Balance must reflect both while a table session is active.
         const isZeroGWallet = walletAddressRef.current?.startsWith('0x')
         if (isZeroGWallet) {
-          const balance = parseFloat(normalizeBalance(data.balance || data.available || 0)) || 0
-          const locked = parseFloat(normalizeBalance(data.locked || 0)) || 0
-          setChipsAmount(balance + locked)
+          if (data.total !== undefined) {
+            setChipsAmount(normalizeBalance(data.total))
+          } else {
+            const balance = parseFloat(normalizeBalance(data.balance || data.available || 0)) || 0
+            const locked = parseFloat(normalizeBalance(data.locked || 0)) || 0
+            setChipsAmount(balance + locked)
+          }
         } else if (data.available !== undefined) {
           setChipsAmount(normalizeBalance(data.available))
         } else if (data.balance !== undefined) {
@@ -246,7 +250,8 @@ const GameState = ({ children }) => {
             // 0G path: call PokerGame0G.leaveTableSession
             console.log('[GameState] Using 0G leaveTableSession');
             const { leaveTableSession: zeroGLeaveTableSession } = await loadZeroG()
-            result = await zeroGLeaveTableSession(stack);
+            const stackSun = String(Math.max(0, Math.trunc(Number(stack || 0))))
+            result = await zeroGLeaveTableSession(`${stackSun}000000000`, tableId);
           } else {
             // TRON path: call TRON contract leaveTableSession
             console.log('[GameState] Using TRON leaveTableSession');

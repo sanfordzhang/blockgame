@@ -3,16 +3,22 @@ set -euo pipefail
 
 # ===========================================
 # QEntrix 双网络部署脚本
-# 主网:   http://43.163.114.175      (PORT 80 -> build-mainnet,  后端 7777)
-# 测试网: http://43.163.114.175:3001 (PORT 3001 -> build-testnet, 后端 7778)
+# 主网:   http://$SERVER_HOST:3000 (PORT 3000 -> build-mainnet, 后端 7777)
+# 测试网: http://$SERVER_HOST:3001 (PORT 3001 -> build-testnet, 后端 7778)
 # ===========================================
 
-SERVER_HOST="43.163.114.175"
-SERVER_USER="ubuntu"
+SERVER_HOST="${SERVER_HOST:-}"
+SERVER_USER="${SERVER_USER:-ubuntu}"
 SERVER_PASS="${SSH_PASS:-}"
+
+if [ -z "$SERVER_HOST" ]; then
+    echo "ERROR: SERVER_HOST is required. Example: SERVER_HOST=<server-ip-or-domain> SSH_PASS=... $0"
+    exit 1
+fi
+
 SERVER="$SERVER_USER@$SERVER_HOST"
-APP_DIR="/home/ubuntu/game-core"
-LOCAL_DIR="/Users/yingfengzhang/1JackSource/blockchain/game-core"
+APP_DIR="${APP_DIR:-/home/ubuntu/game-core}"
+LOCAL_DIR="${LOCAL_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 CONTROL_PATH="/tmp/game-core-deploy-${SERVER_USER}-${SERVER_HOST}-22.sock"
 
 SSH_BASE_OPTS=(
@@ -48,7 +54,7 @@ run_rsync() {
 
 echo "================================================"
 echo "  QEntrix 双网络部署"
-echo "  主网:   http://$SERVER_HOST"
+echo "  主网:   http://$SERVER_HOST:3000"
 echo "  测试网: http://$SERVER_HOST:3001"
 echo "================================================"
 
@@ -96,7 +102,7 @@ run_ssh "set -e; cd $APP_DIR && \
     NODE_ENV=production \
     GENERATE_SOURCEMAP=false \
     REACT_APP_NETWORK=mainnet \
-    REACT_APP_SERVER_URI=http://$SERVER_HOST \
+    REACT_APP_SERVER_URI=http://$SERVER_HOST:3000 \
     REACT_APP_SERVER_PORT=7777 \
     REACT_APP_MAINNET_CONTRACT_ADDRESS=THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd \
     REACT_APP_TESTNET_CONTRACT_ADDRESS=TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c \
@@ -177,6 +183,21 @@ function loadEnvFile(filePath) {
 
 const mainnetEnv = loadEnvFile('***REMOVED***');
 const testnetEnv = loadEnvFile('.env.testnet');
+const publicHost = process.env.SERVER_HOST || process.env.PUBLIC_HOST || '';
+
+function publicOrigin(port) {
+  return publicHost ? `http://${publicHost}:${port}` : '';
+}
+
+function mergeRuntimeEnv(env, fallback = {}) {
+  return {
+    ...env,
+    CORS_ORIGINS: process.env.CORS_ORIGINS || fallback.CORS_ORIGINS || env.CORS_ORIGINS || '',
+    SERVER_HOSTNAME: process.env.SERVER_HOSTNAME || fallback.SERVER_HOSTNAME || env.SERVER_HOSTNAME || '',
+    NFT_PUBLIC_BASE_URL: process.env.NFT_PUBLIC_BASE_URL || fallback.NFT_PUBLIC_BASE_URL || env.NFT_PUBLIC_BASE_URL || '',
+    PUBLIC_API_BASE_URL: process.env.PUBLIC_API_BASE_URL || fallback.PUBLIC_API_BASE_URL || env.PUBLIC_API_BASE_URL || ''
+  };
+}
 
 module.exports = {
   apps: [
@@ -188,12 +209,16 @@ module.exports = {
       autorestart: true,
       watch: false,
       env: {
-        ...mainnetEnv,
+        ...mergeRuntimeEnv(mainnetEnv, {
+          CORS_ORIGINS: publicOrigin(3000),
+          SERVER_HOSTNAME: publicHost,
+          NFT_PUBLIC_BASE_URL: publicOrigin(3000),
+          PUBLIC_API_BASE_URL: publicOrigin(3000)
+        }),
         ENV_FILE: '***REMOVED***',
         NODE_ENV: 'production',
         SERVER_PORT: 7777,
         MONGODB_URI: 'mongodb://localhost:27017/bridge-poker-mainnet',
-        CORS_ORIGINS: 'http://43.163.114.175',
       }
     },
     {
@@ -204,27 +229,31 @@ module.exports = {
       autorestart: true,
       watch: false,
       env: {
-        ...testnetEnv,
+        ...mergeRuntimeEnv(testnetEnv, {
+          CORS_ORIGINS: publicOrigin(3001),
+          SERVER_HOSTNAME: publicHost,
+          NFT_PUBLIC_BASE_URL: publicOrigin(3001),
+          PUBLIC_API_BASE_URL: publicOrigin(3001)
+        }),
         ENV_FILE: '.env.testnet',
         NODE_ENV: 'production',
         SERVER_PORT: 7778,
         MONGODB_URI: 'mongodb://localhost:27017/bridge-poker-testnet',
-        CORS_ORIGINS: 'http://43.163.114.175:3001',
       }
     }
   ]
 };
 PM2EOF
 
-run_ssh "set -e; cd $APP_DIR && pm2 startOrReload ecosystem.config.js --update-env && (pm2 delete testnet-frontend 2>/dev/null || true) && sleep 3 && pm2 status"
+run_ssh "set -e; cd $APP_DIR && SERVER_HOST='$SERVER_HOST' pm2 startOrReload ecosystem.config.js --update-env && (pm2 delete testnet-frontend 2>/dev/null || true) && sleep 3 && pm2 status"
 run_ssh "pm2 save"
 
-# ---- Step 8: 配置 nginx (主网80；测试网3001均由 Nginx 直接服务静态文件) ----
+# ---- Step 8: 配置 nginx (主网3000；测试网3001均由 Nginx 直接服务静态文件) ----
 echo ""
 echo "=== Step 8: 配置 Nginx ==="
 cat << 'NGINXEOF' | ssh "${SSH_BASE_OPTS[@]}" -o ControlMaster=no "$SERVER" "sudo tee /etc/nginx/sites-available/game-core > /dev/null"
 server {
-    listen 80;
+    listen 3000;
     server_name _;
     keepalive_timeout 0;
     send_timeout 60s;
@@ -378,7 +407,7 @@ run_ssh "sudo nginx -t && sudo systemctl reload nginx && echo 'Nginx reloaded'"
 echo ""
 echo "=== Step 9: 验证部署 ==="
 echo "--- 主网前端 ---"
-run_ssh "curl -s -o /dev/null -w 'HTTP %{http_code}' http://localhost/"
+run_ssh "curl -s -o /dev/null -w 'HTTP %{http_code}' http://localhost:3000/"
 echo ""
 echo "--- 测试网前端 ---"
 run_ssh "curl -s -o /dev/null -w 'HTTP %{http_code}' http://localhost:3001/"
@@ -395,6 +424,6 @@ run_ssh "pm2 status"
 echo ""
 echo "================================================"
 echo "  部署完成!"
-echo "  主网:   http://$SERVER_HOST"
+echo "  主网:   http://$SERVER_HOST:3000"
 echo "  测试网: http://$SERVER_HOST:3001"
 echo "================================================"

@@ -94,7 +94,9 @@ async function main() {
     console.log('合约地址:', NFT_CONTRACT);
     console.log('玩家地址:', PLAYER_ADDRESS);
     console.log('\n元数据 URL:');
-    console.log(`http://43.163.114.175:7778/api/nft/metadata/6/${tokenId}`);
+    const metadataBaseUrl = (process.env.NFT_PUBLIC_BASE_URL || process.env.PUBLIC_API_BASE_URL ||
+        (process.env.PUBLIC_HOST ? `http://${process.env.PUBLIC_HOST}:3001` : 'http://127.0.0.1:3001')).replace(/\/$/, '');
+    console.log(`${metadataBaseUrl}/api/nft/metadata/6/${tokenId}`);
     console.log('\n请在 TronLink 中刷新收藏品，查看新 NFT');
     console.log('========================================');
 

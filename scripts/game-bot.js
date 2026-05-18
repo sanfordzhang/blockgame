@@ -17,7 +17,8 @@ const BOT_CONFIG = {
     name: 'Bot_Alice',
     address: 'TX27LjDqk64d4NvBXKT1taAYX5Dpf4JpL4',
     addressLower: 'tx27ljdqk64d4nvbxkt1taayx5dpf4jpl4',  // 小写用于匹配
-    serverUrl: process.env.BOT_SERVER_URL || 'http://43.163.114.175:7778'
+    serverUrl: process.env.BOT_SERVER_URL ||
+        (process.env.PUBLIC_HOST ? `http://${process.env.PUBLIC_HOST}:3001` : 'http://127.0.0.1:3001')
 };
 
 // 游戏状态

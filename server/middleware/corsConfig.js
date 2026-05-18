@@ -9,15 +9,41 @@ function getConfiguredOrigins() {
   );
 }
 
-// Get the server's own hostname from env (e.g., SERVER_HOSTNAME) or auto-detect
-function getServerHostname() {
-  if (process.env.SERVER_HOSTNAME) return process.env.SERVER_HOSTNAME;
-  if (process.env.ALLOWED_ORIGINS) {
-    return process.env.ALLOWED_ORIGINS.split(',').map(o => {
-      try { return new URL(o.trim()).hostname; } catch { return null; }
-    }).filter(Boolean);
+function splitList(value) {
+  return String(value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function extractHostname(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  try {
+    return new URL(raw.includes('://') ? raw : `http://${raw}`).hostname;
+  } catch (err) {
+    return raw.split(':')[0] || null;
   }
-  return null;
+}
+
+// Get the server's own hostname from runtime env.
+// SERVER_HOST/PUBLIC_HOST are intentionally runtime-only so shared config files
+// can be reused on different deployed machines without hardcoding one IP.
+function getServerHostnames() {
+  const hostnames = [
+    ...splitList(process.env.SERVER_HOSTNAME),
+    ...splitList(process.env.SERVER_HOST),
+    ...splitList(process.env.PUBLIC_HOST),
+  ].map(extractHostname).filter(Boolean);
+
+  if (process.env.ALLOWED_ORIGINS) {
+    hostnames.push(...process.env.ALLOWED_ORIGINS.split(',').map(o => {
+      try { return new URL(o.trim()).hostname; } catch { return null; }
+    }).filter(Boolean));
+  }
+
+  return [...new Set(hostnames.map(h => h.toLowerCase()))];
 }
 
 function isPrivateNetworkHost(hostname) {
@@ -58,13 +84,9 @@ function isAllowedOrigin(origin) {
 
     // Allow requests from the server's own public IP / hostname
     // This supports production deployments where frontend and backend are on the same server
-    const serverHost = getServerHostname();
-    if (serverHost) {
-      if (Array.isArray(serverHost)) {
-        if (serverHost.some(h => h.toLowerCase() === normalizedHost)) return true;
-      } else {
-        if (serverHost.toLowerCase() === normalizedHost) return true;
-      }
+    const serverHosts = getServerHostnames();
+    if (serverHosts.length > 0 && serverHosts.includes(normalizedHost)) {
+      return true;
     }
 
     return false;

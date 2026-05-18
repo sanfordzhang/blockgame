@@ -33,7 +33,9 @@ import './Play.scss';
 // Detect language for i18n
 const browserLang = (typeof navigator !== 'undefined' && /^zh/.test(navigator.language)) ? 'zh' : 'en';
 
-const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5';
+const POKERHAND_INFT_ADDRESS = process.env.REACT_APP_NETWORK === 'mainnet'
+  ? (process.env.REACT_APP_ZEROG_INFT_ADDRESS_MAINNET || process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0xc6F5495D411405630dF5d5ad32225d7F51dC1645')
+  : (process.env.REACT_APP_ZEROG_INFT_ADDRESS || '0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5');
 const ZEROG_WEI_PER_SUN = 1e9;
 
 const toDisplayTournamentAmount = (amountSun, isZeroGPlayer) => {
@@ -50,65 +52,99 @@ const toBalanceUnits = (value, isZeroGPlayer) => {
   return raw.includes('.') ? parsed * 1e18 : parsed;
 };
 
-const METAMASK_IMPORT_TIMEOUT = Symbol('METAMASK_IMPORT_TIMEOUT');
+const resizeCanvasForNFT = (canvas, { maxWidth = 1280, maxHeight = 720 } = {}) => {
+  const ratio = Math.min(1, maxWidth / canvas.width, maxHeight / canvas.height);
+  if (ratio >= 1) return canvas;
 
-const withTimeout = (promise, timeoutMs, timeoutValue) => {
-  let timeoutId;
-  return Promise.race([
-    promise.finally(() => clearTimeout(timeoutId)),
-    new Promise((resolve) => {
-      timeoutId = setTimeout(() => resolve(timeoutValue), timeoutMs);
-    }),
-  ]);
+  const resized = document.createElement('canvas');
+  resized.width = Math.max(1, Math.round(canvas.width * ratio));
+  resized.height = Math.max(1, Math.round(canvas.height * ratio));
+  const context = resized.getContext('2d');
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(canvas, 0, 0, resized.width, resized.height);
+  return resized;
 };
 
-const canvasToCompressedImage = (canvas, { maxLength = 700000 } = {}) => {
-  const qualitySteps = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32];
+const canvasToCompressedImage = (canvas, { maxLength = 360000 } = {}) => {
+  const outputCanvas = resizeCanvasForNFT(canvas);
+  const qualitySteps = [0.78, 0.68, 0.58, 0.48, 0.38, 0.3];
 
   for (const quality of qualitySteps) {
-    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    const dataUrl = outputCanvas.toDataURL('image/jpeg', quality);
     if (dataUrl && dataUrl.length <= maxLength) {
       return dataUrl;
     }
   }
 
-  return canvas.toDataURL('image/jpeg', 0.28);
+  return outputCanvas.toDataURL('image/jpeg', 0.24);
 };
 
-const importINFTToMetaMask = async (tokenId, { timeoutMs = 12000 } = {}) => {
+const isCanvasVisuallyBlank = (canvas) => {
+  const width = canvas?.width || 0;
+  const height = canvas?.height || 0;
+  if (width < 10 || height < 10) return true;
+
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return true;
+
+  const sampleSize = 9;
+  const stepX = Math.max(1, Math.floor(width / sampleSize));
+  const stepY = Math.max(1, Math.floor(height / sampleSize));
+  let brightPixels = 0;
+  let variedPixels = 0;
+  let lastColor = null;
+
+  for (let y = Math.floor(stepY / 2); y < height; y += stepY) {
+    for (let x = Math.floor(stepX / 2); x < width; x += stepX) {
+      const [r, g, b, a] = context.getImageData(x, y, 1, 1).data;
+      if (a > 0 && (r + g + b) > 90) brightPixels += 1;
+      const color = `${r},${g},${b}`;
+      if (lastColor && color !== lastColor) variedPixels += 1;
+      lastColor = color;
+    }
+  }
+
+  return brightPixels < 4 || variedPixels < 3;
+};
+
+const requestINFTImportToMetaMask = async (input) => {
+  const tokenId = typeof input === 'object' ? input?.tokenId : input;
+  const claimId = typeof input === 'object' ? input?.claimId : null;
+  const imageUrl = typeof input === 'object'
+    ? input?.imageUrl
+    : (claimId ? buildApiUrl(`/api/nft/preview/${claimId}`) : null);
+
   if (!window.ethereum || !tokenId) return false;
   try {
-    const importRequest = async () => {
-      await switchChain('testnet');
-      return window.ethereum.request({
+    await switchChain(process.env.REACT_APP_NETWORK || 'testnet');
+    if (imageUrl) {
+      try {
+        await fetch(imageUrl, { cache: 'reload' });
+      } catch (previewErr) {
+        console.warn('[NFT] Preview warmup failed:', previewErr.message);
+      }
+    }
+    const options = {
+      address: POKERHAND_INFT_ADDRESS,
+      tokenId: String(tokenId),
+    };
+    if (imageUrl) {
+      options.image = imageUrl;
+    }
+
+    try {
+      return await window.ethereum.request({
         method: 'wallet_watchAsset',
         params: {
           type: 'ERC721',
-          options: {
-            address: POKERHAND_INFT_ADDRESS,
-            tokenId: String(tokenId),
-          },
+          options,
         },
       });
-    };
-
-    const result = await withTimeout(importRequest(), timeoutMs, METAMASK_IMPORT_TIMEOUT);
-    if (result === METAMASK_IMPORT_TIMEOUT) {
-      console.warn('[NFT] MetaMask auto-import timed out');
-      return false;
-    }
-    return result;
-  } catch (err) {
-    console.warn('[NFT] MetaMask auto-import failed:', err.message);
-    return false;
-  }
-};
-
-const requestINFTImportToMetaMask = async (tokenId) => {
-  if (!window.ethereum || !tokenId) return false;
-  try {
-    await switchChain('testnet');
-    return await window.ethereum.request({
+    } catch (err) {
+      if (!imageUrl) throw err;
+      console.warn('[NFT] MetaMask import with image failed, retrying minimal payload:', err.message);
+      return await window.ethereum.request({
       method: 'wallet_watchAsset',
       params: {
         type: 'ERC721',
@@ -118,6 +154,7 @@ const requestINFTImportToMetaMask = async (tokenId) => {
         },
       },
     });
+    }
   } catch (err) {
     console.warn('[NFT] MetaMask auto-import failed:', err.message);
     return false;
@@ -134,6 +171,50 @@ const getMetaMaskImportCopy = (tokenId) => {
   return browserLang === 'zh'
     ? `如果 MetaMask 没有弹出确认，请手动导入 NFT。合约: ${POKERHAND_INFT_ADDRESS}，Token ID: ${tokenId}`
     : `If MetaMask did not show a confirmation, import the NFT manually. Contract: ${POKERHAND_INFT_ADDRESS}, Token ID: ${tokenId}`;
+};
+
+const showINFTMintSuccess = ({
+  _lang,
+  achievementName,
+  mintedTokenId,
+  claimId,
+  txHash,
+  warning,
+  navigate
+}) => {
+  const importCopy = getMetaMaskImportCopy(mintedTokenId);
+
+  Swal.fire({
+    title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
+    html: `
+      <div style="text-align:center">
+        <p>${_lang === 'zh'
+          ? `您的 ${achievementName} INFT 已上链铸造！`
+          : `Your ${achievementName} INFT has been minted!`}</p>
+        <p style="font-size:0.85rem;color:#888">Token ID: ${mintedTokenId || '-'}</p>
+        <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${txHash ? `${txHash.substring(0, 18)}...` : '-'}</p>
+        <p style="font-size:0.75rem;color:#aaa;word-break:break-all">${importCopy}</p>
+        <p style="font-size:0.8rem;color:#aaa">${warning || ''}</p>
+      </div>`,
+    icon: 'success',
+    showCancelButton: true,
+    showDenyButton: !!mintedTokenId,
+    confirmButtonText: mintedTokenId ? (_lang === 'zh' ? '添加到 MetaMask' : 'Add to MetaMask') : (_lang === 'zh' ? '查看收藏' : 'View Collection'),
+    denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
+    cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
+  }).then(async (result) => {
+    if (result.isConfirmed && mintedTokenId) {
+      await requestINFTImportToMetaMask({
+        tokenId: mintedTokenId,
+        claimId,
+        imageUrl: claimId ? buildApiUrl(`/api/nft/preview/${claimId}`) : null,
+      });
+      return;
+    }
+    if (result.isConfirmed || result.isDenied) {
+      navigate('/nft');
+    }
+  });
 };
 
 const getConnectedSocket = async (fallbackSocket, timeoutMs = 5000) => {
@@ -276,8 +357,9 @@ const TournamentTableGame = ({ tournamentId }) => {
     console.log(`[TournamentTable] Capturing game screenshot (${source})...`);
 
     const gameElement =
-      document.querySelector('.play-area') ||
       document.querySelector('[data-nft-capture="tournament-table"]') ||
+      document.querySelector('[data-nft-capture="poker-table"]') ||
+      document.querySelector('.play-area') ||
       document.querySelector('[class*="PokerTableWrapper"]');
 
     if (!gameElement) {
@@ -298,7 +380,7 @@ const TournamentTableGame = ({ tournamentId }) => {
     try {
       const canvas = await html2canvas(gameElement, {
         backgroundColor: '#0a0a0f',
-        scale: Math.min(window.devicePixelRatio || 1, 1.5),
+        scale: 1,
         logging: false,
         useCORS: true,
         allowTaint: false,
@@ -311,8 +393,9 @@ const TournamentTableGame = ({ tournamentId }) => {
         scrollY: 0,
         onclone: (clonedDoc) => {
           const clonedElement =
-            clonedDoc.querySelector('.play-area') ||
             clonedDoc.querySelector('[data-nft-capture="tournament-table"]') ||
+            clonedDoc.querySelector('[data-nft-capture="poker-table"]') ||
+            clonedDoc.querySelector('.play-area') ||
             clonedDoc.querySelector('[class*="PokerTableWrapper"]');
           if (clonedElement) {
             clonedElement.style.backgroundColor = '#0a0a0f';
@@ -336,6 +419,11 @@ const TournamentTableGame = ({ tournamentId }) => {
           clonedDoc.head.appendChild(style);
         }
       });
+
+      if (isCanvasVisuallyBlank(canvas)) {
+        console.warn('[TournamentTable] Screenshot canvas appears visually blank');
+        return null;
+      }
 
       const screenshot = canvasToCompressedImage(canvas);
       if (!screenshot || screenshot.length < 1000) {
@@ -432,7 +520,7 @@ const TournamentTableGame = ({ tournamentId }) => {
       const eventAddress = data?.walletAddress?.toLowerCase();
       if (eventAddress && eventAddress !== walletAddress?.toLowerCase()) return;
 
-      const nextBalance = toBalanceUnits(data?.available ?? data?.balance, isZeroGPlayer);
+      const nextBalance = toBalanceUnits(data?.total ?? data?.available ?? data?.balance, isZeroGPlayer);
       if (nextBalance !== null) {
         console.log('[TournamentTable] Balance synced from socket:', data);
         setGameBalance(nextBalance);
@@ -586,6 +674,7 @@ const TournamentTableGame = ({ tournamentId }) => {
               walletAddress: achievementOwner,
               achievementType: nftAchievement.achievementType,
               gameSessionId: nftAchievement.gameId,
+              publicBaseUrl: window.location.origin,
               handData: {
                 cards: nftAchievement.cards,
                 hand: nftAchievement.hand,
@@ -626,36 +715,14 @@ const TournamentTableGame = ({ tournamentId }) => {
                   txHash: data.txHash || data.onchainResult?.txHash,
                   tokenId: data.tokenId || data.onchainResult?.tokenId
                 });
-                const serverTx = data.txHash || data.onchainResult?.txHash;
-                const mintedTokenId = data.onchainTokenId || data.onchainResult?.onchainTokenId || data.onchainResult?.tokenId || data.tokenId;
-	                const imported = await importINFTToMetaMask(mintedTokenId);
-	                Swal.fire({
-                  title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
-                  html: `
-                    <div style="text-align:center">
-                      <p>${_lang === 'zh'
-                        ? `您的 ${achievement.name || nftAchievement.handType} INFT 已上链铸造！`
-                        : `Your ${achievement.name || nftAchievement.handType} INFT has been minted!`}</p>
-                      <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? 'Token ID:' : 'Token ID:'} ${mintedTokenId || '-'}</p>
-                      <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${serverTx?.substring(0, 18)}...</p>
-                      <p style="font-size:0.8rem;color:#aaa">${imported ? (_lang === 'zh' ? '已请求 MetaMask 导入 NFT' : 'MetaMask NFT import requested') : ''}</p>
-                      <p style="font-size:0.75rem;color:#aaa;word-break:break-all">${!imported ? getMetaMaskImportCopy(mintedTokenId) : ''}</p>
-                      <p style="font-size:0.8rem;color:#aaa">${data.warning || ''}</p>
-                    </div>`,
-                  icon: 'success',
-                  showCancelButton: true,
-                  showDenyButton: !imported && !!mintedTokenId,
-                  confirmButtonText: imported ? (_lang === 'zh' ? '查看收藏' : 'View Collection') : (_lang === 'zh' ? '添加到 MetaMask' : 'Add to MetaMask'),
-                  denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
-                  cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
-                }).then(async (result) => {
-	                  if (!imported && result.isConfirmed && mintedTokenId) {
-	                    await requestINFTImportToMetaMask(mintedTokenId);
-                    return;
-                  }
-                  if ((imported && result.isConfirmed) || result.isDenied) {
-                    navigate('/nft');
-                  }
+                showINFTMintSuccess({
+                  _lang,
+                  achievementName: achievement.name || nftAchievement.handType,
+                  mintedTokenId: data.onchainTokenId || data.onchainResult?.onchainTokenId || data.onchainResult?.tokenId || data.tokenId,
+                  claimId: data.claimId,
+                  txHash: data.txHash || data.onchainResult?.txHash,
+                  warning: data.warning,
+                  navigate
                 });
                 return;
               }
@@ -761,34 +828,13 @@ const TournamentTableGame = ({ tournamentId }) => {
                   } catch (dbErr) {
                     console.error('[NFT] Failed to update database:', dbErr);
                   }
-	                  const imported = await importINFTToMetaMask(mintedTokenId);
-
-                  Swal.fire({
-                    title: _lang === 'zh' ? '🎉 铸造成功！' : '🎉 Mint Successful!',
-                    html: `
-                      <div style="text-align:center">
-                        <p>${_lang === 'zh'
-                          ? `您的 ${achievement.name || nftAchievement.handType} INFT 已上链铸造！`
-                          : `Your ${achievement.name || nftAchievement.handType} INFT has been minted!`}</p>
-                        <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? 'Token ID:' : 'Token ID:'} ${mintedTokenId || '-'}</p>
-                        <p style="font-size:0.85rem;color:#888">${_lang === 'zh' ? '交易:' : 'Tx:'} ${txHash?.substring(0, 18)}...</p>
-                        <p style="font-size:0.8rem;color:#aaa">${imported ? (_lang === 'zh' ? '已请求 MetaMask 导入 NFT' : 'MetaMask NFT import requested') : ''}</p>
-                        <p style="font-size:0.75rem;color:#aaa;word-break:break-all">${!imported ? getMetaMaskImportCopy(mintedTokenId) : ''}</p>
-                      </div>`,
-                    icon: 'success',
-                    showCancelButton: true,
-                    showDenyButton: !imported && !!mintedTokenId,
-                    confirmButtonText: imported ? (_lang === 'zh' ? '查看收藏' : 'View Collection') : (_lang === 'zh' ? '添加到 MetaMask' : 'Add to MetaMask'),
-                    denyButtonText: _lang === 'zh' ? '查看收藏' : 'View Collection',
-                    cancelButtonText: _lang === 'zh' ? '返回游戏' : 'Back to Game',
-                  }).then(async (result) => {
-	                    if (!imported && result.isConfirmed && mintedTokenId) {
-	                      await requestINFTImportToMetaMask(mintedTokenId);
-                      return;
-                    }
-                    if ((imported && result.isConfirmed) || result.isDenied) {
-                      navigate('/nft');
-                    }
+                  showINFTMintSuccess({
+                    _lang,
+                    achievementName: achievement.name || nftAchievement.handType,
+                    mintedTokenId,
+                    claimId: data.claimId,
+                    txHash,
+                    navigate
                   });
                 } catch (zeroGErr) {
                   console.error('[NFT] 0G mint error:', zeroGErr);
@@ -1412,7 +1458,7 @@ const TournamentTableGame = ({ tournamentId }) => {
           </>
         )}
         
-        <PokerTableWrapper>
+        <PokerTableWrapper data-nft-capture="poker-table">
           <PokerTable />
           {currentTable && (
             <>

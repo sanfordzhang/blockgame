@@ -40,6 +40,7 @@ import illustrationDesktop from '../assets/img/main-illustration-desktop@2x.png'
 
 const loadZeroG = () => import('../utils/zeroGInteract');
 const loadEthers = () => import('ethers');
+const SHOW_TRON_CONNECT = process.env.REACT_APP_SHOW_TRON_CONNECT === 'true';
 
 const normalizeBalanceValue = (val) => {
   if (!val) return '0';
@@ -182,7 +183,7 @@ const Landing = () => {
       await new Promise(r => setTimeout(r, 500));
 
       // Passively check if wallets are installed (without triggering any popup)
-      const tronReady = !!(window.tronLink || window.tronWeb);
+      const tronReady = SHOW_TRON_CONNECT && !!(window.tronLink || window.tronWeb);
       setTronLinkInstalled(tronReady);
 
       // === Auto-restore 0G connection from localStorage ===
@@ -230,7 +231,7 @@ const Landing = () => {
           } catch (verifyErr) {
             console.warn('[Landing] Failed to verify 0G session:', verifyErr.message);
           }
-        } else if (savedType === 'tron' && savedAddress) {
+        } else if (SHOW_TRON_CONNECT && savedType === 'tron' && savedAddress) {
           // TRON: verify TronLink is still connected before restoring (aligns with 0G eth_accounts check)
           try {
             const tronReady = window.tronLink && window.tronLink.ready;
@@ -421,8 +422,7 @@ const Landing = () => {
   // Update default deposit amount based on chain type
   useEffect(() => {
     if (localWalletType === 'zerog') {
-      // Mainnet: reasonable deposit amount; Testnet: faucet-limited
-      setDepositAmount(process.env.REACT_APP_NETWORK === 'mainnet' ? '10' : '0.1');
+      setDepositAmount('0.1');
     } else {
       setDepositAmount('100');
     }
@@ -574,8 +574,8 @@ const Landing = () => {
     setError(null);
 
     try {
-      // Try TronLink first
-      if (isTronLinkInstalled()) {
+      // Try TronLink only when the TRON entry is enabled for this build.
+      if (SHOW_TRON_CONNECT && isTronLinkInstalled()) {
         const result = await connectTronLink();
         
         if (result.success) {
@@ -1294,17 +1294,19 @@ const Landing = () => {
           {!walletAddress ? (
             <>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <Button
-                large
-                primary
-                fullWidthOnMobile
-                autoFocus
-                onClick={handleConnectWallet}
-                disabled={connecting}
-                style={{ flex: 2 }}
-              >
-                {connecting ? 'Connecting...' : 'Connect TRON'}
-              </Button>
+              {SHOW_TRON_CONNECT && (
+                <Button
+                  large
+                  primary
+                  fullWidthOnMobile
+                  autoFocus
+                  onClick={handleConnectWallet}
+                  disabled={connecting}
+                  style={{ flex: 2 }}
+                >
+                  {connecting ? 'Connecting...' : 'Connect TRON'}
+                </Button>
+              )}
               <Button
                 large
                 fullWidthOnMobile
@@ -1487,7 +1489,7 @@ const Landing = () => {
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder={`Amount in ${localWalletType === 'zerog' ? '0G' : 'TRX'}`}
-                      min="1"
+                      min={localWalletType === 'zerog' ? '0.1' : '1'}
                     />
                     <Button
                       primary
@@ -1605,7 +1607,7 @@ const Landing = () => {
           )}
         </Wrapper>
         {error && <ErrorMessage>{error}</ErrorMessage>}
-        {!tronLinkInstalled && (
+        {SHOW_TRON_CONNECT && !tronLinkInstalled && (
           <InstallPrompt>
             <p>TronLink wallet not detected</p>
             <a href="https://www.tronlink.org/" target="_blank" rel="noopener noreferrer">

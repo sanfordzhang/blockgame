@@ -28,6 +28,7 @@ function getSettlementRouter() {
 // Derived from: 0.1 0G deposit ≡ 100M SUN game balance → 1 SUN ≡ 1e-9 0G
 // PRODUCTION: change to market rate (~1 SUN ≡ 6e-7 0G)
 const ZEROG_EXCHANGE_RATE = 1e9; // SUN → 0G divisor
+const ZERO_G_WEI_PER_SUN = 1000000000n;
 
 class GameFlowIntegration {
     constructor() {
@@ -445,7 +446,7 @@ class GameFlowIntegration {
                     // 0G MODE: use leaveTableSession (mirrors TRON's leaveTableSession)
                     const router = getSettlementRouter();
                     if (router && router.zerogContractService) {
-                        const stackWei = BigInt(stack);  // SUN-equivalent → wei for 0G
+                        const stackWei = BigInt(Math.max(0, Math.trunc(Number(stack || 0)))) * ZERO_G_WEI_PER_SUN;
                         console.log(`[GameFlowIntegration] 0G leaveTableSession attempt ${attempt}/${MAX_RETRIES}, stack=${stack} SUN (${stackWei} wei)`);
                         result = await router.zerogContractService.leaveTableSession(playerAddress, stackWei);
                         console.log(`[GameFlowIntegration] OK 0G leaveTableSession SUCCESS on attempt ${attempt}`);

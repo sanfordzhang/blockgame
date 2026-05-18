@@ -3,21 +3,43 @@ const router = express.Router();
 const NFTService = require('../../services/NFTService');
 const NFTClaim = require('../../models/NFTClaim');
 const { authMiddleware } = require('../../middleware/auth');
+const sharp = require('sharp');
 
 function getPublicBaseUrl(req) {
     if (process.env.NFT_PUBLIC_BASE_URL) {
         return process.env.NFT_PUBLIC_BASE_URL.replace(/\/$/, '');
     }
 
-    const forwardedProto = req.get('x-forwarded-proto');
+    const forwardedProto = (req.get('x-forwarded-proto') || '').split(',')[0].trim();
+    const forwardedHost = (req.get('x-forwarded-host') || '').split(',')[0].trim();
     const proto = forwardedProto || req.protocol || 'http';
-    return `${proto}://${req.get('host')}`;
+    return `${proto}://${forwardedHost || req.get('host')}`;
+}
+
+function setPublicNFTHeaders(res) {
+    res.removeHeader('Access-Control-Allow-Credentials');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+}
+
+function escapeXml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatCards(cards = []) {
+    return cards.map(c => `${c.rank || ''}${c.suit || ''}`).join(' ').trim();
 }
 
 function buildFallbackSvg(nft, displayId) {
-    const title = nft?.achievementType || 'Poker Hand';
-    const rarity = nft?.rarity || 'COMMON';
-    const cards = nft?.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+    const title = escapeXml(nft?.achievementType || 'Poker Hand');
+    const rarity = escapeXml(nft?.rarity || 'COMMON');
+    const cards = escapeXml(formatCards(nft?.cards) || 'Recorded in game');
+    const tokenLabel = escapeXml(displayId || '-');
     return `<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">` +
         `<rect width="800" height="450" fill="#101827"/>` +
         `<rect x="28" y="28" width="744" height="394" rx="18" fill="#0d5c2e" stroke="#fbbf24" stroke-width="3"/>` +
@@ -25,8 +47,37 @@ function buildFallbackSvg(nft, displayId) {
         `<text x="400" y="190" font-size="46" fill="#ffffff" text-anchor="middle" font-family="Arial" font-weight="700">${title}</text>` +
         `<text x="400" y="245" font-size="24" fill="#d1d5db" text-anchor="middle" font-family="Arial">${cards}</text>` +
         `<text x="400" y="315" font-size="20" fill="#9ca3af" text-anchor="middle" font-family="Arial">${rarity} • ERC-7857</text>` +
-        `<text x="400" y="370" font-size="18" fill="#fbbf24" text-anchor="middle" font-family="Arial">#${displayId}</text>` +
+        `<text x="400" y="370" font-size="18" fill="#fbbf24" text-anchor="middle" font-family="Arial">#${tokenLabel}</text>` +
         `</svg>`;
+}
+
+function buildPreviewSvg(nft, displayId) {
+    const title = escapeXml(nft?.displayName || nft?.achievementType || 'Poker Hand');
+    const rarity = escapeXml(nft?.rarity || 'COMMON');
+    const cards = escapeXml(formatCards(nft?.cards) || 'Recorded in game');
+    const tokenLabel = escapeXml(displayId || '-');
+    return `<svg width="640" height="360" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">` +
+        `<defs><linearGradient id="felt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#116b38"/><stop offset="1" stop-color="#08251b"/></linearGradient></defs>` +
+        `<rect width="640" height="360" fill="#101827"/>` +
+        `<rect x="26" y="24" width="588" height="312" rx="22" fill="url(#felt)" stroke="#f3c969" stroke-width="4"/>` +
+        `<rect x="58" y="62" width="524" height="72" rx="12" fill="#0b1220" opacity="0.58"/>` +
+        `<text x="320" y="104" font-size="32" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">${title}</text>` +
+        `<text x="320" y="158" font-size="18" fill="#f3c969" text-anchor="middle" font-family="Arial, sans-serif">${rarity} INFT</text>` +
+        `<text x="320" y="220" font-size="30" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">${cards}</text>` +
+        `<text x="320" y="288" font-size="18" fill="#d1d5db" text-anchor="middle" font-family="Arial, sans-serif">Token #${tokenLabel}</text>` +
+        `</svg>`;
+}
+
+async function makeNftJpeg(buffer, { width, height, quality }) {
+    return sharp(buffer, { failOn: 'none' })
+        .resize({
+            width,
+            height,
+            fit: 'inside',
+            withoutEnlargement: true
+        })
+        .jpeg({ quality, progressive: true, mozjpeg: true })
+        .toBuffer();
 }
 
 // NFTService实例（用于牌型检测）
@@ -148,18 +199,74 @@ router.get('/image/:claimId', async (req, res) => {
         }
 
         if (nft.gameScreenshot && nft.gameScreenshot.length > 100) {
-            const format = nft.screenshotFormat || 'png';
-            res.set('Content-Type', `image/${format}`);
-            res.set('Cache-Control', 'public, max-age=31536000, immutable');
-            return res.send(Buffer.from(nft.gameScreenshot, 'base64'));
+            const imageBuffer = Buffer.from(nft.gameScreenshot, 'base64');
+            try {
+                const outputBuffer = await makeNftJpeg(imageBuffer, {
+                    width: 1280,
+                    height: 720,
+                    quality: 78
+                });
+                setPublicNFTHeaders(res);
+                res.set('Content-Type', 'image/jpeg');
+                res.set('Cache-Control', 'public, max-age=31536000, immutable');
+                return res.send(outputBuffer);
+            } catch (sharpErr) {
+                const format = nft.screenshotFormat || 'jpeg';
+                console.warn('[NFT API] Image resize failed, sending stored screenshot:', sharpErr.message);
+                setPublicNFTHeaders(res);
+                res.set('Content-Type', `image/${format}`);
+                res.set('Cache-Control', 'public, max-age=31536000, immutable');
+                return res.send(imageBuffer);
+            }
         }
 
         const displayId = nft.onchainTokenId || nft.tokenId;
+        setPublicNFTHeaders(res);
         res.set('Content-Type', 'image/svg+xml; charset=utf-8');
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(buildFallbackSvg(nft, displayId));
     } catch (error) {
         console.error('[NFT API] Image error:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+/**
+ * @route GET /api/nft/preview/:claimId
+ * @desc Small deterministic preview for wallet import popups.
+ */
+router.get('/preview/:claimId', async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const nft = await NFTClaim.findById(claimId);
+
+        if (!nft) {
+            return res.status(404).send('NFT preview not found');
+        }
+
+        const displayId = nft.onchainTokenId || nft.tokenId;
+        setPublicNFTHeaders(res);
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+
+        if (nft.gameScreenshot && nft.gameScreenshot.length > 100) {
+            const imageBuffer = Buffer.from(nft.gameScreenshot, 'base64');
+            try {
+                const previewBuffer = await makeNftJpeg(imageBuffer, {
+                    width: 640,
+                    height: 360,
+                    quality: 72
+                });
+                res.set('Content-Type', 'image/jpeg');
+                return res.send(previewBuffer);
+            } catch (sharpErr) {
+                console.warn('[NFT API] Preview resize failed, using SVG fallback:', sharpErr.message);
+            }
+        }
+
+        res.set('Content-Type', 'image/svg+xml; charset=utf-8');
+        res.send(buildPreviewSvg(nft, displayId));
+    } catch (error) {
+        console.error('[NFT API] Preview error:', error);
         res.status(500).send(error.message);
     }
 });
@@ -179,9 +286,10 @@ router.get('/metadata/inft/:claimId', async (req, res) => {
 
         const baseUrl = getPublicBaseUrl(req);
         const displayId = nft.onchainTokenId || nft.tokenId;
-        const cards = nft.cards?.map(c => `${c.rank}${c.suit}`).join(' ') || '';
+        const cards = formatCards(nft.cards);
         const imageUrl = `${baseUrl}/api/nft/image/${claimId}`;
 
+        setPublicNFTHeaders(res);
         res.set('Cache-Control', 'public, max-age=300');
         res.json({
             name: `${nft.displayName || nft.achievementType} INFT #${displayId}`,

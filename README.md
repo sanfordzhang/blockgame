@@ -4,9 +4,47 @@ Repository: https://github.com/sanfordzhang/blockgame
 
 > For hackathon submission: make sure this repository is public, or explicitly grant repository access to the judges before submitting the link.
 
+## Live Demo For Hackathon Judges
+
+Verified live on May 18, 2026.
+
+| Environment | URL | Purpose |
+| --- | --- | --- |
+| Mainnet | http://43.163.114.175:3000/ | Separate production/mainnet deployment for independent smoke testing. |
+| Testnet | http://43.163.114.175:3001/ | Recommended judging entry for the full wallet, deposit, delegate auth, join/leave table, and 0G-integrated gameplay flow. |
+
+Quick backend checks:
+
+- Mainnet config: http://43.163.114.175:3000/api/blockchain/config
+- Testnet config: http://43.163.114.175:3001/api/blockchain/config
+
+Contract explorer URLs:
+
+| Environment | Network | Contract | Address | Explorer |
+| --- | --- | --- | --- | --- |
+| Mainnet | 0G Mainnet | `PokerGame0G` | `0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc` | https://chainscan.0g.ai/address/0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc |
+| Mainnet | 0G Mainnet | `PokerHandINFT` | `0xc6F5495D411405630dF5d5ad32225d7F51dC1645` | https://chainscan.0g.ai/address/0xc6F5495D411405630dF5d5ad32225d7F51dC1645 |
+| Mainnet | TRON Mainnet compatibility | `BridgeGame` | `THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd` | https://tronscan.org/#/contract/THNteSEUMe15zY9cywgv1K8Ymc4XRpkmsd |
+| Mainnet | TRON Mainnet compatibility | `AchievementNFT` | `TZ44KG9TPtWzFWKHy4SJxHFmzwbgTZU9fc` | https://tronscan.org/#/contract/TZ44KG9TPtWzFWKHy4SJxHFmzwbgTZU9fc |
+| Testnet | 0G Galileo | `PokerGame0G` | `0xc4975D55aD2607B14616E97B9a8E5622778eF5aE` | https://chainscan-galileo.0g.ai/address/0xc4975D55aD2607B14616E97B9a8E5622778eF5aE |
+| Testnet | 0G Galileo | `PokerHandINFT` | `0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5` | https://chainscan-galileo.0g.ai/address/0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5 |
+| Testnet | TRON Nile | `BridgeGame` | `TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c` | https://nile.tronscan.org/#/contract/TQiG3UXV9uSLyW5Ax7Pa9WwcT9EhEJnU4c |
+| Testnet | TRON Nile | `AchievementNFT` | `TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC` | https://nile.tronscan.org/#/contract/TXiaxLfirc3bMTT8uJjesBAW2Vvx1VABcC |
+| Testnet | TRON Nile | `CHIPToken` | `TFWScXGFALnK9D79zf5Jrnw5on7aqJiaY3` | https://nile.tronscan.org/#/contract/TFWScXGFALnK9D79zf5Jrnw5on7aqJiaY3 |
+| Testnet | TRON Nile | `Staking` | `TBz2FDnQtfAqUfjeZhcTTKhuC15SHqXmdc` | https://nile.tronscan.org/#/contract/TBz2FDnQtfAqUfjeZhcTTKhuC15SHqXmdc |
+
+Notes for judges:
+
+- Mainnet and testnet are deployed separately and can be tested independently.
+- If you want to verify the full hackathon flow end to end without using real funds, start with the testnet deployment.
+- The public testnet deployment is the recommended environment for validating the 0G judging flow.
+- The landing page defaults to the 0G / EVM wallet flow for judging. TRON integration remains in the codebase but `Connect TRON` is hidden unless the frontend is built with `REACT_APP_SHOW_TRON_CONNECT=true`.
+- Rare or special poker hands are naturally low-probability on mainnet, so they should not be treated as a reliable mainnet smoke-test step.
+- For special-hand, achievement, or NFT/INFT-related verification, use the testnet deployment, where the UI exposes `Simulate Special Hand` / `模拟特殊牌型` for easier validation.
+
 ## Project Overview
 
-0G Poker is a full-stack Web3 Texas Hold'em application for real-time cash games and tournament mode. The current hackathon build focuses on 0G Galileo Testnet cash-game custody, delegated gameplay authorization, table balance locking, leave-table settlement, and achievement INFT flows.
+0G Poker is a full-stack Web3 Texas Hold'em application for real-time cash games and tournament mode. The current hackathon build focuses on 0G Galileo Testnet cash-game custody, delegated gameplay authorization, table balance locking, leave-table settlement, and achievement INFT flows. For judging, the project now exposes separate live mainnet and testnet deployments so each environment can be tested independently.
 
 Key features:
 
@@ -67,10 +105,12 @@ Used 0G APIs/services:
 
 ### Deployed 0G Contracts
 
-| Contract | Address | Explorer |
-| --- | --- | --- |
-| `PokerGame0G` | `0xc4975D55aD2607B14616E97B9a8E5622778eF5aE` | https://chainscan-galileo.0g.ai/address/0xc4975D55aD2607B14616E97B9a8E5622778eF5aE |
-| `PokerHandINFT` | `0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5` | https://chainscan-galileo.0g.ai/address/0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5 |
+| Environment | Network | Contract | Address | Explorer |
+| --- | --- | --- | --- | --- |
+| Mainnet | 0G Mainnet | `PokerGame0G` | `0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc` | https://chainscan.0g.ai/address/0x4A39B124A0660BBbE403B02D5B37C9878B0BC8bc |
+| Mainnet | 0G Mainnet | `PokerHandINFT` | `0xc6F5495D411405630dF5d5ad32225d7F51dC1645` | https://chainscan.0g.ai/address/0xc6F5495D411405630dF5d5ad32225d7F51dC1645 |
+| Testnet | 0G Galileo Testnet | `PokerGame0G` | `0xc4975D55aD2607B14616E97B9a8E5622778eF5aE` | https://chainscan-galileo.0g.ai/address/0xc4975D55aD2607B14616E97B9a8E5622778eF5aE |
+| Testnet | 0G Galileo Testnet | `PokerHandINFT` | `0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5` | https://chainscan-galileo.0g.ai/address/0x5d36eE3Bd3D9D42B552C873EEd1Eef23535443a5 |
 
 ### Contract Responsibilities
 
@@ -207,7 +247,44 @@ The app can request this network automatically. If adding it manually:
 
 ## Judge Test Flow
 
-1. Open `http://127.0.0.1:3001`.
+### AI Autopilot & Special Hand Testing Guide
+
+> **Important: AI Autopilot mode is only available in normal cash-game mode and is intentionally disabled in tournament mode to ensure competitive fairness.**
+
+| Mode | AI Autopilot | Simulate Special Hand | Purpose |
+|------|-------------|---------------------|---------|
+| **Normal Cash Game** (普通游戏) | ✅ Enabled - use to test AI poker engine behavior | ❌ Not available | Test AI decision-making, fold/call/raise logic, bot vs player interaction |
+| **Tournament** (锦标赛) | ❌ Disabled - prevents unfair AI advantage | ✅ Enabled via `模拟特殊牌型` switch | Test rare hand types (straight, flush, etc.) and achievement INFT minting flow |
+
+**How to test AI features:**
+
+1. Enter **normal cash-game mode** (`/play` page).
+2. Look for the **AI Autopilot toggle** on the game table UI.
+3. Enable it to let the AI engine play automatically for the connected player.
+4. Observe AI decisions (fold, check, call, raise) in real-time through Socket.IO events.
+5. Use browser DevTools Console or backend logs (`server/services/AIService.js`) to trace AI reasoning.
+
+**How to test special/rare hands:**
+
+1. Enter **tournament mode** (`/tournament` page).
+2. Join or create a tournament table.
+3. Enable `Simulate Special Hand` / `模拟特殊牌型` from the tournament UI.
+4. In simulation mode, Player 1 receives a pre-determined strong hand (e.g., straight) to trigger:
+   - Rare hand win detection
+   - Achievement INFT minting (`PokerHandINFT`)
+   - NFT metadata generation with 0G Storage
+   - Fairness state-hash verification for that hand
+5. This bypasses natural probability so judges can verify special-hand flows without waiting for random deals.
+
+### Mainnet smoke test
+
+1. Open `http://43.163.114.175:3000/`.
+2. Confirm the production site loads normally.
+3. Optionally open `http://43.163.114.175:3000/api/blockchain/config` and confirm the backend is serving the mainnet environment.
+
+### Recommended full judging flow on public testnet
+
+1. Open `http://43.163.114.175:3001/`.
 2. Connect MetaMask on 0G Galileo Testnet.
 3. Use the faucet to fund the connected wallet with testnet 0G.
 4. In the app, authorize the backend delegate when prompted.
@@ -217,7 +294,37 @@ The app can request this network automatically. If adding it manually:
 8. Leave the table and confirm that locked table funds are returned or settled into Game Balance.
 9. Start a second normal game to verify rejoin and delegate authorization still work.
 
+For special-hand testing:
+
+- The mainnet deployment uses normal gameplay probability, so rare hands may take a long time to appear.
+- On the public testnet deployment, go to the tournament flow and enable `Simulate Special Hand` / `模拟特殊牌型`.
+- In that mode, Player 1 receives a straight hand, which is useful for judging the special-hand and achievement-triggered flow without waiting on mainnet randomness.
+
+If you are running locally instead of using the public deployment, use `http://127.0.0.1:3000` for mainnet and `http://127.0.0.1:3001` for testnet.
+
 For two-player testing, use two browser profiles or two browsers with different MetaMask accounts. Both accounts need faucet 0G and both must deposit into Game Balance before joining the same table.
+
+## Dual-Network Deployment And Restart
+
+Full dual-network deployment uses:
+
+```bash
+SERVER_HOST=<server-ip-or-domain> SSH_PASS=your_ssh_password deploy/deploy-dual.sh
+```
+
+`SERVER_HOST` is intentionally passed at runtime so the shared deployment script can be reused across multiple servers. Do not put one machine's IP address into shared env files. The generated PM2 runtime config derives CORS and NFT public URLs from `SERVER_HOST` / `PUBLIC_HOST`, while `CORS_ORIGINS`, `NFT_PUBLIC_BASE_URL`, and `PUBLIC_API_BASE_URL` can remain empty in the shared config.
+
+Dual-network restart uses:
+
+```bash
+scripts/restart-dual.sh
+```
+
+On a deployed server, the script detects `ecosystem.config.js` and PM2, restarts `mainnet-server` and `testnet-server`, then reloads nginx. Locally, when no PM2 ecosystem exists, it starts mainnet backend `7777`, testnet backend `7778`, mainnet frontend `3000`, and testnet frontend `3001`. To force local mode:
+
+```bash
+DUAL_RESTART_MODE=local scripts/restart-dual.sh
+```
 
 ## Testnet Faucet Instructions
 

@@ -1,8 +1,14 @@
 const DEFAULT_SERVER_PORT =
   (typeof process !== 'undefined' && process.env?.REACT_APP_SERVER_PORT) || '7778';
 const LOCAL_STORAGE_SERVER_URI_KEY = 'poker_server_uri';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
 
 const trimTrailingSlash = (value) => value.replace(/\/+$/, '');
+
+const normalizeHostname = (hostname = '') =>
+  String(hostname).trim().toLowerCase().replace(/^\[|\]$/g, '');
+
+const isLoopbackHost = (hostname) => LOOPBACK_HOSTS.has(normalizeHostname(hostname));
 
 const withProtocol = (value) => {
   if (!value) return '';
@@ -40,17 +46,18 @@ const shouldUseCurrentOrigin = (value) => {
   try {
     const configured = new URL(value);
     const current = new URL(window.location.origin);
-    const currentIsLocal =
-      current.hostname === 'localhost' ||
-      current.hostname === '127.0.0.1' ||
-      current.hostname === '[::1]';
+    const currentIsLocal = isLoopbackHost(current.hostname);
 
     return (
-      !currentIsLocal &&
-      configured.hostname === current.hostname &&
-      Boolean(current.port) &&
-      !configured.port &&
-      configured.origin !== current.origin
+      !currentIsLocal && (
+        isLoopbackHost(configured.hostname) ||
+        (
+          configured.hostname === current.hostname &&
+          Boolean(current.port) &&
+          !configured.port &&
+          configured.origin !== current.origin
+        )
+      )
     );
   } catch (err) {
     return false;
@@ -65,6 +72,14 @@ const alignWithCurrentOrigin = (value) => {
 
   try {
     const configured = new URL(normalized);
+    const current = new URL(window.location.origin);
+
+    if (isLoopbackHost(configured.hostname) && !isLoopbackHost(current.hostname)) {
+      configured.hostname = current.hostname;
+      configured.port = configured.port || DEFAULT_SERVER_PORT;
+      return normalizeBaseUrl(configured.toString());
+    }
+
     return normalizeBaseUrl(`${window.location.origin}${configured.pathname}`);
   } catch (err) {
     return normalizeBaseUrl(window.location.origin);
@@ -139,7 +154,7 @@ export const getServerBaseUrl = () => {
 };
 
 export const getSocketBaseUrl = () =>
-  normalizeBaseUrl(getEnvVar('REACT_APP_SOCKET_URI') || getServerBaseUrl());
+  alignWithCurrentOrigin(getEnvVar('REACT_APP_SOCKET_URI') || getServerBaseUrl());
 
 export const buildApiUrl = (path = '') => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

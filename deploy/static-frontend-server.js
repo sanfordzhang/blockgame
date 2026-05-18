@@ -7,8 +7,17 @@ const app = express();
 const port = Number(process.env.FRONTEND_PORT || process.env.PORT || 3001);
 const buildDir = process.env.BUILD_DIR || path.join(__dirname, '..', 'build-testnet');
 const backendTarget = process.env.BACKEND_TARGET || 'http://127.0.0.1:7778';
-const proxy = httpProxy.createProxyServer({ changeOrigin: true, ws: true });
+const proxy = httpProxy.createProxyServer({ changeOrigin: false, ws: true, xfwd: true });
 const staticAssetPattern = /\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map|json)$/i;
+
+const getProxyOptions = (target, req) => ({
+  target,
+  headers: {
+    host: req.headers.host,
+    'x-forwarded-host': req.headers.host,
+    'x-forwarded-proto': req.headers['x-forwarded-proto'] || 'http',
+  },
+});
 
 proxy.on('error', (err, req, res) => {
   console.error(`[static-frontend] Proxy error for ${req?.url || 'unknown'}:`, err.message);
@@ -25,8 +34,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api', (req, res) => proxy.web(req, res, { target: backendTarget + '/api' }));
-app.use('/socket.io', (req, res) => proxy.web(req, res, { target: backendTarget + '/socket.io' }));
+app.use('/api', (req, res) => proxy.web(req, res, getProxyOptions(backendTarget + '/api', req)));
+app.use('/socket.io', (req, res) => proxy.web(req, res, getProxyOptions(backendTarget + '/socket.io', req)));
 
 app.get('/service-worker.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -101,7 +110,7 @@ const server = app.listen(port, '0.0.0.0', () => {
 
 server.on('upgrade', (req, socket, head) => {
   if (req.url && req.url.startsWith('/socket.io')) {
-    proxy.ws(req, socket, head, { target: backendTarget + '/socket.io' });
+    proxy.ws(req, socket, head, getProxyOptions(backendTarget + '/socket.io', req));
     return;
   }
   socket.destroy();
