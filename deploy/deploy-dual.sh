@@ -39,18 +39,40 @@ SSH_BASE_OPTS=(
 )
 
 cleanup_mux() {
-    ssh -o ControlPath="$CONTROL_PATH" -O exit "$SERVER" >/dev/null 2>&1 || true
+    # Only close mux if we own it (not a symlink to user's existing socket)
+    if [ -S "$CONTROL_PATH" ] && [ ! -L "$CONTROL_PATH" ]; then
+        ssh -o ControlPath="$CONTROL_PATH" -O exit "$SERVER" >/dev/null 2>&1 || true
+    else
+        rm -f "$CONTROL_PATH" 2>/dev/null || true
+    fi
 }
 trap cleanup_mux EXIT
 
 ensure_mux() {
     rm -f "$CONTROL_PATH"
-    sshpass -p "$SERVER_PASS" ssh \
+    # Try sshpass first; if it fails, fall back to existing SSH config/agent/keys
+    if ! sshpass -p "$SERVER_PASS" ssh \
         "${SSH_BASE_OPTS[@]}" \
         -o ControlMaster=yes \
         -o ControlPersist=10m \
         -fN \
-        "$SERVER"
+        "$SERVER" 2>/dev/null; then
+        echo "[WARN] sshpass failed, trying system SSH (key/agent/existing-mux)..."
+        # Use system default ControlPath (from ~/.ssh/config) to piggyback on existing mux
+        local sys_sock="$HOME/.ssh/ssh-${SERVER_USER}@${SERVER_HOST}:22.sock"
+        if [ -S "$sys_sock" ]; then
+            echo "[INFO] Found existing mux socket: $sys_sock, symlinking..."
+            ln -sf "$sys_sock" "$CONTROL_PATH"
+        else
+            ssh \
+                -o StrictHostKeyChecking=no \
+                -o ControlPath="$CONTROL_PATH" \
+                -o ControlMaster=yes \
+                -o ControlPersist=10m \
+                -fN \
+                "$SERVER"
+        fi
+    fi
 }
 
 run_ssh() {
