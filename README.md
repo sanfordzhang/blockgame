@@ -48,14 +48,9 @@ Notes for judges:
 
 Full gameplay walkthrough on 0G Galileo Testnet — wallet connection, deposit, AI autopilot cash-game play, and INFT achievement minting:
 
-[![0G Poker Demo](https://img.shields.io/badge/▶️-Watch_Demo-blue?style=for-the-badge&logo=video)](./0G-2.mp4)
+[![0G Poker Demo](https://img.youtube.com/vi/AYgsiB75Kc0/maxresdefault.jpg)](https://www.youtube.com/watch?v=AYgsiB75Kc0)
 
-<video controls width="100%" style="max-width:960px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);">
-  <source src="./0G-2.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-
-> **Note:** Video is included locally as `0G-2.mp4`. On GitHub, clone the repository and open `README.md` locally or use [GitHub's video rendering](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-a-permanent-link-to-a-code-snippet) if the raw MP4 is served via releases.
+**[▶ Watch Full Demo on YouTube](https://www.youtube.com/watch?v=AYgsiB75Kc0)** — Wallet connection, deposit, AI autopilot cash-game play, and INFT achievement minting on 0G Galileo Testnet.
 
 ## Project Overview
 
