@@ -210,9 +210,9 @@ setTimeout(checkServerWalletBalance, 5000);
 setInterval(checkServerWalletBalance, 6 * 60 * 60 * 1000);
 
 // Start server and listen for connections
-const server = app.listen(config.PORT, () => {
+const server = app.listen(config.PORT, config.HOST, () => {
     console.log(
-        `Server is running in ${config.NODE_ENV} mode and is listening on port ${config.PORT}...`
+        `Server is running in ${config.NODE_ENV} mode and is listening on ${config.HOST}:${config.PORT}...`
     );
 });
 
